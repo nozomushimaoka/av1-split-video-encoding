@@ -1,37 +1,16 @@
-"""FFmpeg操作サービス"""
-
 import json
 import logging
 import subprocess
-from datetime import datetime
 from pathlib import Path
-from typing import Tuple, List
+from typing import List
 
 from .config import EncodingConfig, SegmentInfo
 
 
 class FFmpegService:
-    """FFmpeg操作を担当するクラス"""
-
-    def __init__(self, logger: logging.Logger):
-        """
-        Args:
-            logger: ロガーインスタンス
-        """
-        self.logger = logger
-
     def get_duration(self, input_file: Path) -> float:
         """
-        動画の長さを取得
-
-        Args:
-            input_file: 入力ファイルパス
-
-        Returns:
-            動画の長さ（秒）
-
-        Raises:
-            RuntimeError: 取得失敗時
+        動画の長さを秒数で取得
         """
         try:
             result = subprocess.run(
@@ -46,37 +25,10 @@ class FFmpegService:
 
             data = json.loads(result.stdout)
             duration = float(data['format']['duration'])
-            self.logger.info(f"動画の長さ: {duration:.2f}秒 ({self._format_timecode(int(duration))})")
             return duration
 
         except (subprocess.CalledProcessError, KeyError, ValueError, json.JSONDecodeError) as e:
-            self.logger.error(f"動画の長さ取得に失敗: {e}")
             raise RuntimeError(f"動画の長さ取得に失敗: {e}") from e
-
-    def has_audio_stream(self, input_file: Path) -> bool:
-        """
-        音声ストリームの有無を確認
-
-        Args:
-            input_file: 入力ファイルパス
-
-        Returns:
-            音声ストリームがあればTrue
-        """
-        try:
-            result = subprocess.run(
-                [
-                    'ffprobe', '-v', 'quiet', '-select_streams', 'a',
-                    '-show_entries', 'stream=codec_type', '-of', 'csv=p=0',
-                    str(input_file)
-                ],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            return bool(result.stdout.strip())
-        except subprocess.CalledProcessError:
-            return False
 
     def encode_segment(
         self,
@@ -85,20 +37,7 @@ class FFmpegService:
         segments_dir: Path,
         logs_dir: Path,
         config: EncodingConfig
-    ) -> Tuple[int, bool, str]:
-        """
-        セグメントをエンコード（並列実行される関数）
-
-        Args:
-            segment_info: セグメント情報
-            input_file: 入力ファイルパス
-            segments_dir: セグメント出力ディレクトリ
-            logs_dir: ログ出力ディレクトリ
-            config: エンコード設定
-
-        Returns:
-            (セグメントインデックス, 成功フラグ, メッセージ)
-        """
+    ) -> bool:
         segment_idx = segment_info.index
         start_time = segment_info.start_time
         duration = segment_info.duration
@@ -108,8 +47,7 @@ class FFmpegService:
         segment_file = segments_dir / f"segment_{segment_idx:04d}.mp4"
         log_file = logs_dir / f"segment_{segment_idx:04d}.log"
 
-        # タイムコード
-        start_tc = self._format_timecode(start_time)
+        # 終了時刻計算
         end_time = start_time + duration
 
         # 最終セグメントの長さ調整
@@ -136,37 +74,52 @@ class FFmpegService:
 
         cmd.extend(['-an', '-y', str(segment_file)])
 
+        # セグメント専用ロガーを作成
+        segment_logger = logging.getLogger(f"av1_encoder.segment_{segment_idx}")
+        segment_logger.setLevel(logging.DEBUG)  # DEBUGレベルでFFmpeg出力を記録
+        segment_logger.handlers.clear()
+        segment_logger.propagate = False
+
+        # ファイルハンドラを追加
+        file_handler = logging.FileHandler(log_file, encoding='utf-8', mode='w')
+        file_handler.setLevel(logging.DEBUG)  # ファイルには全て記録
+        formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        file_handler.setFormatter(formatter)
+        segment_logger.addHandler(file_handler)
+
         # 実行
         try:
-            with open(log_file, 'w', encoding='utf-8') as log_fh:
-                log_fh.write(
-                    f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
-                    f"セグメント {segment_idx} 開始\n"
-                )
-                log_fh.write(f"コマンド: {' '.join(cmd)}\n\n")
+            segment_logger.info(f"セグメント {segment_idx} 開始")
+            segment_logger.debug(f"コマンド: {' '.join(cmd)}")
 
-                subprocess.run(
-                    cmd,
-                    stdout=log_fh,
-                    stderr=subprocess.STDOUT,
-                    check=True
-                )
+            # FFmpegをリアルタイムで実行し、出力をロガーでキャプチャ
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1
+            )
 
-                log_fh.write(
-                    f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
-                    f"セグメント {segment_idx} 完了\n"
-                )
+            # 出力を1行ずつ読み取ってログに記録
+            for line in process.stdout:
+                segment_logger.debug(line.rstrip())
 
-            return (segment_idx, True, f"完了: セグメント {segment_idx:04d}")
+            # プロセスの終了を待つ
+            return_code = process.wait()
 
-        except subprocess.CalledProcessError as e:
-            error_msg = f"エラー: セグメント {segment_idx:04d} - ログ: {log_file}"
-            with open(log_file, 'a', encoding='utf-8') as log_fh:
-                log_fh.write(
-                    f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
-                    f"エラー (終了コード: {e.returncode})\n"
-                )
-            return (segment_idx, False, error_msg)
+            if return_code != 0:
+                segment_logger.error(f"エラー (終了コード: {return_code})")
+                return False
+
+            segment_logger.info(f"セグメント {segment_idx} 完了")
+            return True
+
+        finally:
+            # ハンドラをクリーンアップ
+            for handler in segment_logger.handlers[:]:
+                handler.close()
+                segment_logger.removeHandler(handler)
 
     def concat_segments(
         self,
@@ -174,17 +127,6 @@ class FFmpegService:
         concat_file: Path,
         output_file: Path
     ) -> None:
-        """
-        セグメントを結合
-
-        Args:
-            segment_files: セグメントファイルリスト
-            concat_file: concat用ファイルパス
-            output_file: 出力ファイルパス
-
-        Raises:
-            RuntimeError: 結合失敗時
-        """
         # concat.txtを作成
         with open(concat_file, 'w', encoding='utf-8') as f:
             for segment_file in segment_files:
@@ -204,32 +146,21 @@ class FFmpegService:
             )
         except subprocess.CalledProcessError as e:
             error_msg = e.stderr.decode('utf-8', errors='ignore')
-            self.logger.error(f"ビデオ結合失敗: {error_msg}")
             raise RuntimeError(f"ビデオ結合失敗: {error_msg}") from e
 
     def extract_audio(self, input_file: Path, audio_file: Path) -> None:
-        """
-        音声を抽出
-
-        Args:
-            input_file: 入力ファイルパス
-            audio_file: 音声出力ファイルパス
-
-        Raises:
-            RuntimeError: 抽出失敗時
-        """
         try:
             subprocess.run(
                 [
                     'ffmpeg', '-i', str(input_file),
-                    '-vn', '-c:a', 'aac', str(audio_file)
+                    '-map', '0:a',
+                    '-c', 'copy', str(audio_file)
                 ],
                 capture_output=True,
                 check=True
             )
         except subprocess.CalledProcessError as e:
             error_msg = e.stderr.decode('utf-8', errors='ignore')
-            self.logger.error(f"音声抽出失敗: {error_msg}")
             raise RuntimeError(f"音声抽出失敗: {error_msg}") from e
 
     def merge_video_audio(
@@ -238,24 +169,13 @@ class FFmpegService:
         audio_file: Path,
         output_file: Path
     ) -> None:
-        """
-        ビデオと音声を多重化
-
-        Args:
-            video_file: ビデオファイルパス
-            audio_file: 音声ファイルパス
-            output_file: 出力ファイルパス
-
-        Raises:
-            RuntimeError: 多重化失敗時
-        """
         try:
             subprocess.run(
                 [
                     'ffmpeg',
                     '-i', str(video_file),
                     '-i', str(audio_file),
-                    '-c:v', 'copy', '-c:a', 'copy',
+                    '-c', 'copy',
                     '-map', '0:v:0', '-map', '1:a',
                     str(output_file)
                 ],
@@ -264,13 +184,4 @@ class FFmpegService:
             )
         except subprocess.CalledProcessError as e:
             error_msg = e.stderr.decode('utf-8', errors='ignore')
-            self.logger.error(f"多重化失敗: {error_msg}")
             raise RuntimeError(f"多重化失敗: {error_msg}") from e
-
-    @staticmethod
-    def _format_timecode(seconds: int) -> str:
-        """タイムコードをHH:MM:SS形式にフォーマット"""
-        hours = seconds // 3600
-        minutes = (seconds % 3600) // 60
-        secs = seconds % 60
-        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
