@@ -1,61 +1,28 @@
 """CLIエントリーポイント"""
 
 import argparse
+import logging
 import sys
 from datetime import datetime
+from pathlib import Path
 
 from .config import EncodingConfig
+from .workspace import prepare_workspace
 from .encoder import EncodingOrchestrator
-from .workspace import Workspace
-
-
-def print_header(
-    config: EncodingConfig,
-    workspace: Workspace,
-    logger
-) -> None:
-    """ヘッダー情報を出力"""
-    s3_path = f"s3://{config.s3_bucket}/input/{config.input_filename}"
-    logger.info("=" * 50)
-    logger.info("FFmpeg並列エンコード処理開始")
-    logger.info("=" * 50)
-    logger.info(f"入力: {s3_path}")
-    logger.info(f"作業ディレクトリ: {workspace.work_dir}")
-    logger.info(f"並列ジョブ数: {config.parallel_jobs}")
-    if config.crf is not None:
-        logger.info(f"CRF: {config.crf}")
-    if config.preset:
-        logger.info(f"プリセット: {config.preset}")
-    if config.keyint is not None:
-        logger.info(f"キーフレーム間隔: {config.keyint}")
-    logger.info("=" * 50)
-
-
-def print_completion(start_time: datetime, workspace: Workspace, logger, config: EncodingConfig) -> None:
-    """完了メッセージを出力"""
-    end_time = datetime.now()
-    elapsed = end_time - start_time
-    s3_output_path = f"s3://{config.s3_bucket}/output/{workspace.work_dir.name}/"
-
-    logger.info("=" * 50)
-    logger.info("全処理完了")
-    logger.info(f"処理時間: {elapsed}")
-    logger.info(f"出力先: {s3_output_path}")
-    logger.info("=" * 50)
 
 
 def main() -> int:
     """メイン処理"""
     # コマンドライン引数パース
     parser = argparse.ArgumentParser(
-        description='FFmpeg並列エンコード - 統合スクリプト（Python版）'
+        description='AV1並列エンコード'
     )
     parser.add_argument(
         'input_filename',
         help='input/内のファイル名 (例: video.mkv)'
     )
     parser.add_argument(
-        '--parallel', '-p',
+        '--parallel', '-l',
         type=int,
         default=4,
         help='並列ジョブ数 (デフォルト: 4)'
@@ -67,7 +34,7 @@ def main() -> int:
     )
     parser.add_argument(
         '--preset',
-        type=str,
+        type=int,
         help='エンコード速度プリセット'
     )
     parser.add_argument(
@@ -94,30 +61,52 @@ def main() -> int:
         s3_bucket=args.bucket
     )
 
-    # ワークスペース初期化
-    workspace = Workspace(args.input_filename)
-    logger = workspace.setup_logging()
-
-    # 開始時刻
     start_time = datetime.now()
 
+    # ワークスペース初期化
+    workspace = prepare_workspace(Path(args.input_filename), start_time)
+    # ロガー初期化
+    logger = init_logger(workspace)
+    # オーケストレーター初期化
+    orchestrator = EncodingOrchestrator(config, workspace, logger, start_time)
+
     try:
-        # ヘッダー出力
-        print_header(config, workspace, logger)
-
         # エンコード処理実行
-        orchestrator = EncodingOrchestrator(config, workspace.config, logger)
         orchestrator.run()
-
-        # 完了メッセージ
-        print_completion(start_time, workspace, logger, config)
-
         return 0
 
     except Exception as e:
         logger.error(f"処理中にエラーが発生しました: {e}", exc_info=True)
-        logger.error(f"作業ディレクトリ: {workspace.work_dir}")
         return 1
+
+
+def init_logger(log_file: Path) -> logging.Logger:
+    logger = logging.getLogger("av1_encoder")
+    logger.setLevel(logging.INFO)
+
+    # 既存のハンドラをクリア
+    logger.handlers.clear()
+
+    # ファイルハンドラ
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    file_handler.setLevel(logging.INFO)
+
+    # コンソールハンドラ
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+
+    # フォーマッター
+    formatter = logging.Formatter(
+        '[%(asctime)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+    return logger
 
 
 if __name__ == '__main__':
