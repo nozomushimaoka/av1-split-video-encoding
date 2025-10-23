@@ -2,8 +2,10 @@ import logging
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import List
+from datetime import datetime
 
-from .config import EncodingConfig, SegmentInfo, WorkspaceConfig
+from .config import EncodingConfig, SegmentInfo
+from .workspace import Workspace
 from .ffmpeg import FFmpegService
 from .storage import S3Service
 
@@ -12,24 +14,48 @@ class EncodingOrchestrator:
     def __init__(
         self,
         config: EncodingConfig,
-        workspace_config: WorkspaceConfig,
-        logger: logging.Logger
+        workspace: Workspace,
+        logger: logging.Logger,
+        start_time: datetime
     ):
         self.config = config
-        self.workspace = workspace_config
+        self.workspace = workspace
         self.logger = logger
+        self.start_time = start_time
         self.ffmpeg = FFmpegService()
         self.s3 = S3Service()
 
     def run(self) -> None:
-        self.s3.download(
+        self._print_header()
+        self.logger.info('S3から入力ファイルを取得します')
+        downloaded = self.s3.download(
             self.config.s3_bucket,
             f"input/{self.config.input_filename}",
             self.workspace.local_input_file
         )
+        if not downloaded:
+            self.logger.debug('ローカルにすでに存在するためダウンロードしませんでした')
+
         self._encode_segments()
         self._concat_segments()
         self._upload_to_s3()
+
+    def _print_header(self) -> None:
+        self.logger.info(f"作業ディレクトリ: {self.workspace.work_dir}")
+        self.logger.info(f"並列ジョブ数: {self.config.parallel_jobs}")
+        if self.config.crf is not None:
+            self.logger.info(f"CRF: {self.config.crf}")
+        if self.config.preset:
+            self.logger.info(f"プリセット: {self.config.preset}")
+        if self.config.keyint is not None:
+            self.logger.info(f"キーフレーム間隔: {self.config.keyint}")
+
+    def _print_completion(self, logger) -> None:
+        end_time = datetime.now()
+        elapsed = end_time - self.start_time
+
+        logger.info("全処理完了")
+        logger.info(f"処理時間: {elapsed}")
 
     def _encode_segments(self) -> None:
         self.logger.info("セグメント分割・エンコード開始")

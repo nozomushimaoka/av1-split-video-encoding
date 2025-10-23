@@ -1,5 +1,3 @@
-"""設定とデータモデル"""
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -14,18 +12,6 @@ class EncodingConfig:
     preset: Optional[int] = None
     keyint: Optional[int] = None
     segment_length: int = 60  # 秒
-
-
-@dataclass
-class WorkspaceConfig:
-    work_dir: Path
-    segments_dir: Path
-    logs_dir: Path
-    local_input_file: Path
-    local_output_file: Path
-    concat_file: Path
-    log_file: Path
-
 
 @dataclass
 class SegmentInfo:

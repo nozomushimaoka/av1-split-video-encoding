@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-import boto3
+import boto3 # type: ignore
 
 class S3Service:
     NUM_PARALLEL_UPLOAD = 4
@@ -11,10 +11,10 @@ class S3Service:
 
     def download(self, bucket: str, key: str, local_file: Path) -> bool:
         if local_file.exists():
-            return True
+            return False
 
         self.s3_client.download_file(bucket, key, str(local_file))
-        return False
+        return True
 
     def upload_directory(
         self,
@@ -46,7 +46,6 @@ class S3Service:
         self._upload_file(local_file, bucket, s3_key)
 
     def _build_s3_key(self, local_file: Path, base_dir: Path, key_prefix: str) -> str:
-        """ローカルファイルパスからS3キーを構築"""
         relative_path = local_file.relative_to(base_dir)
         relative_key = str(relative_path).replace('\\', '/')
         return f"{key_prefix}/{relative_key}" if key_prefix else relative_key

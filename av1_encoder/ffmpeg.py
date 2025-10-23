@@ -57,7 +57,7 @@ class FFmpegService:
         if config.crf is not None:
             cmd.extend(['-crf', str(config.crf)])
         if config.preset:
-            cmd.extend(['-preset', config.preset])
+            cmd.extend(['-preset', str(config.preset)])
         if config.keyint is not None:
             cmd.extend(['-g', str(config.keyint), '-keyint_min', str(config.keyint)])
 
@@ -118,10 +118,9 @@ class FFmpegService:
         output_file: Path
     ) -> None:
         # concat.txtを作成
+        concat_txt_content = self._concat_txt_content(segment_files)
         with open(concat_file, 'w', encoding='utf-8') as f:
-            for segment_file in segment_files:
-                abs_path = segment_file.resolve()
-                f.write(f"file '{abs_path}'\n")
+            f.writelines(concat_txt_content)
 
         # ビデオを結合
         try:
@@ -138,20 +137,8 @@ class FFmpegService:
             error_msg = e.stderr.decode('utf-8', errors='ignore')
             raise RuntimeError(f"ビデオ結合失敗: {error_msg}") from e
 
-    def extract_audio(self, input_file: Path, audio_file: Path) -> None:
-        try:
-            subprocess.run(
-                [
-                    'ffmpeg', '-i', str(input_file),
-                    '-map', '0:a',
-                    '-c', 'copy', str(audio_file)
-                ],
-                capture_output=True,
-                check=True
-            )
-        except subprocess.CalledProcessError as e:
-            error_msg = e.stderr.decode('utf-8', errors='ignore')
-            raise RuntimeError(f"音声抽出失敗: {error_msg}") from e
+    def _concat_txt_content(self, segment_files: List[Path]) -> List[str]:
+        return [f"file '{segment_file.resolve()}'\n" for segment_file in segment_files]
 
     def merge_video_audio(
         self,
