@@ -1,80 +1,55 @@
-"""S3操作サービス"""
-
-import logging
-import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import boto3
-from botocore.exceptions import ClientError
-
 
 class S3Service:
-    """S3操作を担当するクラス"""
-
-    def __init__(self, logger: logging.Logger):
-        """
-        Args:
-            logger: ロガーインスタンス
-        """
-        self.logger = logger
+    NUM_PARALLEL_UPLOAD = 4
+    
+    def __init__(self):
         self.s3_client = boto3.client('s3')
 
-    def download(self, s3_path: str, local_file: Path) -> None:
-        """
-        S3からファイルをダウンロード
-
-        Args:
-            s3_path: S3パス (s3://bucket/key 形式)
-            local_file: ローカル保存先パス
-
-        Raises:
-            RuntimeError: ダウンロード失敗時
-        """
+    def download(self, bucket: str, key: str, local_file: Path) -> bool:
         if local_file.exists():
-            self.logger.info(f"既存のファイルを再利用: {local_file}")
-            return
+            return True
 
-        self.logger.info(f"S3ダウンロード開始: {s3_path}")
+        self.s3_client.download_file(bucket, key, str(local_file))
+        return False
 
-        # s3://bucket/key からバケットとキーを抽出
-        parts = s3_path.replace('s3://', '').split('/', 1)
-        bucket = parts[0]
-        key = parts[1] if len(parts) > 1 else ''
-
-        try:
-            self.s3_client.download_file(bucket, key, str(local_file))
-            self.logger.info("S3ダウンロード完了")
-        except ClientError as e:
-            self.logger.error(f"S3ダウンロード失敗: {e}")
-            raise RuntimeError(f"S3ダウンロード失敗: {e}") from e
-
-    def sync(
+    def upload_directory(
         self,
         source_dir: Path,
-        s3_destination: str,
-        description: str = "ディレクトリ"
+        bucket: str,
+        key_prefix: str,
     ) -> None:
-        """
-        ディレクトリをS3に同期
+        # アップロード対象ファイルを収集
+        local_files = [f for f in source_dir.rglob('*') if f.is_file()]
 
-        Args:
-            source_dir: 同期元ディレクトリ
-            s3_destination: S3同期先パス
-            description: 説明（ログ出力用）
+        # 並列アップロード
+        with ThreadPoolExecutor(max_workers=self.NUM_PARALLEL_UPLOAD) as executor:
+            futures = [
+                executor.submit(self._upload_single_file, local_file, bucket, source_dir, key_prefix)
+                for local_file in local_files
+            ]
 
-        Raises:
-            RuntimeError: 同期失敗時
-        """
-        self.logger.info(f"{description}を同期中: {s3_destination}")
+            for future in as_completed(futures):
+                future.result()
 
-        try:
-            result = subprocess.run(
-                ['aws', 's3', 'sync', str(source_dir), s3_destination],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            self.logger.info(f"{description}同期成功: {s3_destination}")
-        except subprocess.CalledProcessError as e:
-            self.logger.error(f"{description}同期失敗: {e.stderr}")
-            raise RuntimeError(f"{description}同期失敗: {e.stderr}") from e
+    def _upload_single_file(
+        self,
+        local_file: Path,
+        bucket: str,
+        base_dir: Path,
+        key_prefix: str
+    ) -> None:
+        s3_key = self._build_s3_key(local_file, base_dir, key_prefix)
+        self._upload_file(local_file, bucket, s3_key)
+
+    def _build_s3_key(self, local_file: Path, base_dir: Path, key_prefix: str) -> str:
+        """ローカルファイルパスからS3キーを構築"""
+        relative_path = local_file.relative_to(base_dir)
+        relative_key = str(relative_path).replace('\\', '/')
+        return f"{key_prefix}/{relative_key}" if key_prefix else relative_key
+
+    def _upload_file(self, local_file: Path, bucket: str, key: str) -> None:
+        self.s3_client.upload_file(str(local_file), bucket, key)
