@@ -10,30 +10,35 @@ class Workspace:
     work_dir: Path
     segments_dir: Path
     logs_dir: Path
-    local_input_file: Path
-    local_output_file: Path
-    concat_file: Path
     log_file: Path
+    concat_file: Path
+    output_file: Path
 
-def prepare_workspace(input_file: Path, timestamp: datetime):
-    # ファイル名から作業ディレクトリ名を生成
+    def prepare_directory(self) -> None:
+        self.work_dir.mkdir(exist_ok=True)
+        # サブディレクトリ作成
+        self.segments_dir.mkdir(exist_ok=True)
+        self.logs_dir.mkdir(exist_ok=True)
+
+
+def make_workspace(input_file: Path, timestamp: datetime) -> Workspace:
     input_basename = input_file.stem
-    timestamp_str = timestamp.strftime('%Y%m%d_%H%M%S')
-    work_dir = Path(f"encode_{input_basename}_{timestamp_str}")
-    work_dir.mkdir(exist_ok=True)
+    work_dir = _generate_workspace_path(input_file.stem, timestamp)
 
-    # サブディレクトリ作成
     segments_dir = work_dir / "segments"
     logs_dir = work_dir / "logs"
-    segments_dir.mkdir(exist_ok=True)
-    logs_dir.mkdir(exist_ok=True)
 
     return Workspace(
         work_dir=work_dir,
         segments_dir=segments_dir,
         logs_dir=logs_dir,
-        local_input_file=input_file,
-        local_output_file=work_dir / input_basename,
+        log_file=logs_dir / "main.log",
         concat_file=work_dir / "concat.txt",
-        log_file=work_dir / "encode.log"
+        output_file=work_dir / f"{input_basename}.mkv",
     )
+
+
+def _generate_workspace_path(input_basename: str, timestamp: datetime) -> Path:
+    # 作業ディレクトリパスを生成
+    timestamp_str = timestamp.strftime('%Y%m%d_%H%M%S')
+    return Path(f"encode_{input_basename}_{timestamp_str}")

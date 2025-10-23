@@ -1,10 +1,21 @@
 import json
 import logging
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
-from .config import EncodingConfig, SegmentInfo
+from .config import EncodingConfig
+
+
+@dataclass
+class SegmentInfo:
+    index: int
+    start_time: int
+    duration: int
+    is_final: bool
+    file: Path
+    log_file: Path
 
 
 class FFmpegService:
@@ -27,18 +38,12 @@ class FFmpegService:
         self,
         segment_info: SegmentInfo,
         input_file: Path,
-        segments_dir: Path,
-        logs_dir: Path,
         config: EncodingConfig
     ) -> bool:
         segment_idx = segment_info.index
         start_time = segment_info.start_time
         duration = segment_info.duration
         is_final_segment = segment_info.is_final
-
-        # ファイル名（0埋め4桁）
-        segment_file = segments_dir / f"segment_{segment_idx:04d}.mp4"
-        log_file = logs_dir / f"segment_{segment_idx:04d}.log"
 
         # FFmpegコマンド構築（Input Seekingで高速化）
         cmd = [
@@ -61,7 +66,7 @@ class FFmpegService:
         if config.keyint is not None:
             cmd.extend(['-g', str(config.keyint), '-keyint_min', str(config.keyint)])
 
-        cmd.extend(['-an', '-y', str(segment_file)])
+        cmd.extend(['-an', '-y', str(segment_info.file)])
 
         # セグメント専用ロガーを作成
         segment_logger = logging.getLogger(f"av1_encoder.segment_{segment_idx}")
@@ -70,7 +75,7 @@ class FFmpegService:
         segment_logger.propagate = False
 
         # ファイルハンドラを追加
-        file_handler = logging.FileHandler(log_file, encoding='utf-8', mode='w')
+        file_handler = logging.FileHandler(segment_info.log_file, encoding='utf-8', mode='w')
         file_handler.setLevel(logging.DEBUG)  # ファイルには全て記録
         formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         file_handler.setFormatter(formatter)
@@ -114,6 +119,7 @@ class FFmpegService:
     def concat_segments(
         self,
         segment_files: List[Path],
+        audio_file: Path,
         concat_file: Path,
         output_file: Path
     ) -> None:
@@ -122,12 +128,15 @@ class FFmpegService:
         with open(concat_file, 'w', encoding='utf-8') as f:
             f.writelines(concat_txt_content)
 
-        # ビデオを結合
+        # ビデオを結合し、音声も別ファイルから結合
         try:
             subprocess.run(
                 [
                     'ffmpeg', '-f', 'concat', '-safe', '0',
                     '-i', str(concat_file),
+                    '-i', str(audio_file),
+                    '-map', '0:v:0',
+                    '-map', '1:a',
                     '-c', 'copy', str(output_file)
                 ],
                 capture_output=True,
@@ -139,26 +148,3 @@ class FFmpegService:
 
     def _concat_txt_content(self, segment_files: List[Path]) -> List[str]:
         return [f"file '{segment_file.resolve()}'\n" for segment_file in segment_files]
-
-    def merge_video_audio(
-        self,
-        video_file: Path,
-        audio_file: Path,
-        output_file: Path
-    ) -> None:
-        try:
-            subprocess.run(
-                [
-                    'ffmpeg',
-                    '-i', str(video_file),
-                    '-i', str(audio_file),
-                    '-c', 'copy',
-                    '-map', '0:v:0', '-map', '1:a',
-                    str(output_file)
-                ],
-                capture_output=True,
-                check=True
-            )
-        except subprocess.CalledProcessError as e:
-            error_msg = e.stderr.decode('utf-8', errors='ignore')
-            raise RuntimeError(f"多重化失敗: {error_msg}") from e

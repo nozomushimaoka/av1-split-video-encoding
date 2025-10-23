@@ -9,12 +9,8 @@ class S3Service:
     def __init__(self):
         self.s3_client = boto3.client('s3')
 
-    def download(self, bucket: str, key: str, local_file: Path) -> bool:
-        if local_file.exists():
-            return False
-
+    def download(self, bucket: str, key: str, local_file: Path) -> None:
         self.s3_client.download_file(bucket, key, str(local_file))
-        return True
 
     def upload_directory(
         self,

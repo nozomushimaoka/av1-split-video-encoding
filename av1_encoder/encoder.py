@@ -4,41 +4,35 @@ from pathlib import Path
 from typing import List
 from datetime import datetime
 
-from .config import EncodingConfig, SegmentInfo
-from .workspace import Workspace
-from .ffmpeg import FFmpegService
+from .config import EncodingConfig
+from .workspace import make_workspace
+from .ffmpeg import FFmpegService, SegmentInfo
 from .storage import S3Service
 
 
 class EncodingOrchestrator:
     def __init__(
         self,
-        config: EncodingConfig,
-        workspace: Workspace,
-        logger: logging.Logger,
-        start_time: datetime
+        config: EncodingConfig
     ):
         self.config = config
-        self.workspace = workspace
-        self.logger = logger
-        self.start_time = start_time
+        self.start_time = datetime.now()
+        self.workspace = make_workspace(config.input_file, self.start_time)
+        self.logger = self._init_logger(self.workspace.log_file)
         self.ffmpeg = FFmpegService()
         self.s3 = S3Service()
 
     def run(self) -> None:
-        self._print_header()
-        self.logger.info('S3から入力ファイルを取得します')
-        downloaded = self.s3.download(
-            self.config.s3_bucket,
-            f"input/{self.config.input_filename}",
-            self.workspace.local_input_file
-        )
-        if not downloaded:
-            self.logger.debug('ローカルにすでに存在するためダウンロードしませんでした')
-
-        self._encode_segments()
-        self._concat_segments()
-        self._upload_to_s3()
+        try:
+            self._print_header()
+            self._download_from_s3()
+            self._encode_segments()
+            self._concat_segments()
+            self._upload_to_s3()
+            self._print_completion()
+        except Exception as e:
+            self.logger.exception("エラー")
+            raise
 
     def _print_header(self) -> None:
         self.logger.info(f"作業ディレクトリ: {self.workspace.work_dir}")
@@ -50,39 +44,37 @@ class EncodingOrchestrator:
         if self.config.keyint is not None:
             self.logger.info(f"キーフレーム間隔: {self.config.keyint}")
 
-    def _print_completion(self, logger) -> None:
+    def _print_completion(self) -> None:
         end_time = datetime.now()
         elapsed = end_time - self.start_time
 
-        logger.info("全処理完了")
-        logger.info(f"処理時間: {elapsed}")
+        self.logger.info("全処理完了")
+        self.logger.info(f"処理時間: {elapsed}")
+
+    def _download_from_s3(self):
+        if self.config.input_file.exists():
+            self.logger.debug('入力ファイルはすでにローカルに存在するためダウンロードしません')
+            return
+
+        self.logger.info('S3から入力ファイルを取得')
+        self.s3.download(
+            self.config.s3_bucket,
+            f"input/{self.config.input_file.name}",
+            self.config.input_file
+        )
 
     def _encode_segments(self) -> None:
-        self.logger.info("セグメント分割・エンコード開始")
-
-        # 動画の長さを取得
-        duration = self.ffmpeg.get_duration(self.workspace.local_input_file)
-
-        # セグメント数を計算（切り上げ）
-        num_segments = int((duration + self.config.segment_length - 1) // self.config.segment_length)
-        self.logger.info(f"セグメント数: {num_segments}")
+        self.logger.info("分割エンコードを開始")
 
         # セグメント情報リストを作成
-        segments: List[SegmentInfo] = []
-        for i in range(num_segments):
-            start_time = i * self.config.segment_length
-            is_final = (i == num_segments - 1)
-            segments.append(SegmentInfo(
-                index=i,
-                start_time=start_time,
-                duration=self.config.segment_length,
-                is_final=is_final
-            ))
+        segments = self._list_segments()
 
         # 並列エンコード実行
-        self.logger.info(f"エンコード開始 (並列数: {self.config.parallel_jobs})")
+        self.logger.debug(f"エンコード開始 並列数: {self.config.parallel_jobs}")
 
-        failed_segments = []
+        total_count = len(segments)
+        count = 0
+        failed = 0
 
         with ProcessPoolExecutor(max_workers=self.config.parallel_jobs) as executor:
             # 全セグメントを投入
@@ -90,9 +82,7 @@ class EncodingOrchestrator:
                 executor.submit(
                     self.ffmpeg.encode_segment,
                     seg,
-                    self.workspace.local_input_file,
-                    self.workspace.segments_dir,
-                    self.workspace.logs_dir,
+                    self.config.input_file,
                     self.config
                 ): seg.index for seg in segments
             }
@@ -102,37 +92,19 @@ class EncodingOrchestrator:
                 success = future.result()
                 segment_idx = futures[future]
 
+                count += 1
+
                 if success:
-                    self.logger.info(f"完了: セグメント {segment_idx:04d}")
+                    self.logger.info(f"完了: {segment_idx} ({count}/{total_count})")
                 else:
-                    self.logger.error(f"失敗: セグメント {segment_idx:04d}")
-                    failed_segments.append(segment_idx)
+                    failed += 1
+                    self.logger.error(f"失敗: {segment_idx}")
 
         # 結果確認
-        if failed_segments:
-            raise RuntimeError(f"{len(failed_segments)}個のセグメントでエラーが発生")
-
-        # セグメント結果チェック
-        self._check_segment_results(num_segments)
+        if failed > 0:
+            raise RuntimeError(f"{failed}個のセグメントでエラーが発生")
 
         self.logger.info("セグメントエンコード完了")
-
-    def _check_segment_results(self, num_segments: int) -> None:
-        missing_segments = []
-        for i in range(num_segments):
-            segment_file = self.workspace.segments_dir / f"segment_{i:04d}.mp4"
-            if not segment_file.exists():
-                missing_segments.append(i)
-
-        if missing_segments:
-            raise RuntimeError(f"セグメントが作成されていません: {','.join(map(str, missing_segments))}")
-
-        # 合計サイズを表示
-        total_size = sum(
-            f.stat().st_size
-            for f in self.workspace.segments_dir.glob("segment_*.mp4")
-        )
-        self.logger.info(f"セグメント合計サイズ: {total_size / 1024 / 1024:.2f} MB")
 
     def _concat_segments(self) -> None:
         self.logger.info("セグメント結合開始")
@@ -140,37 +112,34 @@ class EncodingOrchestrator:
         # セグメントファイルをリストアップ
         segment_files = sorted(self.workspace.segments_dir.glob("segment_*.mp4"))
 
-        # ビデオのみを結合
-        video_temp = self.workspace.work_dir / "video_only.mp4"
-
         self.ffmpeg.concat_segments(
             segment_files,
+            self.config.input_file,
             self.workspace.concat_file,
-            video_temp
+            self.workspace.output_file
         )
 
-        # 音声処理
-        self._merge_audio_video(video_temp)
+        self.logger.info("結合処理完了")
 
-        self.logger.info("ステップ2: 結合処理完了")
+    def _list_segments(self) -> List[SegmentInfo]:
+        num_segments = self._calc_num_segments()
+        segments: List[SegmentInfo] = []
+        for i in range(num_segments):
+            start_time = i * self.config.segment_length
+            is_final = (i == num_segments - 1)
+            segments.append(SegmentInfo(
+                index=i,
+                start_time=start_time,
+                duration=self.config.segment_length,
+                is_final=is_final,
+                file=self.workspace.segments_dir / f"segment_{i:04d}.mp4",
+                log_file=self.workspace.logs_dir / f"segment_{i:04d}.log"
+            ))
+        return segments
 
-    def _merge_audio_video(self, video_temp: Path) -> None:
-        audio_file = self.workspace.work_dir / "audio_extracted.m4a"
-
-        # 音声を抽出
-        self.ffmpeg.extract_audio(self.workspace.local_input_file, audio_file)
-
-        # ビデオと音声を多重化
-        self.ffmpeg.merge_video_audio(
-            video_temp,
-            audio_file,
-            self.workspace.local_output_file
-        )
-
-        # 一時ファイル削除
-        video_temp.unlink(missing_ok=True)
-        audio_file.unlink(missing_ok=True)
-        self.logger.info("音声トラック結合完了")
+    def _calc_num_segments(self) -> int:
+        duration = self.ffmpeg.get_duration(self.config.input_file)
+        return int((duration + self.config.segment_length - 1) // self.config.segment_length)
 
     def _upload_to_s3(self) -> None:
         self.logger.info("S3アップロード開始")
@@ -183,3 +152,32 @@ class EncodingOrchestrator:
         )
 
         self.logger.info("S3アップロード完了")
+
+    def _init_logger(self, log_file: Path) -> logging.Logger:
+        logger = logging.getLogger("av1_encoder")
+        logger.setLevel(logging.INFO)
+
+        # 既存のハンドラをクリア
+        logger.handlers.clear()
+
+        # ファイルハンドラ
+        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        file_handler.setLevel(logging.INFO)
+
+        # コンソールハンドラ
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+
+        # フォーマッター
+        formatter = logging.Formatter(
+            '[%(asctime)s] %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
+
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+
+        return logger
+
