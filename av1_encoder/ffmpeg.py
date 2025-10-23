@@ -9,26 +9,19 @@ from .config import EncodingConfig, SegmentInfo
 
 class FFmpegService:
     def get_duration(self, input_file: Path) -> float:
-        """
-        動画の長さを秒数で取得
-        """
-        try:
-            result = subprocess.run(
-                [
-                    'ffprobe', '-v', 'quiet', '-print_format', 'json',
-                    '-show_format', str(input_file)
-                ],
-                capture_output=True,
-                text=True,
-                check=True
-            )
+        result = subprocess.run(
+            [
+                'ffprobe', '-v', 'quiet', '-print_format', 'json',
+                '-show_format', str(input_file)
+            ],
+            capture_output=True,
+            text=True,
+            check=True
+        )
 
-            data = json.loads(result.stdout)
-            duration = float(data['format']['duration'])
-            return duration
-
-        except (subprocess.CalledProcessError, KeyError, ValueError, json.JSONDecodeError) as e:
-            raise RuntimeError(f"動画の長さ取得に失敗: {e}") from e
+        data = json.loads(result.stdout)
+        duration = float(data['format']['duration'])
+        return duration
 
     def encode_segment(
         self,
@@ -41,28 +34,24 @@ class FFmpegService:
         segment_idx = segment_info.index
         start_time = segment_info.start_time
         duration = segment_info.duration
-        total_duration = segment_info.total_duration
+        is_final_segment = segment_info.is_final
 
         # ファイル名（0埋め4桁）
         segment_file = segments_dir / f"segment_{segment_idx:04d}.mp4"
         log_file = logs_dir / f"segment_{segment_idx:04d}.log"
 
-        # 終了時刻計算
-        end_time = start_time + duration
-
-        # 最終セグメントの長さ調整
-        actual_duration = duration
-        if end_time > total_duration:
-            actual_duration = total_duration - start_time
-
         # FFmpegコマンド構築（Input Seekingで高速化）
         cmd = [
             'ffmpeg',
             '-ss', str(start_time),
-            '-i', str(input_file),
-            '-t', str(actual_duration),
-            '-c:v', 'libsvtav1'
+            '-i', str(input_file)
         ]
+
+        # 最終セグメント以外は-tオプションで長さを指定
+        if not is_final_segment:
+            cmd.extend(['-t', str(duration)])
+
+        cmd.extend(['-c:v', 'libsvtav1'])
 
         # オプション追加
         if config.crf is not None:
@@ -102,8 +91,9 @@ class FFmpegService:
             )
 
             # 出力を1行ずつ読み取ってログに記録
-            for line in process.stdout:
-                segment_logger.debug(line.rstrip())
+            if process.stdout:
+                for line in process.stdout:
+                    segment_logger.debug(line.rstrip())
 
             # プロセスの終了を待つ
             return_code = process.wait()

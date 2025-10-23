@@ -7,19 +7,17 @@ from typing import Optional
 
 @dataclass
 class EncodingConfig:
-    """エンコード設定"""
     input_filename: str
-    parallel_jobs: int = 4
+    s3_bucket: str
+    parallel_jobs: int
     crf: Optional[int] = None
-    preset: Optional[str] = None
+    preset: Optional[int] = None
     keyint: Optional[int] = None
-    s3_bucket: str = "xxx"
     segment_length: int = 60  # 秒
 
 
 @dataclass
 class WorkspaceConfig:
-    """作業ディレクトリ設定"""
     work_dir: Path
     segments_dir: Path
     logs_dir: Path
@@ -31,8 +29,7 @@ class WorkspaceConfig:
 
 @dataclass
 class SegmentInfo:
-    """セグメント情報"""
     index: int
     start_time: int
     duration: int
-    total_duration: float
+    is_final: bool

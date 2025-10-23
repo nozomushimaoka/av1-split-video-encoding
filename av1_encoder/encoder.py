@@ -45,11 +45,12 @@ class EncodingOrchestrator:
         segments: List[SegmentInfo] = []
         for i in range(num_segments):
             start_time = i * self.config.segment_length
+            is_final = (i == num_segments - 1)
             segments.append(SegmentInfo(
                 index=i,
                 start_time=start_time,
                 duration=self.config.segment_length,
-                total_duration=duration
+                is_final=is_final
             ))
 
         # 並列エンコード実行
