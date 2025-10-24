@@ -32,10 +32,8 @@ def encoding_config(tmp_path):
         input_file=tmp_path / "input.mp4",
         s3_bucket="test-bucket",
         parallel_jobs=4,
-        crf=30,
-        preset=6,
-        keyint=240,
-        segment_length=60
+        segment_length=60,
+        extra_args=['-crf', '30', '-preset', '6', '-g', '240', '-keyint_min', '240']
     )
 
 
@@ -217,15 +215,12 @@ class TestFFmpegServiceのencode_segment:
             called_cmd = mock_popen.call_args[0][0]
             assert '-t' not in called_cmd
 
-    def test_セグメントをエンコード_オプションなし(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
-        """オプションなしでセグメントをエンコードするテスト"""
+    def test_セグメントをエンコード_extra_argsなし(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
+        """extra_argsなしでセグメントをエンコードするテスト"""
         config = EncodingConfig(
             input_file=tmp_path / "input.mp4",
             s3_bucket="test-bucket",
             parallel_jobs=4,
-            crf=None,
-            preset=None,
-            keyint=None,
             segment_length=60
         )
         input_file = tmp_path / "input.mp4"
@@ -244,12 +239,50 @@ class TestFFmpegServiceのencode_segment:
 
             assert result is True
 
-            # オプションが含まれていないことを確認
+            # extra_argsがないので追加オプションが含まれていないことを確認
             called_cmd = mock_popen.call_args[0][0]
             assert '-crf' not in called_cmd
             assert '-preset' not in called_cmd
             assert '-g' not in called_cmd
             assert '-keyint_min' not in called_cmd
+
+    def test_セグメントをエンコード_カスタムextra_args(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
+        """カスタムextra_argsでセグメントをエンコードするテスト"""
+        config = EncodingConfig(
+            input_file=tmp_path / "input.mp4",
+            s3_bucket="test-bucket",
+            parallel_jobs=4,
+            segment_length=60,
+            extra_args=[
+                '-pix_fmt', 'yuv420p10le',
+                '-svtav1-params', 'tune=0:enable-qm=1:qm-min=0',
+                '-crf', '25'
+            ]
+        )
+        input_file = tmp_path / "input.mp4"
+
+        mock_process = Mock()
+        mock_process.stdout = iter([])
+        mock_process.wait.return_value = 0
+
+        mock_handler = Mock()
+
+        with patch('av1_encoder.ffmpeg.subprocess.Popen', return_value=mock_process) as mock_popen, \
+             patch('av1_encoder.ffmpeg.logging.FileHandler', return_value=mock_handler), \
+             patch('av1_encoder.ffmpeg.logging.getLogger', return_value=mock_logger):
+
+            result = ffmpeg_service.encode_segment(segment_info, input_file, config)
+
+            assert result is True
+
+            # カスタムオプションが含まれていることを確認
+            called_cmd = mock_popen.call_args[0][0]
+            assert '-pix_fmt' in called_cmd
+            assert 'yuv420p10le' in called_cmd
+            assert '-svtav1-params' in called_cmd
+            assert 'tune=0:enable-qm=1:qm-min=0' in called_cmd
+            assert '-crf' in called_cmd
+            assert '25' in called_cmd
 
     def test_セグメントをエンコード_失敗(self, ffmpeg_service, segment_info, encoding_config, tmp_path, mock_logger):
         """セグメントのエンコードが失敗するテスト"""

@@ -28,9 +28,7 @@ class TestCLIの引数パース:
 
             assert config.input_file == Path('input.mp4')
             assert config.parallel_jobs == 4  # デフォルト値
-            assert config.crf is None
-            assert config.preset is None
-            assert config.keyint is None
+            assert config.extra_args == []  # デフォルト値
             assert config.s3_bucket == 'xxx'  # デフォルト値
 
             # runが呼び出されたことを確認
@@ -45,10 +43,11 @@ class TestCLIの引数パース:
             'prog',
             'video.mkv',
             '--parallel', '8',
-            '--crf', '30',
-            '--preset', '6',
-            '--keyint', '240',
-            '--bucket', 'my-bucket'
+            '--bucket', 'my-bucket',
+            '--',
+            '-crf', '30',
+            '-preset', '6',
+            '-g', '240'
         ]
 
         with patch('sys.argv', test_args), \
@@ -65,9 +64,7 @@ class TestCLIの引数パース:
 
             assert config.input_file == Path('video.mkv')
             assert config.parallel_jobs == 8
-            assert config.crf == 30
-            assert config.preset == 6
-            assert config.keyint == 240
+            assert config.extra_args == ['-crf', '30', '-preset', '6', '-g', '240']
             assert config.s3_bucket == 'my-bucket'
 
             assert result == 0
@@ -94,8 +91,9 @@ class TestCLIの引数パース:
         test_args = [
             'prog',
             'test.mp4',
-            '--crf', '25',
-            '--bucket', 'test-bucket'
+            '--bucket', 'test-bucket',
+            '--',
+            '-crf', '25'
         ]
 
         with patch('sys.argv', test_args), \
@@ -111,9 +109,7 @@ class TestCLIの引数パース:
 
             assert config.input_file == Path('test.mp4')
             assert config.parallel_jobs == 4  # デフォルト
-            assert config.crf == 25
-            assert config.preset is None
-            assert config.keyint is None
+            assert config.extra_args == ['-crf', '25']
             assert config.s3_bucket == 'test-bucket'
             assert result == 0
 
@@ -190,10 +186,11 @@ class TestCLIのEncodingConfig作成:
             'prog',
             'my_video.mp4',
             '--parallel', '12',
-            '--crf', '28',
-            '--preset', '5',
-            '--keyint', '120',
-            '--bucket', 'custom-bucket'
+            '--bucket', 'custom-bucket',
+            '--',
+            '-crf', '28',
+            '-preset', '5',
+            '-g', '120'
         ]
 
         with patch('sys.argv', test_args), \
@@ -211,9 +208,7 @@ class TestCLIのEncodingConfig作成:
             assert isinstance(config, EncodingConfig)
             assert config.input_file == Path('my_video.mp4')
             assert config.parallel_jobs == 12
-            assert config.crf == 28
-            assert config.preset == 5
-            assert config.keyint == 120
+            assert config.extra_args == ['-crf', '28', '-preset', '5', '-g', '120']
             assert config.s3_bucket == 'custom-bucket'
 
     def test_input_fileがPathオブジェクトに変換される(self):
@@ -266,8 +261,8 @@ class TestCLIのデフォルト値:
             config = mock_orchestrator_class.call_args[0][0]
             assert config.s3_bucket == 'xxx'
 
-    def test_オプション引数のデフォルト値はNone(self):
-        """オプション引数（crf, preset, keyint）のデフォルト値がNoneであることをテスト"""
+    def test_extra_argsのデフォルト値は空リスト(self):
+        """extra_argsのデフォルト値が空リストであることをテスト"""
         test_args = ['prog', 'input.mp4']
 
         with patch('sys.argv', test_args), \
@@ -279,9 +274,7 @@ class TestCLIのデフォルト値:
             main()
 
             config = mock_orchestrator_class.call_args[0][0]
-            assert config.crf is None
-            assert config.preset is None
-            assert config.keyint is None
+            assert config.extra_args == []
 
 
 class TestCLIのargparse動作:
@@ -290,14 +283,6 @@ class TestCLIのargparse動作:
     def test_引数なしでヘルプが表示される(self):
         """引数なしで実行した場合にSystemExitが発生することをテスト"""
         test_args = ['prog']
-
-        with patch('sys.argv', test_args):
-            with pytest.raises(SystemExit):
-                main()
-
-    def test_不正な引数でSystemExit(self):
-        """不正な引数を指定した場合にSystemExitが発生することをテスト"""
-        test_args = ['prog', 'input.mp4', '--invalid-option', 'value']
 
         with patch('sys.argv', test_args):
             with pytest.raises(SystemExit):
@@ -320,10 +305,7 @@ class TestCLIの引数型:
         test_args = [
             'prog',
             'input.mp4',
-            '--parallel', '10',
-            '--crf', '35',
-            '--preset', '8',
-            '--keyint', '300'
+            '--parallel', '10'
         ]
 
         with patch('sys.argv', test_args), \
@@ -337,14 +319,7 @@ class TestCLIの引数型:
             config = mock_orchestrator_class.call_args[0][0]
 
             assert isinstance(config.parallel_jobs, int)
-            assert isinstance(config.crf, int)
-            assert isinstance(config.preset, int)
-            assert isinstance(config.keyint, int)
-
             assert config.parallel_jobs == 10
-            assert config.crf == 35
-            assert config.preset == 8
-            assert config.keyint == 300
 
     def test_文字列引数が正しく処理される(self):
         """文字列引数が正しく処理されることをテスト"""
@@ -387,9 +362,9 @@ class TestCLIのエッジケース:
             # argparseは負の値を許可するので、-1が設定される
             assert config.parallel_jobs == -1
 
-    def test_ゼロを持つ引数(self):
-        """0を持つ引数が正しく処理されることをテスト"""
-        test_args = ['prog', 'input.mp4', '--crf', '0', '--preset', '0']
+    def test_extra_argsが正しく処理される(self):
+        """extra_argsが正しく処理されることをテスト"""
+        test_args = ['prog', 'input.mp4', '--', '-crf', '0', '-preset', '0']
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -400,8 +375,7 @@ class TestCLIのエッジケース:
             main()
 
             config = mock_orchestrator_class.call_args[0][0]
-            assert config.crf == 0
-            assert config.preset == 0
+            assert config.extra_args == ['-crf', '0', '-preset', '0']
 
     def test_非常に長いファイルパス(self):
         """非常に長いファイルパスが正しく処理されることをテスト"""

@@ -58,13 +58,9 @@ class FFmpegService:
 
         cmd.extend(['-c:v', 'libsvtav1'])
 
-        # オプション追加
-        if config.crf is not None:
-            cmd.extend(['-crf', str(config.crf)])
-        if config.preset:
-            cmd.extend(['-preset', str(config.preset)])
-        if config.keyint is not None:
-            cmd.extend(['-g', str(config.keyint), '-keyint_min', str(config.keyint)])
+        # 追加オプション
+        if config.extra_args:
+            cmd.extend(config.extra_args)
 
         cmd.extend(['-an', '-y', str(segment_info.file)])
 

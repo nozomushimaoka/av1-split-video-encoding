@@ -18,10 +18,8 @@ def encoding_config(tmp_path):
         input_file=input_file,
         s3_bucket="test-bucket",
         parallel_jobs=2,
-        crf=30,
-        preset=6,
-        keyint=240,
-        segment_length=60
+        segment_length=60,
+        extra_args=['-crf', '30', '-preset', '6', '-g', '240', '-keyint_min', '240']
     )
 
 
@@ -168,13 +166,11 @@ class TestEncodingOrchestratorのprint_header:
             orchestrator._print_header()
 
             # ログが出力されたことを確認
-            assert orchestrator.logger.info.call_count >= 5
+            assert orchestrator.logger.info.call_count >= 3
             calls = [str(call) for call in orchestrator.logger.info.call_args_list]
             assert any("作業ディレクトリ" in str(call) for call in calls)
             assert any("並列ジョブ数" in str(call) for call in calls)
-            assert any("CRF" in str(call) for call in calls)
-            assert any("プリセット" in str(call) for call in calls)
-            assert any("キーフレーム間隔" in str(call) for call in calls)
+            assert any("追加FFmpegオプション" in str(call) for call in calls)
 
     def test_ヘッダー情報_オプションなし(self, tmp_path, mock_workspace):
         """オプションがない場合はそれらをログに出力しないことをテスト"""
@@ -182,9 +178,6 @@ class TestEncodingOrchestratorのprint_header:
             input_file=tmp_path / "input.mp4",
             s3_bucket="test-bucket",
             parallel_jobs=2,
-            crf=None,
-            preset=None,
-            keyint=None,
             segment_length=60
         )
 
@@ -200,9 +193,7 @@ class TestEncodingOrchestratorのprint_header:
 
             # オプションなしの情報が出力されないことを確認
             calls = [str(call) for call in orchestrator.logger.info.call_args_list]
-            assert not any("CRF" in str(call) for call in calls)
-            assert not any("プリセット" in str(call) for call in calls)
-            assert not any("キーフレーム間隔" in str(call) for call in calls)
+            assert not any("追加FFmpegオプション" in str(call) for call in calls)
 
 
 class TestEncodingOrchestratorのprint_completion:
@@ -571,18 +562,14 @@ class TestEncodingConfig:
             input_file=input_file,
             s3_bucket="test-bucket",
             parallel_jobs=4,
-            crf=30,
-            preset=6,
-            keyint=240,
-            segment_length=120
+            segment_length=120,
+            extra_args=['-crf', '30', '-preset', '6', '-g', '240']
         )
 
         assert config.input_file == input_file
         assert config.s3_bucket == "test-bucket"
         assert config.parallel_jobs == 4
-        assert config.crf == 30
-        assert config.preset == 6
-        assert config.keyint == 240
+        assert config.extra_args == ['-crf', '30', '-preset', '6', '-g', '240']
         assert config.segment_length == 120
 
     def test_configのデフォルト値(self, tmp_path):
@@ -594,23 +581,17 @@ class TestEncodingConfig:
             parallel_jobs=4
         )
 
-        assert config.crf is None
-        assert config.preset is None
-        assert config.keyint is None
+        assert config.extra_args == []
         assert config.segment_length == 60  # デフォルト値
 
-    def test_configのオプション値がNone(self, tmp_path):
-        """オプション値を明示的にNoneに設定できることをテスト"""
+    def test_configのextra_argsを空リストに設定(self, tmp_path):
+        """extra_argsを明示的に空リストに設定できることをテスト"""
         input_file = tmp_path / "input.mp4"
         config = EncodingConfig(
             input_file=input_file,
             s3_bucket="test-bucket",
             parallel_jobs=4,
-            crf=None,
-            preset=None,
-            keyint=None
+            extra_args=[]
         )
 
-        assert config.crf is None
-        assert config.preset is None
-        assert config.keyint is None
+        assert config.extra_args == []

@@ -24,25 +24,15 @@ def main() -> int:
         help='並列ジョブ数 (デフォルト: 4)'
     )
     parser.add_argument(
-        '--crf',
-        type=int,
-        help='Constant Rate Factor'
-    )
-    parser.add_argument(
-        '--preset',
-        type=int,
-        help='エンコード速度プリセット'
-    )
-    parser.add_argument(
-        '--keyint',
-        type=int,
-        help='キーフレーム間隔'
-    )
-    parser.add_argument(
         '--bucket',
         type=str,
         default='xxx',
         help='S3バケット名'
+    )
+    parser.add_argument(
+        'extra_args',
+        nargs='*',
+        help='追加のFFmpegオプション (例: -- -crf 30 -preset 6 -pix_fmt yuv420p10le)'
     )
 
     args = parser.parse_args()
@@ -51,10 +41,8 @@ def main() -> int:
     config = EncodingConfig(
         input_file=Path(args.input_file),
         parallel_jobs=args.parallel,
-        crf=args.crf,
-        preset=args.preset,
-        keyint=args.keyint,
-        s3_bucket=args.bucket
+        s3_bucket=args.bucket,
+        extra_args=args.extra_args if args.extra_args else []
     )
 
     # オーケストレーター初期化

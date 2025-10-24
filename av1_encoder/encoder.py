@@ -37,12 +37,8 @@ class EncodingOrchestrator:
     def _print_header(self) -> None:
         self.logger.info(f"作業ディレクトリ: {self.workspace.work_dir}")
         self.logger.info(f"並列ジョブ数: {self.config.parallel_jobs}")
-        if self.config.crf is not None:
-            self.logger.info(f"CRF: {self.config.crf}")
-        if self.config.preset:
-            self.logger.info(f"プリセット: {self.config.preset}")
-        if self.config.keyint is not None:
-            self.logger.info(f"キーフレーム間隔: {self.config.keyint}")
+        if self.config.extra_args:
+            self.logger.info(f"追加FFmpegオプション: {' '.join(self.config.extra_args)}")
 
     def _print_completion(self) -> None:
         end_time = datetime.now()
