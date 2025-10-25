@@ -1,4 +1,7 @@
 import logging
+import os
+import signal
+import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import List
@@ -10,6 +13,12 @@ from .ffmpeg import FFmpegService, SegmentInfo
 from .storage import S3Service
 
 
+def _worker_init():
+    """ワーカープロセスの初期化: シグナルハンドラをデフォルトに戻す"""
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+
+
 class EncodingOrchestrator:
     def __init__(
         self,
@@ -18,11 +27,18 @@ class EncodingOrchestrator:
         self.config = config
         self.start_time = datetime.now()
         self.workspace = make_workspace(config.input_file, self.start_time)
+        # TODO: 本当はinit内でファイルシステム操作をしたくない
+        self.workspace.prepare_directory()
         self.logger = self._init_logger(self.workspace.log_file)
         self.ffmpeg = FFmpegService()
         self.s3 = S3Service()
+        self._main_pid = os.getpid()  # メインプロセスのPIDを記録
 
     def run(self) -> None:
+        # シグナルハンドラを設定
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
+
         try:
             self._print_header()
             self._download_from_s3()
@@ -30,9 +46,21 @@ class EncodingOrchestrator:
             self._concat_segments()
             self._upload_to_s3()
             self._print_completion()
-        except Exception as e:
+        except KeyboardInterrupt:
+            self.logger.error("処理が中断されました")
+            sys.exit(130)  # SIGINT の標準終了コード
+        except Exception:
             self.logger.exception("エラー")
             raise
+
+    def _signal_handler(self, signum: int, frame) -> None:
+        """シグナル受信時の処理（メインプロセスのみ）"""
+        # メインプロセス以外では何もしない
+        if os.getpid() != self._main_pid:
+            return
+
+        self.logger.warning("中断シグナルを受信しました。クリーンアップ中...")
+        raise KeyboardInterrupt()
 
     def _print_header(self) -> None:
         self.logger.info(f"作業ディレクトリ: {self.workspace.work_dir}")
@@ -72,7 +100,12 @@ class EncodingOrchestrator:
         count = 0
         failed = 0
 
-        with ProcessPoolExecutor(max_workers=self.config.parallel_jobs) as executor:
+        executor = ProcessPoolExecutor(
+            max_workers=self.config.parallel_jobs,
+            initializer=_worker_init
+        )
+
+        try:
             # 全セグメントを投入
             futures = {
                 executor.submit(
@@ -96,11 +129,16 @@ class EncodingOrchestrator:
                     failed += 1
                     self.logger.error(f"失敗: {segment_idx}")
 
-        # 結果確認
-        if failed > 0:
-            raise RuntimeError(f"{failed}個のセグメントでエラーが発生")
+            # 結果確認
+            if failed > 0:
+                raise RuntimeError(f"{failed}個のセグメントでエラーが発生")
 
-        self.logger.info("セグメントエンコード完了")
+            self.logger.info("セグメントエンコード完了")
+        except KeyboardInterrupt:
+            executor.shutdown(wait=False, cancel_futures=True)
+            raise
+        finally:
+            executor.shutdown(wait=True)
 
     def _concat_segments(self) -> None:
         self.logger.info("セグメント結合開始")
