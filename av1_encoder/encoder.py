@@ -2,6 +2,7 @@ import logging
 import os
 import signal
 import sys
+import shutil
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import List
@@ -155,6 +156,10 @@ class EncodingOrchestrator:
 
         self.logger.info("結合処理完了")
 
+        # 結合後、segmentsディレクトリを削除
+        self.logger.info("セグメントファイルを削除中")
+        shutil.rmtree(self.workspace.segments_dir)
+
     def _list_segments(self) -> List[SegmentInfo]:
         num_segments = self._calc_num_segments()
         segments: List[SegmentInfo] = []
@@ -178,14 +183,20 @@ class EncodingOrchestrator:
     def _upload_to_s3(self) -> None:
         self.logger.info("S3アップロード開始")
 
-        output_key = f"output/{self.workspace.work_dir.name}"
-        self.s3.upload_directory(
-            self.workspace.work_dir,
+        # 結合ファイルのみをアップロード
+        output_key = f"output/{self.config.input_file.stem}.mkv"
+        self.s3.upload_file(
+            self.workspace.output_file,
             self.config.s3_bucket,
             output_key
         )
 
         self.logger.info("S3アップロード完了")
+
+        # アップロード後、output.mkvとinput.mkvを削除
+        self.logger.info("クリーンアップ")
+        self.workspace.output_file.unlink()
+        self.config.input_file.unlink(missing_ok=True)
 
     def _init_logger(self, log_file: Path) -> logging.Logger:
         logger = logging.getLogger("av1_encoder")

@@ -39,12 +39,12 @@ class S3Service:
         key_prefix: str
     ) -> None:
         s3_key = self._build_s3_key(local_file, base_dir, key_prefix)
-        self._upload_file(local_file, bucket, s3_key)
+        self.upload_file(local_file, bucket, s3_key)
 
     def _build_s3_key(self, local_file: Path, base_dir: Path, key_prefix: str) -> str:
         relative_path = local_file.relative_to(base_dir)
         relative_key = str(relative_path).replace('\\', '/')
         return f"{key_prefix}/{relative_key}" if key_prefix else relative_key
 
-    def _upload_file(self, local_file: Path, bucket: str, key: str) -> None:
+    def upload_file(self, local_file: Path, bucket: str, key: str) -> None:
         self.s3_client.upload_file(str(local_file), bucket, key)

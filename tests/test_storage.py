@@ -248,14 +248,14 @@ class TestS3Serviceファイルアップロード:
     """S3Serviceの_upload_fileメソッドのテスト"""
 
     def test_ファイルをアップロード(self, s3_service, tmp_path):
-        """_upload_fileがs3_client.upload_fileを正しく呼び出すことをテスト"""
+        """upload_fileがs3_client.upload_fileを正しく呼び出すことをテスト"""
         test_file = tmp_path / "file.txt"
         test_file.write_text("content")
 
         bucket = "test-bucket"
         key = "test-key"
 
-        s3_service._upload_file(test_file, bucket, key)
+        s3_service.upload_file(test_file, bucket, key)
 
         s3_service.s3_client.upload_file.assert_called_once_with(
             str(test_file), bucket, key

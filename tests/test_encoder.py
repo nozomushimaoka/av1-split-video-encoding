@@ -386,10 +386,6 @@ class TestEncodingOrchestratorのencode_segments:
             with patch.object(orchestrator, '_list_segments', return_value=segments), \
                  patch('av1_encoder.encoder.ProcessPoolExecutor') as mock_executor_class:
 
-                # モックexecutorの設定
-                mock_executor = MagicMock()
-                mock_executor_class.return_value.__enter__.return_value = mock_executor
-
                 # 成功を返すモックfuture
                 mock_futures = []
                 for i in range(3):
@@ -397,13 +393,24 @@ class TestEncodingOrchestratorのencode_segments:
                     mock_future.result.return_value = True
                     mock_futures.append(mock_future)
 
+                # モックexecutorの設定
+                mock_executor = MagicMock()
                 mock_executor.submit.side_effect = mock_futures
+                mock_executor.__enter__.return_value = mock_executor
+                mock_executor.__exit__.return_value = False
+                mock_executor_class.return_value = mock_executor
 
-                with patch('av1_encoder.encoder.as_completed', return_value=mock_futures):
+                # as_completedは引数として渡されたdictのキーを返す関数をモック
+                def mock_as_completed(future_dict):
+                    return list(future_dict.keys())
+
+                with patch('av1_encoder.encoder.as_completed', side_effect=mock_as_completed):
                     orchestrator._encode_segments()
 
                 # ProcessPoolExecutorが正しいmax_workersで作成されたことを確認
-                mock_executor_class.assert_called_once_with(max_workers=2)
+                assert mock_executor_class.call_count == 1
+                call_kwargs = mock_executor_class.call_args[1]
+                assert call_kwargs['max_workers'] == 2
 
                 # 各セグメントに対してsubmitが呼び出されたことを確認
                 assert mock_executor.submit.call_count == 3
@@ -427,9 +434,6 @@ class TestEncodingOrchestratorのencode_segments:
             with patch.object(orchestrator, '_list_segments', return_value=segments), \
                  patch('av1_encoder.encoder.ProcessPoolExecutor') as mock_executor_class:
 
-                mock_executor = MagicMock()
-                mock_executor_class.return_value.__enter__.return_value = mock_executor
-
                 # 1つは成功、1つは失敗
                 mock_future1 = Mock()
                 mock_future1.result.return_value = True
@@ -437,9 +441,19 @@ class TestEncodingOrchestratorのencode_segments:
                 mock_future2.result.return_value = False
 
                 mock_futures = [mock_future1, mock_future2]
-                mock_executor.submit.side_effect = mock_futures
 
-                with patch('av1_encoder.encoder.as_completed', return_value=mock_futures):
+                # モックexecutorの設定
+                mock_executor = MagicMock()
+                mock_executor.submit.side_effect = mock_futures
+                mock_executor.__enter__.return_value = mock_executor
+                mock_executor.__exit__.return_value = False
+                mock_executor_class.return_value = mock_executor
+
+                # as_completedは引数として渡されたdictのキーを返す関数をモック
+                def mock_as_completed(future_dict):
+                    return list(future_dict.keys())
+
+                with patch('av1_encoder.encoder.as_completed', side_effect=mock_as_completed):
                     with pytest.raises(RuntimeError, match="1個のセグメントでエラーが発生"):
                         orchestrator._encode_segments()
 
@@ -468,6 +482,9 @@ class TestEncodingOrchestratorのconcat_segments:
             for seg_file in segment_files:
                 seg_file.touch()
 
+            # セグメントディレクトリが存在することを確認
+            assert mock_workspace.segments_dir.exists()
+
             orchestrator._concat_segments()
 
             # ffmpeg.concat_segmentsが正しいパラメータで呼び出されたことを確認
@@ -478,12 +495,15 @@ class TestEncodingOrchestratorのconcat_segments:
             assert call_args[2] == mock_workspace.concat_file  # concat_file
             assert call_args[3] == mock_workspace.output_file  # output_file
 
+            # 結合後にsegmentsディレクトリが削除されることを確認
+            assert not mock_workspace.segments_dir.exists()
+
 
 class TestEncodingOrchestratorのupload_to_s3:
     """EncodingOrchestratorの_upload_to_s3メソッドのテスト"""
 
     def test_S3にアップロード(self, encoding_config, mock_workspace):
-        """_upload_to_s3がワークディレクトリをS3にアップロードすることをテスト"""
+        """_upload_to_s3が結合ファイルのみをS3にアップロードすることをテスト"""
         with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
              patch('av1_encoder.encoder.FFmpegService'), \
              patch('av1_encoder.encoder.S3Service'), \
@@ -493,14 +513,26 @@ class TestEncodingOrchestratorのupload_to_s3:
             orchestrator.logger = Mock()
             orchestrator.s3 = Mock()
 
+            # output.mkvとinput.mkvを作成
+            mock_workspace.output_file.touch()
+            encoding_config.input_file.touch()
+
+            # ファイルが存在することを確認
+            assert mock_workspace.output_file.exists()
+            assert encoding_config.input_file.exists()
+
             orchestrator._upload_to_s3()
 
-            # s3.upload_directoryが正しいパラメータで呼び出されたことを確認
-            orchestrator.s3.upload_directory.assert_called_once_with(
-                mock_workspace.work_dir,
+            # s3.upload_fileが正しいパラメータで呼び出されたことを確認
+            orchestrator.s3.upload_file.assert_called_once_with(
+                mock_workspace.output_file,
                 "test-bucket",
-                f"output/{mock_workspace.work_dir.name}"
+                f"output/{encoding_config.input_file.stem}.mkv"
             )
+
+            # アップロード後にoutput.mkvとinput.mkvが削除されることを確認
+            assert not mock_workspace.output_file.exists()
+            assert not encoding_config.input_file.exists()
 
 
 class TestEncodingOrchestratorのinit_logger:
