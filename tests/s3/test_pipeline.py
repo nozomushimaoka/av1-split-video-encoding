@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch, MagicMock
 import pytest
 from botocore.exceptions import ClientError
 
-from av1_encoder.s3_pipeline import S3Pipeline
+from av1_encoder.s3.pipeline import S3Pipeline
 
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def mock_s3_client():
 @pytest.fixture
 def s3_pipeline(mock_s3_client):
     """S3Pipelineのフィクスチャ"""
-    with patch('av1_encoder.s3_pipeline.boto3.client', return_value=mock_s3_client):
+    with patch('av1_encoder.s3.pipeline.boto3.client', return_value=mock_s3_client):
         pipeline = S3Pipeline('test-bucket')
         return pipeline
 
@@ -28,13 +28,13 @@ class TestS3Pipeline初期化:
 
     def test_バケット名が設定される(self):
         """バケット名が正しく設定されることをテスト"""
-        with patch('av1_encoder.s3_pipeline.boto3.client'):
+        with patch('av1_encoder.s3.pipeline.boto3.client'):
             pipeline = S3Pipeline('my-bucket')
             assert pipeline.bucket_name == 'my-bucket'
 
     def test_s3クライアントが初期化される(self):
         """S3クライアントが初期化されることをテスト"""
-        with patch('av1_encoder.s3_pipeline.boto3.client') as mock_boto_client:
+        with patch('av1_encoder.s3.pipeline.boto3.client') as mock_boto_client:
             pipeline = S3Pipeline('test-bucket')
             mock_boto_client.assert_called_once_with('s3')
             assert pipeline.s3_client is not None

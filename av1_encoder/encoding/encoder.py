@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import List
 from datetime import datetime
 
-from .config import EncodingConfig
-from .workspace import make_workspace_from_path
-from .ffmpeg import FFmpegService, SegmentInfo
+from ..core.config import EncodingConfig
+from ..core.workspace import make_workspace_from_path
+from ..core.ffmpeg import FFmpegService, SegmentInfo
 
 
 def _worker_init():

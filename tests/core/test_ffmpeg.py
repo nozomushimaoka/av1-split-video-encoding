@@ -2,8 +2,8 @@ from unittest.mock import Mock, patch, mock_open
 import subprocess
 import pytest
 
-from av1_encoder.ffmpeg import FFmpegService, SegmentInfo
-from av1_encoder.config import EncodingConfig
+from av1_encoder.core.ffmpeg import FFmpegService, SegmentInfo
+from av1_encoder.core.config import EncodingConfig
 
 
 @pytest.fixture
@@ -99,7 +99,7 @@ class TestFFmpegServiceのget_duration:
     }
 }'''
 
-        with patch('av1_encoder.ffmpeg.subprocess.run', return_value=mock_result) as mock_run:
+        with patch('av1_encoder.core.ffmpeg.subprocess.run', return_value=mock_result) as mock_run:
             duration = ffmpeg_service.get_duration(input_file)
 
             # 正しいコマンドで呼び出されたか確認
@@ -140,7 +140,7 @@ class TestFFmpegServiceのget_duration:
     }
 }'''
 
-        with patch('av1_encoder.ffmpeg.subprocess.run', return_value=mock_result):
+        with patch('av1_encoder.core.ffmpeg.subprocess.run', return_value=mock_result):
             duration = ffmpeg_service.get_duration(input_file)
             assert duration == 2112.0
 
@@ -159,9 +159,9 @@ class TestFFmpegServiceのencode_segment:
 
         mock_handler = Mock()
 
-        with patch('av1_encoder.ffmpeg.subprocess.Popen', return_value=mock_process) as mock_popen, \
-             patch('av1_encoder.ffmpeg.logging.FileHandler', return_value=mock_handler), \
-             patch('av1_encoder.ffmpeg.logging.getLogger', return_value=mock_logger):
+        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', return_value=mock_process) as mock_popen, \
+             patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
+             patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
 
             result = ffmpeg_service.encode_segment(segment_info, input_file, encoding_config)
 
@@ -207,9 +207,9 @@ class TestFFmpegServiceのencode_segment:
 
         mock_handler = Mock()
 
-        with patch('av1_encoder.ffmpeg.subprocess.Popen', return_value=mock_process) as mock_popen, \
-             patch('av1_encoder.ffmpeg.logging.FileHandler', return_value=mock_handler), \
-             patch('av1_encoder.ffmpeg.logging.getLogger', return_value=mock_logger):
+        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', return_value=mock_process) as mock_popen, \
+             patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
+             patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
 
             result = ffmpeg_service.encode_segment(segment_info, input_file, encoding_config)
 
@@ -238,9 +238,9 @@ class TestFFmpegServiceのencode_segment:
 
         mock_handler = Mock()
 
-        with patch('av1_encoder.ffmpeg.subprocess.Popen', return_value=mock_process) as mock_popen, \
-             patch('av1_encoder.ffmpeg.logging.FileHandler', return_value=mock_handler), \
-             patch('av1_encoder.ffmpeg.logging.getLogger', return_value=mock_logger):
+        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', return_value=mock_process) as mock_popen, \
+             patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
+             patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
 
             result = ffmpeg_service.encode_segment(segment_info, input_file, config)
 
@@ -277,9 +277,9 @@ class TestFFmpegServiceのencode_segment:
 
         mock_handler = Mock()
 
-        with patch('av1_encoder.ffmpeg.subprocess.Popen', return_value=mock_process) as mock_popen, \
-             patch('av1_encoder.ffmpeg.logging.FileHandler', return_value=mock_handler), \
-             patch('av1_encoder.ffmpeg.logging.getLogger', return_value=mock_logger):
+        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', return_value=mock_process) as mock_popen, \
+             patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
+             patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
 
             result = ffmpeg_service.encode_segment(segment_info, input_file, config)
 
@@ -304,9 +304,9 @@ class TestFFmpegServiceのencode_segment:
 
         mock_handler = Mock()
 
-        with patch('av1_encoder.ffmpeg.subprocess.Popen', return_value=mock_process), \
-             patch('av1_encoder.ffmpeg.logging.FileHandler', return_value=mock_handler), \
-             patch('av1_encoder.ffmpeg.logging.getLogger', return_value=mock_logger):
+        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', return_value=mock_process), \
+             patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
+             patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
 
             result = ffmpeg_service.encode_segment(segment_info, input_file, encoding_config)
 
@@ -331,9 +331,9 @@ class TestFFmpegServiceのencode_segment:
             handlers_list.append(handler)
         mock_logger.addHandler.side_effect = add_handler
 
-        with patch('av1_encoder.ffmpeg.subprocess.Popen', return_value=mock_process), \
-             patch('av1_encoder.ffmpeg.logging.FileHandler', return_value=mock_handler), \
-             patch('av1_encoder.ffmpeg.logging.getLogger', return_value=mock_logger):
+        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', return_value=mock_process), \
+             patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
+             patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
 
             ffmpeg_service.encode_segment(segment_info, input_file, encoding_config)
 

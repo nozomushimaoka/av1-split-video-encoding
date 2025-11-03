@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from av1_encoder.s3_pipeline import S3Pipeline
+from av1_encoder.s3.pipeline import S3Pipeline
 
 
 def setup_logging() -> None:
@@ -84,11 +84,11 @@ def encode_video(
     crf: int,
     preset: int
 ) -> None:
-    """unified_parallel_encode.pyを呼び出してエンコード"""
+    """encode.pyを呼び出してエンコード"""
     logger = logging.getLogger(__name__)
     logger.info("エンコード中...")
 
-    script_path = Path(__file__).parent / "unified_parallel_encode.py"
+    script_path = Path(__file__).parent / "encode.py"
 
     cmd = [
         str(script_path),

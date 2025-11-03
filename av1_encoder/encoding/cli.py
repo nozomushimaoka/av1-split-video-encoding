@@ -4,7 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from .config import EncodingConfig
+from ..core.config import EncodingConfig
 from .encoder import EncodingOrchestrator
 
 

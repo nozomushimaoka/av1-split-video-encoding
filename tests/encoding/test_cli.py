@@ -2,8 +2,8 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 import pytest
 
-from av1_encoder.cli import main
-from av1_encoder.config import EncodingConfig
+from av1_encoder.encoding.cli import main
+from av1_encoder.core.config import EncodingConfig
 
 
 class TestCLIの引数パース:
@@ -16,7 +16,7 @@ class TestCLIの引数パース:
         test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4']
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -55,7 +55,7 @@ class TestCLIの引数パース:
         ]
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -80,7 +80,7 @@ class TestCLIの引数パース:
         test_args = ['prog', 'input.mp4', str(workspace), '-l', '16']
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -106,7 +106,7 @@ class TestCLIの引数パース:
         ]
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -132,7 +132,7 @@ class TestCLIのmain関数:
         test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4']
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -149,7 +149,7 @@ class TestCLIのmain関数:
         test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4']
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -166,7 +166,7 @@ class TestCLIのmain関数:
         test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4']
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -183,7 +183,7 @@ class TestCLIのmain関数:
         test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4']
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -212,7 +212,7 @@ class TestCLIのEncodingConfig作成:
         ]
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -236,7 +236,7 @@ class TestCLIのEncodingConfig作成:
         test_args = ['prog', 'test/path/to/video.mkv', str(workspace), '--parallel', '4']
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -258,7 +258,7 @@ class TestCLIのデフォルト値:
         test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4']
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -275,7 +275,7 @@ class TestCLIのデフォルト値:
         test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4']
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -323,7 +323,7 @@ class TestCLIの引数型:
         ]
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -347,7 +347,7 @@ class TestCLIの引数型:
         ]
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -369,7 +369,7 @@ class TestCLIのエッジケース:
         test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '-1']
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -387,7 +387,7 @@ class TestCLIのエッジケース:
         test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4', '--', '-crf', '0', '-preset', '0']
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -405,7 +405,7 @@ class TestCLIのエッジケース:
         test_args = ['prog', long_path, str(workspace), '--parallel', '4']
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
@@ -423,7 +423,7 @@ class TestCLIのエッジケース:
         test_args = ['prog', special_filename, str(workspace), '--parallel', '4']
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
+             patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator

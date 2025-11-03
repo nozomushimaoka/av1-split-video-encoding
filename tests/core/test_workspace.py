@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 import pytest
 
-from av1_encoder.workspace import Workspace, make_workspace_from_path
+from av1_encoder.core.workspace import Workspace, make_workspace_from_path
 
 
 @pytest.fixture

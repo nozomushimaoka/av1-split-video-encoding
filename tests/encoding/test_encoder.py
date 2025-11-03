@@ -4,10 +4,10 @@ from unittest.mock import Mock, patch, MagicMock
 import logging
 import pytest
 
-from av1_encoder.encoder import EncodingOrchestrator
-from av1_encoder.config import EncodingConfig
-from av1_encoder.ffmpeg import SegmentInfo
-from av1_encoder.workspace import Workspace
+from av1_encoder.encoding.encoder import EncodingOrchestrator
+from av1_encoder.core.config import EncodingConfig
+from av1_encoder.core.ffmpeg import SegmentInfo
+from av1_encoder.core.workspace import Workspace
 
 
 @pytest.fixture
@@ -52,8 +52,8 @@ class TestEncodingOrchestrator初期化:
 
     def test_初期化時に必要なコンポーネントが作成される(self, encoding_config, tmp_path):
         """EncodingOrchestratorが必要なコンポーネントで初期化されることをテスト"""
-        with patch('av1_encoder.encoder.make_workspace_from_path') as mock_make_workspace, \
-             patch('av1_encoder.encoder.FFmpegService') as mock_ffmpeg_class, \
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path') as mock_make_workspace, \
+             patch('av1_encoder.encoding.encoder.FFmpegService') as mock_ffmpeg_class, \
              patch.object(EncodingOrchestrator, '_init_logger') as mock_init_logger:
 
             mock_workspace = Mock()
@@ -83,8 +83,8 @@ class TestEncodingOrchestrator初期化:
 
     def test_start_timeが現在時刻に近い(self, encoding_config):
         """start_timeが現在時刻に設定されることをテスト"""
-        with patch('av1_encoder.encoder.make_workspace_from_path'), \
-             patch('av1_encoder.encoder.FFmpegService'), \
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path'), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             before = datetime.now()
@@ -100,8 +100,8 @@ class TestEncodingOrchestratorのrun:
 
     def test_run処理が正しい順序で実行される(self, encoding_config):
         """runメソッドが正しい順序で各ステップを実行することをテスト"""
-        with patch('av1_encoder.encoder.make_workspace_from_path'), \
-             patch('av1_encoder.encoder.FFmpegService'), \
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path'), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch.object(EncodingOrchestrator, '_init_logger'), \
              patch.object(EncodingOrchestrator, '_encode_segments') as mock_encode, \
              patch.object(EncodingOrchestrator, '_generate_concat_file') as mock_generate_concat, \
@@ -117,8 +117,8 @@ class TestEncodingOrchestratorのrun:
 
     def test_runでエラーが発生した場合にログとraise(self, encoding_config):
         """runメソッドでエラーが発生した場合にログに記録し例外を再raiseすることをテスト"""
-        with patch('av1_encoder.encoder.make_workspace_from_path'), \
-             patch('av1_encoder.encoder.FFmpegService'), \
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path'), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -140,8 +140,8 @@ class TestEncodingOrchestratorのprint_completion:
 
     def test_完了情報をログに出力(self, encoding_config, mock_workspace):
         """_print_completionが処理時間をログに出力することをテスト"""
-        with patch('av1_encoder.encoder.make_workspace_from_path', return_value=mock_workspace), \
-             patch('av1_encoder.encoder.FFmpegService'), \
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -162,8 +162,8 @@ class TestEncodingOrchestratorのlist_segments:
 
     def test_セグメントリストを生成(self, encoding_config, mock_workspace):
         """_list_segmentsが正しいセグメントリストを生成することをテスト"""
-        with patch('av1_encoder.encoder.make_workspace_from_path', return_value=mock_workspace), \
-             patch('av1_encoder.encoder.FFmpegService'), \
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -193,8 +193,8 @@ class TestEncodingOrchestratorのlist_segments:
 
     def test_単一セグメントの場合(self, encoding_config, mock_workspace):
         """動画が1セグメントしかない場合のテスト"""
-        with patch('av1_encoder.encoder.make_workspace_from_path', return_value=mock_workspace), \
-             patch('av1_encoder.encoder.FFmpegService'), \
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -212,8 +212,8 @@ class TestEncodingOrchestratorのcalc_num_segments:
 
     def test_セグメント数を計算(self, encoding_config, mock_workspace):
         """_calc_num_segmentsが正しくセグメント数を計算することをテスト"""
-        with patch('av1_encoder.encoder.make_workspace_from_path', return_value=mock_workspace), \
-             patch('av1_encoder.encoder.FFmpegService'), \
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -236,8 +236,8 @@ class TestEncodingOrchestratorのcalc_num_segments:
 
     def test_端数があるセグメント数の計算(self, encoding_config, mock_workspace):
         """端数がある場合に切り上げられることをテスト"""
-        with patch('av1_encoder.encoder.make_workspace_from_path', return_value=mock_workspace), \
-             patch('av1_encoder.encoder.FFmpegService'), \
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -254,8 +254,8 @@ class TestEncodingOrchestratorのencode_segments:
 
     def test_セグメントを並列エンコード(self, encoding_config, mock_workspace):
         """_encode_segmentsがセグメントを並列にエンコードすることをテスト"""
-        with patch('av1_encoder.encoder.make_workspace_from_path', return_value=mock_workspace), \
-             patch('av1_encoder.encoder.FFmpegService'), \
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -270,7 +270,7 @@ class TestEncodingOrchestratorのencode_segments:
             ]
 
             with patch.object(orchestrator, '_list_segments', return_value=segments), \
-                 patch('av1_encoder.encoder.ProcessPoolExecutor') as mock_executor_class:
+                 patch('av1_encoder.encoding.encoder.ProcessPoolExecutor') as mock_executor_class:
 
                 # 成功を返すモックfuture
                 mock_futures = []
@@ -290,7 +290,7 @@ class TestEncodingOrchestratorのencode_segments:
                 def mock_as_completed(future_dict):
                     return list(future_dict.keys())
 
-                with patch('av1_encoder.encoder.as_completed', side_effect=mock_as_completed):
+                with patch('av1_encoder.encoding.encoder.as_completed', side_effect=mock_as_completed):
                     orchestrator._encode_segments()
 
                 # ProcessPoolExecutorが正しいmax_workersで作成されたことを確認
@@ -303,8 +303,8 @@ class TestEncodingOrchestratorのencode_segments:
 
     def test_エンコード失敗時にエラーを発生(self, encoding_config, mock_workspace):
         """エンコードが失敗した場合にRuntimeErrorが発生することをテスト"""
-        with patch('av1_encoder.encoder.make_workspace_from_path', return_value=mock_workspace), \
-             patch('av1_encoder.encoder.FFmpegService'), \
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -317,7 +317,7 @@ class TestEncodingOrchestratorのencode_segments:
             ]
 
             with patch.object(orchestrator, '_list_segments', return_value=segments), \
-                 patch('av1_encoder.encoder.ProcessPoolExecutor') as mock_executor_class:
+                 patch('av1_encoder.encoding.encoder.ProcessPoolExecutor') as mock_executor_class:
 
                 # 1つは成功、1つは失敗
                 mock_future1 = Mock()
@@ -338,7 +338,7 @@ class TestEncodingOrchestratorのencode_segments:
                 def mock_as_completed(future_dict):
                     return list(future_dict.keys())
 
-                with patch('av1_encoder.encoder.as_completed', side_effect=mock_as_completed):
+                with patch('av1_encoder.encoding.encoder.as_completed', side_effect=mock_as_completed):
                     with pytest.raises(RuntimeError, match="セグメント.*のエンコードに失敗"):
                         orchestrator._encode_segments()
 
@@ -348,8 +348,8 @@ class TestEncodingOrchestratorのgenerate_concat_file:
 
     def test_concat_txtを生成(self, encoding_config, mock_workspace):
         """_generate_concat_fileがconcat.txtを生成することをテスト"""
-        with patch('av1_encoder.encoder.make_workspace_from_path', return_value=mock_workspace), \
-             patch('av1_encoder.encoder.FFmpegService'), \
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -386,9 +386,9 @@ class TestEncodingOrchestratorのinit_logger:
         """_init_loggerがロガーを正しく初期化することをテスト"""
         log_file = tmp_path / "test.log"
 
-        with patch('av1_encoder.encoder.make_workspace_from_path', return_value=mock_workspace), \
-             patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.FFmpegService'):
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
             logger = orchestrator._init_logger(log_file)
@@ -409,9 +409,9 @@ class TestEncodingOrchestratorのinit_logger:
         """_init_loggerが既存のハンドラをクリアすることをテスト"""
         log_file = tmp_path / "test.log"
 
-        with patch('av1_encoder.encoder.make_workspace_from_path', return_value=mock_workspace), \
-             patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.FFmpegService'):
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
 
