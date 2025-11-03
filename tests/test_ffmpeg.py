@@ -30,8 +30,11 @@ def encoding_config(tmp_path):
     """テスト用のEncodingConfigを作成するフィクスチャ"""
     input_file = tmp_path / "input.mp4"
     input_file.touch()
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir()
     return EncodingConfig(
         input_file=input_file,
+        workspace_dir=workspace_dir,
         parallel_jobs=4,
         segment_length=60,
         extra_args=['-crf', '30', '-preset', '6', '-g', '240', '-keyint_min', '240']
@@ -220,8 +223,11 @@ class TestFFmpegServiceのencode_segment:
         """extra_argsなしでセグメントをエンコードするテスト"""
         input_file = tmp_path / "input.mp4"
         input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
         config = EncodingConfig(
             input_file=input_file,
+            workspace_dir=workspace_dir,
             parallel_jobs=4,
             segment_length=60
         )
@@ -251,8 +257,11 @@ class TestFFmpegServiceのencode_segment:
         """カスタムextra_argsでセグメントをエンコードするテスト"""
         input_file = tmp_path / "input.mp4"
         input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
         config = EncodingConfig(
             input_file=input_file,
+            workspace_dir=workspace_dir,
             parallel_jobs=4,
             segment_length=60,
             extra_args=[

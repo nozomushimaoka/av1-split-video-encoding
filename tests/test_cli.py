@@ -9,9 +9,11 @@ from av1_encoder.config import EncodingConfig
 class TestCLIの引数パース:
     """CLIの引数パースのテスト"""
 
-    def test_最小限の引数でパース(self):
+    def test_最小限の引数でパース(self, tmp_path):
         """入力ファイルのみ指定した場合の引数パースをテスト"""
-        test_args = ['prog', 'input.mp4']
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
+        test_args = ['prog', 'input.mp4', '--workspace', str(workspace)]
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -27,6 +29,7 @@ class TestCLIの引数パース:
             config = mock_orchestrator_class.call_args[0][0]
 
             assert config.input_file == Path('input.mp4')
+            assert config.workspace_dir == workspace
             assert config.parallel_jobs == 4  # デフォルト値
             assert config.extra_args == []  # デフォルト値
 
@@ -36,11 +39,14 @@ class TestCLIの引数パース:
             # 成功コードを返すことを確認
             assert result == 0
 
-    def test_全ての引数を指定してパース(self):
+    def test_全ての引数を指定してパース(self, tmp_path):
         """全ての引数を指定した場合の引数パースをテスト"""
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
         test_args = [
             'prog',
             'video.mkv',
+            '--workspace', str(workspace),
             '--parallel', '8',
             '--',
             '-crf', '30',
@@ -61,14 +67,17 @@ class TestCLIの引数パース:
             config = mock_orchestrator_class.call_args[0][0]
 
             assert config.input_file == Path('video.mkv')
+            assert config.workspace_dir == workspace
             assert config.parallel_jobs == 8
             assert config.extra_args == ['-crf', '30', '-preset', '6', '-g', '240']
 
             assert result == 0
 
-    def test_短縮オプションでパラレルを指定(self):
+    def test_短縮オプションでパラレルを指定(self, tmp_path):
         """短縮オプション -l でparallel_jobsを指定できることをテスト"""
-        test_args = ['prog', 'input.mp4', '-l', '16']
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
+        test_args = ['prog', 'input.mp4', '--workspace', str(workspace), '-l', '16']
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -83,11 +92,14 @@ class TestCLIの引数パース:
             assert config.parallel_jobs == 16
             assert result == 0
 
-    def test_一部のオプションのみ指定(self):
+    def test_一部のオプションのみ指定(self, tmp_path):
         """一部のオプションのみを指定した場合のテスト"""
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
         test_args = [
             'prog',
             'test.mp4',
+            '--workspace', str(workspace),
             '--',
             '-crf', '25'
         ]
@@ -112,9 +124,11 @@ class TestCLIの引数パース:
 class TestCLIのmain関数:
     """CLIのmain関数のテスト"""
 
-    def test_エンコード成功時に0を返す(self):
+    def test_エンコード成功時に0を返す(self, tmp_path):
         """エンコードが成功した場合に0を返すことをテスト"""
-        test_args = ['prog', 'input.mp4']
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
+        test_args = ['prog', 'input.mp4', '--workspace', str(workspace)]
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -127,9 +141,11 @@ class TestCLIのmain関数:
 
             assert result == 0
 
-    def test_エンコード失敗時に1を返す(self):
+    def test_エンコード失敗時に1を返す(self, tmp_path):
         """エンコードが失敗した場合に1を返すことをテスト"""
-        test_args = ['prog', 'input.mp4']
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
+        test_args = ['prog', 'input.mp4', '--workspace', str(workspace)]
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -142,9 +158,11 @@ class TestCLIのmain関数:
 
             assert result == 1
 
-    def test_例外が発生しても1を返す(self):
+    def test_例外が発生しても1を返す(self, tmp_path):
         """任意の例外が発生した場合に1を返すことをテスト"""
-        test_args = ['prog', 'input.mp4']
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
+        test_args = ['prog', 'input.mp4', '--workspace', str(workspace)]
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -157,9 +175,11 @@ class TestCLIのmain関数:
 
             assert result == 1
 
-    def test_orchestratorのrunが呼び出される(self):
+    def test_orchestratorのrunが呼び出される(self, tmp_path):
         """orchestrator.run()が呼び出されることをテスト"""
-        test_args = ['prog', 'input.mp4']
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
+        test_args = ['prog', 'input.mp4', '--workspace', str(workspace)]
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -175,11 +195,14 @@ class TestCLIのmain関数:
 class TestCLIのEncodingConfig作成:
     """CLIからEncodingConfigを作成するテスト"""
 
-    def test_EncodingConfigが正しく作成される(self):
+    def test_EncodingConfigが正しく作成される(self, tmp_path):
         """CLIの引数からEncodingConfigが正しく作成されることをテスト"""
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
         test_args = [
             'prog',
             'my_video.mp4',
+            '--workspace', str(workspace),
             '--parallel', '12',
             '--',
             '-crf', '28',
@@ -201,12 +224,15 @@ class TestCLIのEncodingConfig作成:
 
             assert isinstance(config, EncodingConfig)
             assert config.input_file == Path('my_video.mp4')
+            assert config.workspace_dir == workspace
             assert config.parallel_jobs == 12
             assert config.extra_args == ['-crf', '28', '-preset', '5', '-g', '120']
 
-    def test_input_fileがPathオブジェクトに変換される(self):
+    def test_input_fileがPathオブジェクトに変換される(self, tmp_path):
         """input_file引数がPathオブジェクトに変換されることをテスト"""
-        test_args = ['prog', 'test/path/to/video.mkv']
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
+        test_args = ['prog', 'test/path/to/video.mkv', '--workspace', str(workspace)]
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -224,9 +250,11 @@ class TestCLIのEncodingConfig作成:
 class TestCLIのデフォルト値:
     """CLIのデフォルト値のテスト"""
 
-    def test_parallelのデフォルト値は4(self):
+    def test_parallelのデフォルト値は4(self, tmp_path):
         """parallelのデフォルト値が4であることをテスト"""
-        test_args = ['prog', 'input.mp4']
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
+        test_args = ['prog', 'input.mp4', '--workspace', str(workspace)]
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -239,9 +267,11 @@ class TestCLIのデフォルト値:
             config = mock_orchestrator_class.call_args[0][0]
             assert config.parallel_jobs == 4
 
-    def test_extra_argsのデフォルト値は空リスト(self):
+    def test_extra_argsのデフォルト値は空リスト(self, tmp_path):
         """extra_argsのデフォルト値が空リストであることをテスト"""
-        test_args = ['prog', 'input.mp4']
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
+        test_args = ['prog', 'input.mp4', '--workspace', str(workspace)]
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -278,11 +308,14 @@ class TestCLIのargparse動作:
 class TestCLIの引数型:
     """CLIの引数の型に関するテスト"""
 
-    def test_整数引数が正しく変換される(self):
+    def test_整数引数が正しく変換される(self, tmp_path):
         """整数引数が正しく変換されることをテスト"""
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
         test_args = [
             'prog',
             'input.mp4',
+            '--workspace', str(workspace),
             '--parallel', '10'
         ]
 
@@ -299,11 +332,14 @@ class TestCLIの引数型:
             assert isinstance(config.parallel_jobs, int)
             assert config.parallel_jobs == 10
 
-    def test_文字列引数が正しく処理される(self):
+    def test_文字列引数が正しく処理される(self, tmp_path):
         """文字列引数が正しく処理されることをテスト"""
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
         test_args = [
             'prog',
-            'path/to/input.mp4'
+            'path/to/input.mp4',
+            '--workspace', str(workspace)
         ]
 
         with patch('sys.argv', test_args), \
@@ -322,9 +358,11 @@ class TestCLIの引数型:
 class TestCLIのエッジケース:
     """CLIのエッジケースのテスト"""
 
-    def test_負の値を持つ引数(self):
+    def test_負の値を持つ引数(self, tmp_path):
         """負の値を持つ引数が正しく処理されることをテスト"""
-        test_args = ['prog', 'input.mp4', '--parallel', '-1']
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
+        test_args = ['prog', 'input.mp4', '--workspace', str(workspace), '--parallel', '-1']
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -338,9 +376,11 @@ class TestCLIのエッジケース:
             # argparseは負の値を許可するので、-1が設定される
             assert config.parallel_jobs == -1
 
-    def test_extra_argsが正しく処理される(self):
+    def test_extra_argsが正しく処理される(self, tmp_path):
         """extra_argsが正しく処理されることをテスト"""
-        test_args = ['prog', 'input.mp4', '--', '-crf', '0', '-preset', '0']
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
+        test_args = ['prog', 'input.mp4', '--workspace', str(workspace), '--', '-crf', '0', '-preset', '0']
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -353,10 +393,12 @@ class TestCLIのエッジケース:
             config = mock_orchestrator_class.call_args[0][0]
             assert config.extra_args == ['-crf', '0', '-preset', '0']
 
-    def test_非常に長いファイルパス(self):
+    def test_非常に長いファイルパス(self, tmp_path):
         """非常に長いファイルパスが正しく処理されることをテスト"""
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
         long_path = 'a' * 200 + '.mp4'
-        test_args = ['prog', long_path]
+        test_args = ['prog', long_path, '--workspace', str(workspace)]
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -369,10 +411,12 @@ class TestCLIのエッジケース:
             config = mock_orchestrator_class.call_args[0][0]
             assert config.input_file == Path(long_path)
 
-    def test_特殊文字を含むファイル名(self):
+    def test_特殊文字を含むファイル名(self, tmp_path):
         """特殊文字を含むファイル名が正しく処理されることをテスト"""
+        workspace = tmp_path / 'workspace'
+        workspace.mkdir()
         special_filename = 'test-file_123 (copy).mp4'
-        test_args = ['prog', special_filename]
+        test_args = ['prog', special_filename, '--workspace', str(workspace)]
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:

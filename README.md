@@ -35,60 +35,57 @@ aws configure
 ### ローカルファイルのエンコード
 
 ```bash
-./unified_parallel_encode.py video.mkv
+# 作業ディレクトリを作成
+mkdir workspace
+
+# エンコード実行
+./unified_parallel_encode.py video.mkv --workspace workspace
 ```
 
 ### オプション付き実行
 
 ```bash
-./unified_parallel_encode.py video.mkv --parallel 8 -- -crf 30 -preset 6 -pix_fmt yuv420p10le
+mkdir workspace
+./unified_parallel_encode.py video.mkv --workspace workspace --parallel 8 -- -crf 30 -preset 6 -pix_fmt yuv420p10le
 ```
 
-### S3との連携（ダウンロード → エンコード → アップロード）
+### S3との連携（bin/s3-encode-simple.shを使用）
 
 ```bash
+# 単一動画のエンコード
+./bin/s3-encode-simple.sh my-bucket video.mkv 4
+
+# パイプラインスクリプトで複数動画を並行処理
+./bin/s3-encode-pipeline.sh my-bucket video1.mp4 video2.mp4 video3.mp4
+```
+
+### 手動でのS3連携
+
+```bash
+# 作業ディレクトリを作成
+WORKSPACE="encode_video_$(date +%Y%m%d_%H%M%S)"
+mkdir -p "$WORKSPACE"
+
 # S3からダウンロード
 aws s3 cp s3://my-bucket/input/video.mkv ./video.mkv
 
 # エンコード
-./unified_parallel_encode.py video.mkv --parallel 8 -- -crf 30 -preset 6
+./unified_parallel_encode.py video.mkv --workspace "$WORKSPACE" --parallel 8 -- -crf 30 -preset 6
 
 # S3へアップロード
-aws s3 cp encode_video_*/output.mkv s3://my-bucket/output/video.mkv
+aws s3 cp "${WORKSPACE}/output.mkv" s3://my-bucket/output/video.mkv
 
 # クリーンアップ
-rm -rf video.mkv encode_video_*
-```
-
-### パイプライン化（複数動画を並行処理）
-
-```bash
-#!/bin/bash
-# 複数動画を並行処理（エンコード中にアップロード）
-
-for video in video1.mp4 video2.mp4 video3.mp4; do
-  (
-    # ダウンロード
-    aws s3 cp "s3://my-bucket/input/$video" "./$video"
-
-    # エンコード
-    ./unified_parallel_encode.py "$video" --parallel 4 -- -crf 30 -preset 6
-
-    # アップロード（前のエンコードと並行実行される）
-    aws s3 cp "encode_${video%.*}_"*/output.mkv "s3://my-bucket/output/$video"
-
-    # クリーンアップ
-    rm -f "$video"
-    rm -rf "encode_${video%.*}_"*
-  ) &
-done
-
-wait  # すべてのジョブ完了を待つ
+rm -f video.mkv
+rm -rf "$WORKSPACE"
 ```
 
 ### コマンドライン引数
 
 - `input_file`: 入力ファイルパス（ローカルファイル）
+- `--workspace, -w`: 作業ディレクトリパス（必須）
+  - エンコード前に作成しておく必要があります
+  - 出力ファイルは `<workspace>/output.mkv` に保存されます
 - `--parallel, -l`: 並列ジョブ数（デフォルト: 4）
 - `extra_args`: `--` の後に追加のFFmpegオプション
   - 例: `-crf 30 -preset 6 -pix_fmt yuv420p10le -g 240 -keyint_min 240`
@@ -107,20 +104,20 @@ wait  # すべてのジョブ完了を待つ
 
 ## 出力
 
-処理結果は以下のディレクトリに保存されます：
+処理結果は指定した作業ディレクトリに保存されます（フラット構造）：
 
 ```
-encode_<動画名>_<タイムスタンプ>/
+<workspace>/
 ├── output.mkv           # 最終出力ファイル
-├── segments/            # エンコード済みセグメント（処理後に削除）
-│   ├── segment_0000.mp4
-│   ├── segment_0001.mp4
-│   └── ...
-├── logs/                # 各セグメントのエンコードログ
-│   ├── main.log         # 全体のログ
-│   ├── segment_0000.log
-│   ├── segment_0001.log
-│   └── ...
+├── main.log             # 全体のログ
+├── segment_0000.mp4     # エンコード済みセグメント（処理後に削除）
+├── segment_0001.mp4
+├── segment_0002.mp4
+├── ...
+├── segment_0000.log     # 各セグメントのエンコードログ
+├── segment_0001.log
+├── segment_0002.log
+├── ...
 └── concat.txt           # セグメント結合用リスト
 ```
 
@@ -193,7 +190,8 @@ aws s3 ls s3://my-bucket/
 並列数を減らしてください：
 
 ```bash
-./unified_parallel_encode.py video.mkv --parallel 2
+mkdir workspace
+./unified_parallel_encode.py video.mkv --workspace workspace --parallel 2
 ```
 
 ### ディスク容量不足

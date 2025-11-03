@@ -15,7 +15,13 @@ def main() -> int:
     )
     parser.add_argument(
         'input_file',
-        help='input/内のファイル名 (例: video.mkv)'
+        help='入力ファイルパス (例: video.mkv)'
+    )
+    parser.add_argument(
+        '--workspace', '-w',
+        type=str,
+        required=True,
+        help='作業ディレクトリパス（既存のディレクトリを指定）'
     )
     parser.add_argument(
         '--parallel', '-l',
@@ -31,9 +37,19 @@ def main() -> int:
 
     args = parser.parse_args()
 
+    # 作業ディレクトリの検証
+    workspace_dir = Path(args.workspace)
+    if not workspace_dir.exists():
+        print(f"エラー: 作業ディレクトリが存在しません: {workspace_dir}", file=sys.stderr)
+        return 1
+    if not workspace_dir.is_dir():
+        print(f"エラー: 作業ディレクトリがディレクトリではありません: {workspace_dir}", file=sys.stderr)
+        return 1
+
     # 設定を作成
     config = EncodingConfig(
         input_file=Path(args.input_file),
+        workspace_dir=workspace_dir,
         parallel_jobs=args.parallel,
         extra_args=args.extra_args if args.extra_args else []
     )

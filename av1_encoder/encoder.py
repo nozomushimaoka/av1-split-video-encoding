@@ -2,14 +2,13 @@ import logging
 import os
 import signal
 import sys
-import shutil
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import List
 from datetime import datetime
 
 from .config import EncodingConfig
-from .workspace import make_workspace
+from .workspace import make_workspace_from_path
 from .ffmpeg import FFmpegService, SegmentInfo
 
 
@@ -26,8 +25,7 @@ class EncodingOrchestrator:
     ):
         self.config = config
         self.start_time = datetime.now()
-        self.workspace = make_workspace(config.input_file, self.start_time)
-        # TODO: 本当はinit内でファイルシステム操作をしたくない
+        self.workspace = make_workspace_from_path(config.workspace_dir, config.input_file)
         self.workspace.prepare_directory()
         self.logger = self._init_logger(self.workspace.log_file)
         self.ffmpeg = FFmpegService()
@@ -129,7 +127,7 @@ class EncodingOrchestrator:
         self.logger.info("セグメント結合開始")
 
         # セグメントファイルをリストアップ
-        segment_files = sorted(self.workspace.segments_dir.glob("segment_*.mp4"))
+        segment_files = sorted(self.workspace.work_dir.glob("segment_*.mp4"))
 
         self.ffmpeg.concat_segments(
             segment_files,
@@ -140,9 +138,10 @@ class EncodingOrchestrator:
 
         self.logger.info("結合処理完了")
 
-        # 結合後、segmentsディレクトリを削除
+        # 結合後、セグメントファイルを削除
         self.logger.info("セグメントファイルを削除中")
-        shutil.rmtree(self.workspace.segments_dir)
+        for segment_file in segment_files:
+            segment_file.unlink()
 
     def _list_segments(self) -> List[SegmentInfo]:
         num_segments = self._calc_num_segments()
@@ -155,8 +154,8 @@ class EncodingOrchestrator:
                 start_time=start_time,
                 duration=self.config.segment_length,
                 is_final=is_final,
-                file=self.workspace.segments_dir / f"segment_{i:04d}.mp4",
-                log_file=self.workspace.logs_dir / f"segment_{i:04d}.log"
+                file=self.workspace.work_dir / f"segment_{i:04d}.mp4",
+                log_file=self.workspace.work_dir / f"segment_{i:04d}.log"
             ))
         return segments
 
