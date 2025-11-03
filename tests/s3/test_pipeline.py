@@ -1,7 +1,6 @@
 """S3パイプラインのテスト"""
 
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 import pytest
 from botocore.exceptions import ClientError
 

@@ -6,6 +6,7 @@ import logging
 import os
 import subprocess
 import sys
+from concurrent.futures import Future
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -117,8 +118,8 @@ def process_single_file(
     parallel: int,
     crf: int,
     preset: int,
-    download_future: Optional[object] = None
-) -> None:
+    download_future: Optional[Future[None]] = None
+) -> Future[None]:
     """単一ファイルの処理"""
     logger = logging.getLogger(__name__)
 

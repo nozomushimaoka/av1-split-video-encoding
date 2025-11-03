@@ -3,7 +3,7 @@
 import logging
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional, Set
+from typing import Set
 
 import boto3
 from botocore.exceptions import ClientError

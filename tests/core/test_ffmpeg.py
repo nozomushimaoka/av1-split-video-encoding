@@ -1,5 +1,4 @@
-from unittest.mock import Mock, patch, mock_open
-import subprocess
+from unittest.mock import Mock, patch
 import pytest
 
 from av1_encoder.core.ffmpeg import FFmpegService, SegmentInfo
