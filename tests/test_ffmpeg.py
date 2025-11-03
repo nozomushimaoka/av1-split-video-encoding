@@ -28,9 +28,10 @@ def segment_info(tmp_path):
 @pytest.fixture
 def encoding_config(tmp_path):
     """テスト用のEncodingConfigを作成するフィクスチャ"""
+    input_file = tmp_path / "input.mp4"
+    input_file.touch()
     return EncodingConfig(
-        input_file=tmp_path / "input.mp4",
-        s3_bucket="test-bucket",
+        input_file=input_file,
         parallel_jobs=4,
         segment_length=60,
         extra_args=['-crf', '30', '-preset', '6', '-g', '240', '-keyint_min', '240']
@@ -217,13 +218,13 @@ class TestFFmpegServiceのencode_segment:
 
     def test_セグメントをエンコード_extra_argsなし(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
         """extra_argsなしでセグメントをエンコードするテスト"""
+        input_file = tmp_path / "input.mp4"
+        input_file.touch()
         config = EncodingConfig(
-            input_file=tmp_path / "input.mp4",
-            s3_bucket="test-bucket",
+            input_file=input_file,
             parallel_jobs=4,
             segment_length=60
         )
-        input_file = tmp_path / "input.mp4"
 
         mock_process = Mock()
         mock_process.stdout = iter([])
@@ -248,9 +249,10 @@ class TestFFmpegServiceのencode_segment:
 
     def test_セグメントをエンコード_カスタムextra_args(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
         """カスタムextra_argsでセグメントをエンコードするテスト"""
+        input_file = tmp_path / "input.mp4"
+        input_file.touch()
         config = EncodingConfig(
-            input_file=tmp_path / "input.mp4",
-            s3_bucket="test-bucket",
+            input_file=input_file,
             parallel_jobs=4,
             segment_length=60,
             extra_args=[
@@ -259,7 +261,6 @@ class TestFFmpegServiceのencode_segment:
                 '-crf', '25'
             ]
         )
-        input_file = tmp_path / "input.mp4"
 
         mock_process = Mock()
         mock_process.stdout = iter([])
