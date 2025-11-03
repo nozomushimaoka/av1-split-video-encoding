@@ -11,11 +11,6 @@ class Workspace:
     concat_file: Path
     output_file: Path
 
-    def prepare_directory(self) -> None:
-        # 親ディレクトリは既に存在している前提
-        # フラット構造なのでサブディレクトリの作成は不要
-        pass
-
 
 def make_workspace_from_path(workspace_dir: Path, input_file: Path) -> Workspace:
     """既存の作業ディレクトリからWorkspaceオブジェクトを構築
@@ -27,8 +22,6 @@ def make_workspace_from_path(workspace_dir: Path, input_file: Path) -> Workspace
     Returns:
         Workspace: ワークスペースオブジェクト
     """
-    input_basename = input_file.stem
-
     return Workspace(
         work_dir=workspace_dir,
         log_file=workspace_dir / "main.log",

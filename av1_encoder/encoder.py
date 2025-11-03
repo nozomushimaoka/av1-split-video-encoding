@@ -26,7 +26,6 @@ class EncodingOrchestrator:
         self.config = config
         self.start_time = datetime.now()
         self.workspace = make_workspace_from_path(config.workspace_dir, config.input_file)
-        self.workspace.prepare_directory()
         self.logger = self._init_logger(self.workspace.log_file)
         self.ffmpeg = FFmpegService()
         self._main_pid = os.getpid()  # メインプロセスのPIDを記録
