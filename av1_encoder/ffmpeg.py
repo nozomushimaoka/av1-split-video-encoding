@@ -3,7 +3,6 @@ import logging
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
 
 from .config import EncodingConfig
 
@@ -112,35 +111,3 @@ class FFmpegService:
                 handler.close()
                 segment_logger.removeHandler(handler)
 
-    def concat_segments(
-        self,
-        segment_files: List[Path],
-        audio_file: Path,
-        concat_file: Path,
-        output_file: Path
-    ) -> None:
-        # concat.txtを作成
-        concat_txt_content = self._concat_txt_content(segment_files)
-        with open(concat_file, 'w', encoding='utf-8') as f:
-            f.writelines(concat_txt_content)
-
-        # ビデオを結合し、音声も別ファイルから結合
-        try:
-            subprocess.run(
-                [
-                    'ffmpeg', '-f', 'concat', '-safe', '0',
-                    '-i', str(concat_file),
-                    '-i', str(audio_file),
-                    '-map', '0:v:0',
-                    '-map', '1:a',
-                    '-c', 'copy', str(output_file)
-                ],
-                capture_output=True,
-                check=True
-            )
-        except subprocess.CalledProcessError as e:
-            error_msg = e.stderr.decode('utf-8', errors='ignore')
-            raise RuntimeError(f"ビデオ結合失敗: {error_msg}") from e
-
-    def _concat_txt_content(self, segment_files: List[Path]) -> List[str]:
-        return [f"file '{segment_file.resolve()}'\n" for segment_file in segment_files]

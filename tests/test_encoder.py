@@ -105,7 +105,7 @@ class TestEncodingOrchestratorのrun:
              patch.object(EncodingOrchestrator, '_init_logger'), \
              patch.object(EncodingOrchestrator, '_print_header') as mock_header, \
              patch.object(EncodingOrchestrator, '_encode_segments') as mock_encode, \
-             patch.object(EncodingOrchestrator, '_concat_segments') as mock_concat, \
+             patch.object(EncodingOrchestrator, '_generate_concat_file') as mock_generate_concat, \
              patch.object(EncodingOrchestrator, '_print_completion') as mock_completion:
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -114,7 +114,7 @@ class TestEncodingOrchestratorのrun:
             # 各メソッドが呼び出されたことを確認
             mock_header.assert_called_once()
             mock_encode.assert_called_once()
-            mock_concat.assert_called_once()
+            mock_generate_concat.assert_called_once()
             mock_completion.assert_called_once()
 
     def test_runでエラーが発生した場合にログとraise(self, encoding_config):
@@ -394,18 +394,17 @@ class TestEncodingOrchestratorのencode_segments:
                         orchestrator._encode_segments()
 
 
-class TestEncodingOrchestratorのconcat_segments:
-    """EncodingOrchestratorの_concat_segmentsメソッドのテスト"""
+class TestEncodingOrchestratorのgenerate_concat_file:
+    """EncodingOrchestratorの_generate_concat_fileメソッドのテスト"""
 
-    def test_セグメントを結合(self, encoding_config, mock_workspace):
-        """_concat_segmentsがセグメントファイルを結合することをテスト"""
+    def test_concat_txtを生成(self, encoding_config, mock_workspace):
+        """_generate_concat_fileがconcat.txtを生成することをテスト"""
         with patch('av1_encoder.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoder.FFmpegService'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
             orchestrator.logger = Mock()
-            orchestrator.ffmpeg = Mock()
 
             # セグメントファイルを作成
             segment_files = [
@@ -417,23 +416,18 @@ class TestEncodingOrchestratorのconcat_segments:
             for seg_file in segment_files:
                 seg_file.touch()
 
-            # セグメントファイルが存在することを確認
-            for seg_file in segment_files:
-                assert seg_file.exists()
+            orchestrator._generate_concat_file()
 
-            orchestrator._concat_segments()
+            # concat.txtが生成されたことを確認
+            assert mock_workspace.concat_file.exists()
 
-            # ffmpeg.concat_segmentsが正しいパラメータで呼び出されたことを確認
-            orchestrator.ffmpeg.concat_segments.assert_called_once()
-            call_args = orchestrator.ffmpeg.concat_segments.call_args[0]
-            assert len(call_args[0]) == 3  # segment_files
-            assert call_args[1] == encoding_config.input_file  # audio_file
-            assert call_args[2] == mock_workspace.concat_file  # concat_file
-            assert call_args[3] == mock_workspace.output_file  # output_file
+            # concat.txtの内容を確認
+            with open(mock_workspace.concat_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
 
-            # 結合後にセグメントファイルが削除されることを確認
-            for seg_file in segment_files:
-                assert not seg_file.exists()
+            assert len(lines) == 3
+            for i, line in enumerate(lines):
+                assert line == f"file '{segment_files[i].resolve()}'\n"
 
 
 class TestEncodingOrchestratorのinit_logger:

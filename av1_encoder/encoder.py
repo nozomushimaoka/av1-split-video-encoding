@@ -38,7 +38,7 @@ class EncodingOrchestrator:
         try:
             self._print_header()
             self._encode_segments()
-            self._concat_segments()
+            self._generate_concat_file()
             self._print_completion()
         except KeyboardInterrupt:
             self.logger.error("処理が中断されました")
@@ -122,25 +122,18 @@ class EncodingOrchestrator:
         finally:
             executor.shutdown(wait=True)
 
-    def _concat_segments(self) -> None:
-        self.logger.info("セグメント結合開始")
+    def _generate_concat_file(self) -> None:
+        self.logger.info("concat.txt生成開始")
 
         # セグメントファイルをリストアップ
         segment_files = sorted(self.workspace.work_dir.glob("segment_*.mp4"))
 
-        self.ffmpeg.concat_segments(
-            segment_files,
-            self.config.input_file,
-            self.workspace.concat_file,
-            self.workspace.output_file
-        )
+        # concat.txtを生成
+        concat_txt_content = [f"file '{segment_file.resolve()}'\n" for segment_file in segment_files]
+        with open(self.workspace.concat_file, 'w', encoding='utf-8') as f:
+            f.writelines(concat_txt_content)
 
-        self.logger.info("結合処理完了")
-
-        # 結合後、セグメントファイルを削除
-        self.logger.info("セグメントファイルを削除中")
-        for segment_file in segment_files:
-            segment_file.unlink()
+        self.logger.info(f"concat.txt生成完了: {self.workspace.concat_file}")
 
     def _list_segments(self) -> List[SegmentInfo]:
         num_segments = self._calc_num_segments()

@@ -54,52 +54,6 @@ class TestWorkspaceデータクラス:
         assert isinstance(workspace.output_file, Path)
 
 
-class TestWorkspaceのprepare_directory:
-    """Workspaceのprepare_directoryメソッドのテスト"""
-
-    def test_prepare_directoryはno_op(self, workspace):
-        """prepare_directoryはno-opであることをテスト（フラット構造のため）"""
-        # 親ディレクトリは手動で作成
-        workspace.work_dir.mkdir(parents=True, exist_ok=True)
-
-        # prepare_directoryを呼んでもエラーが出ないことを確認
-        workspace.prepare_directory()
-
-        # 作業ディレクトリは存在する
-        assert workspace.work_dir.exists()
-        assert workspace.work_dir.is_dir()
-
-    def test_既存のディレクトリに対してエラーが出ない(self, workspace):
-        """既存のディレクトリに対してprepare_directoryを呼んでもエラーが出ないことをテスト"""
-        # 親ディレクトリを作成
-        workspace.work_dir.mkdir(parents=True, exist_ok=True)
-
-        # 最初の呼び出し
-        workspace.prepare_directory()
-
-        # 2回目の呼び出し（エラーが出ないことを確認）
-        workspace.prepare_directory()
-        assert workspace.work_dir.exists()
-
-    def test_ファイルを含むディレクトリでprepare_directoryを再実行(self, workspace):
-        """ファイルを含むディレクトリでprepare_directoryを再実行してもエラーが出ないことをテスト"""
-        # 親ディレクトリを作成
-        workspace.work_dir.mkdir(parents=True, exist_ok=True)
-        workspace.prepare_directory()
-
-        # ディレクトリにファイルを作成
-        test_file = workspace.work_dir / "test.txt"
-        test_file.write_text("test content")
-
-        # 再度prepare_directoryを呼び出し
-        workspace.prepare_directory()
-
-        # ディレクトリとファイルが存在することを確認
-        assert workspace.work_dir.exists()
-        assert test_file.exists()
-        assert test_file.read_text() == "test content"
-
-
 class TestMakeWorkspaceFromPath:
     """make_workspace_from_path関数のテスト"""
 
