@@ -15,41 +15,31 @@ def main() -> int:
     )
     parser.add_argument(
         'input_file',
-        help='入力ファイルパス (例: video.mkv)'
+        help='入力ファイルパス'
     )
     parser.add_argument(
-        '--workspace', '-w',
+        'workspace',
         type=str,
-        required=True,
         help='作業ディレクトリパス（既存のディレクトリを指定）'
     )
     parser.add_argument(
         '--parallel', '-l',
         type=int,
-        default=4,
-        help='並列ジョブ数 (デフォルト: 4)'
+        required=True,
+        help='エンコード並列数'
     )
     parser.add_argument(
         'extra_args',
         nargs='*',
-        help='追加のFFmpegオプション (例: -- -crf 30 -preset 6 -pix_fmt yuv420p10le)'
+        help='追加のFFmpegオプション'
     )
 
     args = parser.parse_args()
 
-    # 作業ディレクトリの検証
-    workspace_dir = Path(args.workspace)
-    if not workspace_dir.exists():
-        print(f"エラー: 作業ディレクトリが存在しません: {workspace_dir}", file=sys.stderr)
-        return 1
-    if not workspace_dir.is_dir():
-        print(f"エラー: 作業ディレクトリがディレクトリではありません: {workspace_dir}", file=sys.stderr)
-        return 1
-
     # 設定を作成
     config = EncodingConfig(
         input_file=Path(args.input_file),
-        workspace_dir=workspace_dir,
+        workspace_dir=Path(args.workspace),
         parallel_jobs=args.parallel,
         extra_args=args.extra_args if args.extra_args else []
     )

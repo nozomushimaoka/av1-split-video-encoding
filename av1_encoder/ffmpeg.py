@@ -78,7 +78,6 @@ class FFmpegService:
 
         # 実行
         try:
-            segment_logger.info(f"セグメント {segment_idx} 開始")
             segment_logger.debug(f"コマンド: {' '.join(cmd)}")
 
             # FFmpegをリアルタイムで実行し、出力をロガーでキャプチャ

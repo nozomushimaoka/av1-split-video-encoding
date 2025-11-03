@@ -25,7 +25,7 @@ class EncodingOrchestrator:
     ):
         self.config = config
         self.start_time = datetime.now()
-        self.workspace = make_workspace_from_path(config.workspace_dir, config.input_file)
+        self.workspace = make_workspace_from_path(config.workspace_dir)
         self.logger = self._init_logger(self.workspace.log_file)
         self.ffmpeg = FFmpegService()
         self._main_pid = os.getpid()  # メインプロセスのPIDを記録
@@ -36,7 +36,6 @@ class EncodingOrchestrator:
         signal.signal(signal.SIGTERM, self._signal_handler)
 
         try:
-            self._print_header()
             self._encode_segments()
             self._generate_concat_file()
             self._print_completion()
@@ -56,31 +55,21 @@ class EncodingOrchestrator:
         self.logger.warning("中断シグナルを受信しました。クリーンアップ中...")
         raise KeyboardInterrupt()
 
-    def _print_header(self) -> None:
-        self.logger.info(f"作業ディレクトリ: {self.workspace.work_dir}")
-        self.logger.info(f"並列ジョブ数: {self.config.parallel_jobs}")
-        if self.config.extra_args:
-            self.logger.info(f"追加FFmpegオプション: {' '.join(self.config.extra_args)}")
-
     def _print_completion(self) -> None:
         end_time = datetime.now()
         elapsed = end_time - self.start_time
 
-        self.logger.info("全処理完了")
-        self.logger.info(f"処理時間: {elapsed}")
+        self.logger.info(f"終了 処理時間: {elapsed}")
 
     def _encode_segments(self) -> None:
-        self.logger.info("分割エンコードを開始")
-
         # セグメント情報リストを作成
         segments = self._list_segments()
 
         # 並列エンコード実行
-        self.logger.debug(f"エンコード開始 並列数: {self.config.parallel_jobs}")
+        self.logger.debug(f"エンコード開始 並列数: {self.config.parallel_jobs} セグメント数: {len(segments)}")
 
         total_count = len(segments)
         count = 0
-        failed = 0
 
         executor = ProcessPoolExecutor(
             max_workers=self.config.parallel_jobs,
@@ -108,14 +97,9 @@ class EncodingOrchestrator:
                 if success:
                     self.logger.info(f"完了: {segment_idx} ({count}/{total_count})")
                 else:
-                    failed += 1
-                    self.logger.error(f"失敗: {segment_idx}")
+                    raise RuntimeError(f"セグメント{segment_idx}のエンコードに失敗")
 
-            # 結果確認
-            if failed > 0:
-                raise RuntimeError(f"{failed}個のセグメントでエラーが発生")
-
-            self.logger.info("セグメントエンコード完了")
+            self.logger.info("エンコード完了")
         except KeyboardInterrupt:
             executor.shutdown(wait=False, cancel_futures=True)
             raise
