@@ -71,7 +71,7 @@ class TestEncodingOrchestrator初期化:
             assert isinstance(orchestrator.start_time, datetime)
 
             # workspaceが作成されていることを確認
-            mock_make_workspace.assert_called_once_with(encoding_config.workspace_dir, encoding_config.input_file)
+            mock_make_workspace.assert_called_once_with(encoding_config.workspace_dir)
             assert orchestrator.workspace == mock_workspace
 
             # loggerが初期化されていることを確認
@@ -103,7 +103,6 @@ class TestEncodingOrchestratorのrun:
         with patch('av1_encoder.encoder.make_workspace_from_path'), \
              patch('av1_encoder.encoder.FFmpegService'), \
              patch.object(EncodingOrchestrator, '_init_logger'), \
-             patch.object(EncodingOrchestrator, '_print_header') as mock_header, \
              patch.object(EncodingOrchestrator, '_encode_segments') as mock_encode, \
              patch.object(EncodingOrchestrator, '_generate_concat_file') as mock_generate_concat, \
              patch.object(EncodingOrchestrator, '_print_completion') as mock_completion:
@@ -112,7 +111,6 @@ class TestEncodingOrchestratorのrun:
             orchestrator.run()
 
             # 各メソッドが呼び出されたことを確認
-            mock_header.assert_called_once()
             mock_encode.assert_called_once()
             mock_generate_concat.assert_called_once()
             mock_completion.assert_called_once()
@@ -128,62 +126,13 @@ class TestEncodingOrchestratorのrun:
 
             error = RuntimeError("テストエラー")
 
-            with patch.object(orchestrator, '_print_header'), \
-                 patch.object(orchestrator, '_encode_segments', side_effect=error):
+            with patch.object(orchestrator, '_encode_segments', side_effect=error):
 
                 with pytest.raises(RuntimeError, match="テストエラー"):
                     orchestrator.run()
 
                 # logger.exceptionが呼び出されたことを確認
                 orchestrator.logger.exception.assert_called_once_with("エラー")
-
-
-class TestEncodingOrchestratorのprint_header:
-    """EncodingOrchestratorの_print_headerメソッドのテスト"""
-
-    def test_ヘッダー情報をログに出力(self, encoding_config, mock_workspace):
-        """_print_headerが設定情報をログに出力することをテスト"""
-        with patch('av1_encoder.encoder.make_workspace_from_path', return_value=mock_workspace), \
-             patch('av1_encoder.encoder.FFmpegService'), \
-             patch.object(EncodingOrchestrator, '_init_logger'):
-
-            orchestrator = EncodingOrchestrator(encoding_config)
-            orchestrator.logger = Mock()
-
-            orchestrator._print_header()
-
-            # ログが出力されたことを確認
-            assert orchestrator.logger.info.call_count >= 3
-            calls = [str(call) for call in orchestrator.logger.info.call_args_list]
-            assert any("作業ディレクトリ" in str(call) for call in calls)
-            assert any("並列ジョブ数" in str(call) for call in calls)
-            assert any("追加FFmpegオプション" in str(call) for call in calls)
-
-    def test_ヘッダー情報_オプションなし(self, tmp_path, mock_workspace):
-        """オプションがない場合はそれらをログに出力しないことをテスト"""
-        input_file = tmp_path / "input.mp4"
-        input_file.touch()
-        workspace_dir = tmp_path / "workspace"
-        workspace_dir.mkdir(exist_ok=True)
-        config = EncodingConfig(
-            input_file=input_file,
-            workspace_dir=workspace_dir,
-            parallel_jobs=2,
-            segment_length=60
-        )
-
-        with patch('av1_encoder.encoder.make_workspace_from_path', return_value=mock_workspace), \
-             patch('av1_encoder.encoder.FFmpegService'), \
-             patch.object(EncodingOrchestrator, '_init_logger'):
-
-            orchestrator = EncodingOrchestrator(config)
-            orchestrator.logger = Mock()
-
-            orchestrator._print_header()
-
-            # オプションなしの情報が出力されないことを確認
-            calls = [str(call) for call in orchestrator.logger.info.call_args_list]
-            assert not any("追加FFmpegオプション" in str(call) for call in calls)
 
 
 class TestEncodingOrchestratorのprint_completion:
@@ -202,10 +151,10 @@ class TestEncodingOrchestratorのprint_completion:
             orchestrator._print_completion()
 
             # ログが出力されたことを確認
-            assert orchestrator.logger.info.call_count == 2
+            assert orchestrator.logger.info.call_count == 1
             calls = [call[0][0] for call in orchestrator.logger.info.call_args_list]
-            assert "全処理完了" in calls[0]
-            assert "処理時間" in calls[1]
+            assert "終了" in calls[0]
+            assert "処理時間" in calls[0]
 
 
 class TestEncodingOrchestratorのlist_segments:
@@ -390,7 +339,7 @@ class TestEncodingOrchestratorのencode_segments:
                     return list(future_dict.keys())
 
                 with patch('av1_encoder.encoder.as_completed', side_effect=mock_as_completed):
-                    with pytest.raises(RuntimeError, match="1個のセグメントでエラーが発生"):
+                    with pytest.raises(RuntimeError, match="セグメント.*のエンコードに失敗"):
                         orchestrator._encode_segments()
 
 

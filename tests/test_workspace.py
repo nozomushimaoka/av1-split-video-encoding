@@ -59,12 +59,10 @@ class TestMakeWorkspaceFromPath:
 
     def test_workspaceを生成(self, tmp_path):
         """make_workspace_from_pathが正しいWorkspaceを生成することをテスト"""
-        input_file = tmp_path / "input_video.mp4"
-        input_file.touch()
         workspace_dir = tmp_path / "my_workspace"
         workspace_dir.mkdir()
 
-        workspace = make_workspace_from_path(workspace_dir, input_file)
+        workspace = make_workspace_from_path(workspace_dir)
 
         # 正しいワークディレクトリパスが設定されることを確認
         assert workspace.work_dir == workspace_dir
@@ -76,28 +74,23 @@ class TestMakeWorkspaceFromPath:
 
     def test_workspaceの出力ファイル名は常にoutput_mkv(self, tmp_path):
         """出力ファイル名が常にoutput.mkvであることをテスト"""
-        input_file = tmp_path / "my_movie.mp4"
-        input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
 
-        workspace = make_workspace_from_path(workspace_dir, input_file)
+        workspace = make_workspace_from_path(workspace_dir)
 
         assert workspace.output_file.name == "output.mkv"
         assert workspace.output_file.parent == workspace_dir
 
     def test_異なるワークスペースディレクトリで異なるワークスペース(self, tmp_path):
         """異なるワークスペースディレクトリで異なるワークスペースが生成されることをテスト"""
-        input_file = tmp_path / "video.mp4"
-        input_file.touch()
-
         workspace_dir1 = tmp_path / "workspace1"
         workspace_dir1.mkdir()
         workspace_dir2 = tmp_path / "workspace2"
         workspace_dir2.mkdir()
 
-        workspace1 = make_workspace_from_path(workspace_dir1, input_file)
-        workspace2 = make_workspace_from_path(workspace_dir2, input_file)
+        workspace1 = make_workspace_from_path(workspace_dir1)
+        workspace2 = make_workspace_from_path(workspace_dir2)
 
         # 異なるワークディレクトリが設定されることを確認
         assert workspace1.work_dir != workspace2.work_dir
@@ -109,13 +102,8 @@ class TestMakeWorkspaceFromPath:
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
 
-        input_file1 = tmp_path / "video.avi"
-        input_file1.touch()
-        input_file2 = tmp_path / "movie.mp4"
-        input_file2.touch()
-
-        workspace1 = make_workspace_from_path(workspace_dir, input_file1)
-        workspace2 = make_workspace_from_path(workspace_dir, input_file2)
+        workspace1 = make_workspace_from_path(workspace_dir)
+        workspace2 = make_workspace_from_path(workspace_dir)
 
         # どちらも出力ファイル名はoutput.mkvになる
         assert workspace1.output_file.name == "output.mkv"
