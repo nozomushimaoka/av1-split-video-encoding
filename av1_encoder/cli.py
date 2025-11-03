@@ -24,12 +24,6 @@ def main() -> int:
         help='並列ジョブ数 (デフォルト: 4)'
     )
     parser.add_argument(
-        '--bucket',
-        type=str,
-        default='xxx',
-        help='S3バケット名'
-    )
-    parser.add_argument(
         'extra_args',
         nargs='*',
         help='追加のFFmpegオプション (例: -- -crf 30 -preset 6 -pix_fmt yuv420p10le)'
@@ -41,7 +35,6 @@ def main() -> int:
     config = EncodingConfig(
         input_file=Path(args.input_file),
         parallel_jobs=args.parallel,
-        s3_bucket=args.bucket,
         extra_args=args.extra_args if args.extra_args else []
     )
 

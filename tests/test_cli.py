@@ -29,7 +29,6 @@ class TestCLIの引数パース:
             assert config.input_file == Path('input.mp4')
             assert config.parallel_jobs == 4  # デフォルト値
             assert config.extra_args == []  # デフォルト値
-            assert config.s3_bucket == 'xxx'  # デフォルト値
 
             # runが呼び出されたことを確認
             mock_orchestrator.run.assert_called_once()
@@ -43,7 +42,6 @@ class TestCLIの引数パース:
             'prog',
             'video.mkv',
             '--parallel', '8',
-            '--bucket', 'my-bucket',
             '--',
             '-crf', '30',
             '-preset', '6',
@@ -65,7 +63,6 @@ class TestCLIの引数パース:
             assert config.input_file == Path('video.mkv')
             assert config.parallel_jobs == 8
             assert config.extra_args == ['-crf', '30', '-preset', '6', '-g', '240']
-            assert config.s3_bucket == 'my-bucket'
 
             assert result == 0
 
@@ -91,7 +88,6 @@ class TestCLIの引数パース:
         test_args = [
             'prog',
             'test.mp4',
-            '--bucket', 'test-bucket',
             '--',
             '-crf', '25'
         ]
@@ -110,7 +106,6 @@ class TestCLIの引数パース:
             assert config.input_file == Path('test.mp4')
             assert config.parallel_jobs == 4  # デフォルト
             assert config.extra_args == ['-crf', '25']
-            assert config.s3_bucket == 'test-bucket'
             assert result == 0
 
 
@@ -186,7 +181,6 @@ class TestCLIのEncodingConfig作成:
             'prog',
             'my_video.mp4',
             '--parallel', '12',
-            '--bucket', 'custom-bucket',
             '--',
             '-crf', '28',
             '-preset', '5',
@@ -209,7 +203,6 @@ class TestCLIのEncodingConfig作成:
             assert config.input_file == Path('my_video.mp4')
             assert config.parallel_jobs == 12
             assert config.extra_args == ['-crf', '28', '-preset', '5', '-g', '120']
-            assert config.s3_bucket == 'custom-bucket'
 
     def test_input_fileがPathオブジェクトに変換される(self):
         """input_file引数がPathオブジェクトに変換されることをテスト"""
@@ -245,21 +238,6 @@ class TestCLIのデフォルト値:
 
             config = mock_orchestrator_class.call_args[0][0]
             assert config.parallel_jobs == 4
-
-    def test_bucketのデフォルト値(self):
-        """bucketのデフォルト値が正しいことをテスト"""
-        test_args = ['prog', 'input.mp4']
-
-        with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
-
-            mock_orchestrator = Mock()
-            mock_orchestrator_class.return_value = mock_orchestrator
-
-            main()
-
-            config = mock_orchestrator_class.call_args[0][0]
-            assert config.s3_bucket == 'xxx'
 
     def test_extra_argsのデフォルト値は空リスト(self):
         """extra_argsのデフォルト値が空リストであることをテスト"""
@@ -325,8 +303,7 @@ class TestCLIの引数型:
         """文字列引数が正しく処理されることをテスト"""
         test_args = [
             'prog',
-            'path/to/input.mp4',
-            '--bucket', 'my-custom-bucket-name'
+            'path/to/input.mp4'
         ]
 
         with patch('sys.argv', test_args), \
@@ -338,9 +315,8 @@ class TestCLIの引数型:
             main()
 
             config = mock_orchestrator_class.call_args[0][0]
-
-            assert isinstance(config.s3_bucket, str)
-            assert config.s3_bucket == 'my-custom-bucket-name'
+            assert isinstance(config.input_file, Path)
+            assert config.input_file == Path('path/to/input.mp4')
 
 
 class TestCLIのエッジケース:
@@ -409,17 +385,3 @@ class TestCLIのエッジケース:
             config = mock_orchestrator_class.call_args[0][0]
             assert config.input_file == Path(special_filename)
 
-    def test_空文字列のバケット名(self):
-        """空文字列のバケット名が正しく処理されることをテスト"""
-        test_args = ['prog', 'input.mp4', '--bucket', '']
-
-        with patch('sys.argv', test_args), \
-             patch('av1_encoder.cli.EncodingOrchestrator') as mock_orchestrator_class:
-
-            mock_orchestrator = Mock()
-            mock_orchestrator_class.return_value = mock_orchestrator
-
-            main()
-
-            config = mock_orchestrator_class.call_args[0][0]
-            assert config.s3_bucket == ''

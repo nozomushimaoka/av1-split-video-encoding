@@ -11,7 +11,6 @@ from datetime import datetime
 from .config import EncodingConfig
 from .workspace import make_workspace
 from .ffmpeg import FFmpegService, SegmentInfo
-from .storage import S3Service
 
 
 def _worker_init():
@@ -32,7 +31,6 @@ class EncodingOrchestrator:
         self.workspace.prepare_directory()
         self.logger = self._init_logger(self.workspace.log_file)
         self.ffmpeg = FFmpegService()
-        self.s3 = S3Service()
         self._main_pid = os.getpid()  # メインプロセスのPIDを記録
 
     def run(self) -> None:
@@ -42,10 +40,8 @@ class EncodingOrchestrator:
 
         try:
             self._print_header()
-            self._download_from_s3()
             self._encode_segments()
             self._concat_segments()
-            self._upload_to_s3()
             self._print_completion()
         except KeyboardInterrupt:
             self.logger.error("処理が中断されました")
@@ -75,18 +71,6 @@ class EncodingOrchestrator:
 
         self.logger.info("全処理完了")
         self.logger.info(f"処理時間: {elapsed}")
-
-    def _download_from_s3(self):
-        if self.config.input_file.exists():
-            self.logger.debug('入力ファイルはすでにローカルに存在するためダウンロードしません')
-            return
-
-        self.logger.info('S3から入力ファイルを取得')
-        self.s3.download(
-            self.config.s3_bucket,
-            f"input/{self.config.input_file.name}",
-            self.config.input_file
-        )
 
     def _encode_segments(self) -> None:
         self.logger.info("分割エンコードを開始")
@@ -179,24 +163,6 @@ class EncodingOrchestrator:
     def _calc_num_segments(self) -> int:
         duration = self.ffmpeg.get_duration(self.config.input_file)
         return int((duration + self.config.segment_length - 1) // self.config.segment_length)
-
-    def _upload_to_s3(self) -> None:
-        self.logger.info("S3アップロード開始")
-
-        # 結合ファイルのみをアップロード
-        output_key = f"output/{self.config.input_file.stem}.mkv"
-        self.s3.upload_file(
-            self.workspace.output_file,
-            self.config.s3_bucket,
-            output_key
-        )
-
-        self.logger.info("S3アップロード完了")
-
-        # アップロード後、output.mkvとinput.mkvを削除
-        self.logger.info("クリーンアップ")
-        self.workspace.output_file.unlink()
-        self.config.input_file.unlink(missing_ok=True)
 
     def _init_logger(self, log_file: Path) -> logging.Logger:
         logger = logging.getLogger("av1_encoder")

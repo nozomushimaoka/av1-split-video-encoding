@@ -14,9 +14,9 @@ from av1_encoder.workspace import Workspace
 def encoding_config(tmp_path):
     """テスト用のEncodingConfigを作成するフィクスチャ"""
     input_file = tmp_path / "input.mp4"
+    input_file.touch()
     return EncodingConfig(
         input_file=input_file,
-        s3_bucket="test-bucket",
         parallel_jobs=2,
         segment_length=60,
         extra_args=['-crf', '30', '-preset', '6', '-g', '240', '-keyint_min', '240']
@@ -57,7 +57,6 @@ class TestEncodingOrchestrator初期化:
         """EncodingOrchestratorが必要なコンポーネントで初期化されることをテスト"""
         with patch('av1_encoder.encoder.make_workspace') as mock_make_workspace, \
              patch('av1_encoder.encoder.FFmpegService') as mock_ffmpeg_class, \
-             patch('av1_encoder.encoder.S3Service') as mock_s3_class, \
              patch.object(EncodingOrchestrator, '_init_logger') as mock_init_logger:
 
             mock_workspace = Mock()
@@ -82,15 +81,13 @@ class TestEncodingOrchestrator初期化:
             mock_init_logger.assert_called_once_with(mock_workspace.log_file)
             assert orchestrator.logger == mock_logger
 
-            # FFmpegServiceとS3Serviceが作成されていることを確認
+            # FFmpegServiceが作成されていることを確認
             mock_ffmpeg_class.assert_called_once()
-            mock_s3_class.assert_called_once()
 
     def test_start_timeが現在時刻に近い(self, encoding_config):
         """start_timeが現在時刻に設定されることをテスト"""
         with patch('av1_encoder.encoder.make_workspace'), \
              patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             before = datetime.now()
@@ -108,13 +105,10 @@ class TestEncodingOrchestratorのrun:
         """runメソッドが正しい順序で各ステップを実行することをテスト"""
         with patch('av1_encoder.encoder.make_workspace'), \
              patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
              patch.object(EncodingOrchestrator, '_init_logger'), \
              patch.object(EncodingOrchestrator, '_print_header') as mock_header, \
-             patch.object(EncodingOrchestrator, '_download_from_s3') as mock_download, \
              patch.object(EncodingOrchestrator, '_encode_segments') as mock_encode, \
              patch.object(EncodingOrchestrator, '_concat_segments') as mock_concat, \
-             patch.object(EncodingOrchestrator, '_upload_to_s3') as mock_upload, \
              patch.object(EncodingOrchestrator, '_print_completion') as mock_completion:
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -122,17 +116,14 @@ class TestEncodingOrchestratorのrun:
 
             # 各メソッドが呼び出されたことを確認
             mock_header.assert_called_once()
-            mock_download.assert_called_once()
             mock_encode.assert_called_once()
             mock_concat.assert_called_once()
-            mock_upload.assert_called_once()
             mock_completion.assert_called_once()
 
     def test_runでエラーが発生した場合にログとraise(self, encoding_config):
         """runメソッドでエラーが発生した場合にログに記録し例外を再raiseすることをテスト"""
         with patch('av1_encoder.encoder.make_workspace'), \
              patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -141,7 +132,7 @@ class TestEncodingOrchestratorのrun:
             error = RuntimeError("テストエラー")
 
             with patch.object(orchestrator, '_print_header'), \
-                 patch.object(orchestrator, '_download_from_s3', side_effect=error):
+                 patch.object(orchestrator, '_encode_segments', side_effect=error):
 
                 with pytest.raises(RuntimeError, match="テストエラー"):
                     orchestrator.run()
@@ -157,7 +148,6 @@ class TestEncodingOrchestratorのprint_header:
         """_print_headerが設定情報をログに出力することをテスト"""
         with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
              patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -174,16 +164,16 @@ class TestEncodingOrchestratorのprint_header:
 
     def test_ヘッダー情報_オプションなし(self, tmp_path, mock_workspace):
         """オプションがない場合はそれらをログに出力しないことをテスト"""
+        input_file = tmp_path / "input.mp4"
+        input_file.touch()
         config = EncodingConfig(
-            input_file=tmp_path / "input.mp4",
-            s3_bucket="test-bucket",
+            input_file=input_file,
             parallel_jobs=2,
             segment_length=60
         )
 
         with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
              patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(config)
@@ -203,7 +193,6 @@ class TestEncodingOrchestratorのprint_completion:
         """_print_completionが処理時間をログに出力することをテスト"""
         with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
              patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -219,53 +208,6 @@ class TestEncodingOrchestratorのprint_completion:
             assert "処理時間" in calls[1]
 
 
-class TestEncodingOrchestratorのdownload_from_s3:
-    """EncodingOrchestratorの_download_from_s3メソッドのテスト"""
-
-    def test_入力ファイルが存在しない場合にS3からダウンロード(self, encoding_config, mock_workspace):
-        """入力ファイルが存在しない場合にS3からダウンロードすることをテスト"""
-        with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
-             patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
-             patch.object(EncodingOrchestrator, '_init_logger'):
-
-            orchestrator = EncodingOrchestrator(encoding_config)
-            orchestrator.logger = Mock()
-            orchestrator.s3 = Mock()
-
-            # 入力ファイルが存在しない場合
-            # 実際にファイルを作成せずにテスト
-            orchestrator._download_from_s3()
-
-            # S3からダウンロードされることを確認
-            orchestrator.s3.download.assert_called_once_with(
-                "test-bucket",
-                f"input/{encoding_config.input_file.name}",
-                encoding_config.input_file
-            )
-            orchestrator.logger.info.assert_called_once()
-
-    def test_入力ファイルが既に存在する場合はダウンロードしない(self, encoding_config, mock_workspace):
-        """入力ファイルが既に存在する場合はダウンロードしないことをテスト"""
-        with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
-             patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
-             patch.object(EncodingOrchestrator, '_init_logger'):
-
-            orchestrator = EncodingOrchestrator(encoding_config)
-            orchestrator.logger = Mock()
-            orchestrator.s3 = Mock()
-
-            # 入力ファイルを実際に作成
-            encoding_config.input_file.touch()
-
-            orchestrator._download_from_s3()
-
-            # S3からダウンロードされないことを確認
-            orchestrator.s3.download.assert_not_called()
-            orchestrator.logger.debug.assert_called_once()
-
-
 class TestEncodingOrchestratorのlist_segments:
     """EncodingOrchestratorの_list_segmentsメソッドのテスト"""
 
@@ -273,7 +215,6 @@ class TestEncodingOrchestratorのlist_segments:
         """_list_segmentsが正しいセグメントリストを生成することをテスト"""
         with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
              patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -305,7 +246,6 @@ class TestEncodingOrchestratorのlist_segments:
         """動画が1セグメントしかない場合のテスト"""
         with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
              patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -325,7 +265,6 @@ class TestEncodingOrchestratorのcalc_num_segments:
         """_calc_num_segmentsが正しくセグメント数を計算することをテスト"""
         with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
              patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -350,7 +289,6 @@ class TestEncodingOrchestratorのcalc_num_segments:
         """端数がある場合に切り上げられることをテスト"""
         with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
              patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -369,7 +307,6 @@ class TestEncodingOrchestratorのencode_segments:
         """_encode_segmentsがセグメントを並列にエンコードすることをテスト"""
         with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
              patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -419,7 +356,6 @@ class TestEncodingOrchestratorのencode_segments:
         """エンコードが失敗した場合にRuntimeErrorが発生することをテスト"""
         with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
              patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -465,7 +401,6 @@ class TestEncodingOrchestratorのconcat_segments:
         """_concat_segmentsがセグメントファイルを結合することをテスト"""
         with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
              patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
@@ -499,42 +434,6 @@ class TestEncodingOrchestratorのconcat_segments:
             assert not mock_workspace.segments_dir.exists()
 
 
-class TestEncodingOrchestratorのupload_to_s3:
-    """EncodingOrchestratorの_upload_to_s3メソッドのテスト"""
-
-    def test_S3にアップロード(self, encoding_config, mock_workspace):
-        """_upload_to_s3が結合ファイルのみをS3にアップロードすることをテスト"""
-        with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
-             patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'), \
-             patch.object(EncodingOrchestrator, '_init_logger'):
-
-            orchestrator = EncodingOrchestrator(encoding_config)
-            orchestrator.logger = Mock()
-            orchestrator.s3 = Mock()
-
-            # output.mkvとinput.mkvを作成
-            mock_workspace.output_file.touch()
-            encoding_config.input_file.touch()
-
-            # ファイルが存在することを確認
-            assert mock_workspace.output_file.exists()
-            assert encoding_config.input_file.exists()
-
-            orchestrator._upload_to_s3()
-
-            # s3.upload_fileが正しいパラメータで呼び出されたことを確認
-            orchestrator.s3.upload_file.assert_called_once_with(
-                mock_workspace.output_file,
-                "test-bucket",
-                f"output/{encoding_config.input_file.stem}.mkv"
-            )
-
-            # アップロード後にoutput.mkvとinput.mkvが削除されることを確認
-            assert not mock_workspace.output_file.exists()
-            assert not encoding_config.input_file.exists()
-
-
 class TestEncodingOrchestratorのinit_logger:
     """EncodingOrchestratorの_init_loggerメソッドのテスト"""
 
@@ -544,7 +443,7 @@ class TestEncodingOrchestratorのinit_logger:
 
         with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
              patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'):
+             patch('av1_encoder.encoder.FFmpegService'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
             logger = orchestrator._init_logger(log_file)
@@ -567,7 +466,7 @@ class TestEncodingOrchestratorのinit_logger:
 
         with patch('av1_encoder.encoder.make_workspace', return_value=mock_workspace), \
              patch('av1_encoder.encoder.FFmpegService'), \
-             patch('av1_encoder.encoder.S3Service'):
+             patch('av1_encoder.encoder.FFmpegService'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
 
@@ -590,16 +489,15 @@ class TestEncodingConfig:
     def test_configを作成(self, tmp_path):
         """EncodingConfigが正しく作成されることをテスト"""
         input_file = tmp_path / "input.mp4"
+        input_file.touch()
         config = EncodingConfig(
             input_file=input_file,
-            s3_bucket="test-bucket",
             parallel_jobs=4,
             segment_length=120,
             extra_args=['-crf', '30', '-preset', '6', '-g', '240']
         )
 
         assert config.input_file == input_file
-        assert config.s3_bucket == "test-bucket"
         assert config.parallel_jobs == 4
         assert config.extra_args == ['-crf', '30', '-preset', '6', '-g', '240']
         assert config.segment_length == 120
@@ -607,9 +505,9 @@ class TestEncodingConfig:
     def test_configのデフォルト値(self, tmp_path):
         """EncodingConfigのデフォルト値が正しいことをテスト"""
         input_file = tmp_path / "input.mp4"
+        input_file.touch()
         config = EncodingConfig(
             input_file=input_file,
-            s3_bucket="test-bucket",
             parallel_jobs=4
         )
 
@@ -619,9 +517,9 @@ class TestEncodingConfig:
     def test_configのextra_argsを空リストに設定(self, tmp_path):
         """extra_argsを明示的に空リストに設定できることをテスト"""
         input_file = tmp_path / "input.mp4"
+        input_file.touch()
         config = EncodingConfig(
             input_file=input_file,
-            s3_bucket="test-bucket",
             parallel_jobs=4,
             extra_args=[]
         )
