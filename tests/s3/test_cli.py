@@ -35,8 +35,9 @@ class TestMainのコマンドライン引数:
             'prog',
             '--bucket', 'my-bucket',
             '--parallel', '8',
-            '--crf', '30',
-            '--preset', '5'
+            '--',
+            '-crf', '30',
+            '-preset', '5'
         ]
 
         with patch('sys.argv', test_args), \
@@ -49,16 +50,16 @@ class TestMainのコマンドライン引数:
             mock_run.assert_called_once_with(
                 bucket='my-bucket',
                 parallel=8,
-                crf=30,
-                preset=5
+                extra_args=['-crf', '30', '-preset', '5']
             )
             assert result == 0
 
-    def test_デフォルト値が使用される(self):
-        """デフォルト値が正しく使用されることをテスト"""
+    def test_並列数のみ指定(self):
+        """並列数のみを指定した場合のテスト"""
         test_args = [
             'prog',
-            '--bucket', 'test-bucket'
+            '--bucket', 'test-bucket',
+            '--parallel', '10'
         ]
 
         with patch('sys.argv', test_args), \
@@ -67,18 +68,17 @@ class TestMainのコマンドライン引数:
 
             result = main()
 
-            # デフォルト値で呼ばれたことを確認
+            # extra_argsが空のリストで呼ばれたことを確認
             mock_run.assert_called_once_with(
                 bucket='test-bucket',
-                parallel=10,  # デフォルト
-                crf=36,  # デフォルト
-                preset=6  # デフォルト
+                parallel=10,
+                extra_args=[]
             )
             assert result == 0
 
     def test_環境変数からバケット名を取得(self):
         """環境変数S3_BUCKETからバケット名を取得することをテスト"""
-        test_args = ['prog']
+        test_args = ['prog', '--parallel', '5']
 
         with patch('sys.argv', test_args), \
              patch.dict(os.environ, {'S3_BUCKET': 'env-bucket'}), \
@@ -97,7 +97,8 @@ class TestMainのコマンドライン引数:
         """コマンドライン引数が環境変数より優先されることをテスト"""
         test_args = [
             'prog',
-            '--bucket', 'cli-bucket'
+            '--bucket', 'cli-bucket',
+            '--parallel', '5'
         ]
 
         with patch('sys.argv', test_args), \
@@ -115,7 +116,7 @@ class TestMainのコマンドライン引数:
 
     def test_バケット名が指定されていない場合はエラー(self):
         """バケット名が指定されていない場合はエラーを返すことをテスト"""
-        test_args = ['prog']
+        test_args = ['prog', '--parallel', '5']
 
         with patch('sys.argv', test_args), \
              patch.dict(os.environ, {}, clear=True):
@@ -123,6 +124,14 @@ class TestMainのコマンドライン引数:
 
             # エラーコードを返すことを確認
             assert result == 1
+
+    def test_並列数が指定されていない場合はエラー(self):
+        """並列数が指定されていない場合はSystemExitが発生することをテスト"""
+        test_args = ['prog', '--bucket', 'test-bucket']
+
+        with patch('sys.argv', test_args):
+            with pytest.raises(SystemExit):
+                main()
 
 
 class TestMainの実行:
@@ -132,7 +141,8 @@ class TestMainの実行:
         """処理が成功した場合に0を返すことをテスト"""
         test_args = [
             'prog',
-            '--bucket', 'test-bucket'
+            '--bucket', 'test-bucket',
+            '--parallel', '5'
         ]
 
         with patch('sys.argv', test_args), \
@@ -147,7 +157,8 @@ class TestMainの実行:
         """処理が失敗した場合に1を返すことをテスト"""
         test_args = [
             'prog',
-            '--bucket', 'test-bucket'
+            '--bucket', 'test-bucket',
+            '--parallel', '5'
         ]
 
         with patch('sys.argv', test_args), \
@@ -162,7 +173,8 @@ class TestMainの実行:
         """setup_loggingが呼ばれることをテスト"""
         test_args = [
             'prog',
-            '--bucket', 'test-bucket'
+            '--bucket', 'test-bucket',
+            '--parallel', '5'
         ]
 
         with patch('sys.argv', test_args), \
@@ -183,9 +195,7 @@ class TestMainの引数型:
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
-            '--parallel', '12',
-            '--crf', '28',
-            '--preset', '4'
+            '--parallel', '12'
         ]
 
         with patch('sys.argv', test_args), \
@@ -198,10 +208,6 @@ class TestMainの引数型:
             call_kwargs = mock_run.call_args[1]
             assert isinstance(call_kwargs['parallel'], int)
             assert call_kwargs['parallel'] == 12
-            assert isinstance(call_kwargs['crf'], int)
-            assert call_kwargs['crf'] == 28
-            assert isinstance(call_kwargs['preset'], int)
-            assert call_kwargs['preset'] == 4
 
     def test_不正な整数値でSystemExit(self):
         """不正な整数値を指定した場合にSystemExitが発生することをテスト"""
@@ -215,6 +221,28 @@ class TestMainの引数型:
             with pytest.raises(SystemExit):
                 main()
 
+    def test_extra_argsが正しくリストとして渡される(self):
+        """extra_argsが正しくリストとして渡されることをテスト"""
+        test_args = [
+            'prog',
+            '--bucket', 'test-bucket',
+            '--parallel', '5',
+            '--',
+            '-crf', '30',
+            '-preset', '6'
+        ]
+
+        with patch('sys.argv', test_args), \
+             patch('av1_encoder.s3.cli.run_batch_encoding') as mock_run:
+            mock_run.return_value = 0
+
+            main()
+
+            # extra_argsがリストで渡されたことを確認
+            call_kwargs = mock_run.call_args[1]
+            assert isinstance(call_kwargs['extra_args'], list)
+            assert call_kwargs['extra_args'] == ['-crf', '30', '-preset', '6']
+
 
 class TestMainのエッジケース:
     """main関数のエッジケースのテスト"""
@@ -224,9 +252,7 @@ class TestMainのエッジケース:
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
-            '--parallel', '-1',
-            '--crf', '-5',
-            '--preset', '-2'
+            '--parallel', '-1'
         ]
 
         with patch('sys.argv', test_args), \
@@ -238,17 +264,13 @@ class TestMainのエッジケース:
             # 負の値が渡されたことを確認
             call_kwargs = mock_run.call_args[1]
             assert call_kwargs['parallel'] == -1
-            assert call_kwargs['crf'] == -5
-            assert call_kwargs['preset'] == -2
 
     def test_非常に大きな値を持つ引数(self):
         """非常に大きな値を持つ引数が正しく処理されることをテスト"""
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
-            '--parallel', '1000000',
-            '--crf', '9999',
-            '--preset', '100'
+            '--parallel', '1000000'
         ]
 
         with patch('sys.argv', test_args), \
@@ -260,14 +282,13 @@ class TestMainのエッジケース:
             # 大きな値が渡されたことを確認
             call_kwargs = mock_run.call_args[1]
             assert call_kwargs['parallel'] == 1000000
-            assert call_kwargs['crf'] == 9999
-            assert call_kwargs['preset'] == 100
 
     def test_特殊文字を含むバケット名(self):
         """特殊文字を含むバケット名が正しく処理されることをテスト"""
         test_args = [
             'prog',
-            '--bucket', 'test-bucket-123_456'
+            '--bucket', 'test-bucket-123_456',
+            '--parallel', '5'
         ]
 
         with patch('sys.argv', test_args), \
@@ -279,6 +300,24 @@ class TestMainのエッジケース:
             # 特殊文字を含むバケット名が渡されたことを確認
             call_kwargs = mock_run.call_args[1]
             assert call_kwargs['bucket'] == 'test-bucket-123_456'
+
+    def test_ショートオプションlが使用できる(self):
+        """ショートオプション-lが使用できることをテスト"""
+        test_args = [
+            'prog',
+            '--bucket', 'test-bucket',
+            '-l', '8'
+        ]
+
+        with patch('sys.argv', test_args), \
+             patch('av1_encoder.s3.cli.run_batch_encoding') as mock_run:
+            mock_run.return_value = 0
+
+            main()
+
+            # ショートオプションが正しく処理されたことを確認
+            call_kwargs = mock_run.call_args[1]
+            assert call_kwargs['parallel'] == 8
 
 
 class TestMainのargparse動作:

@@ -34,22 +34,15 @@ def main() -> int:
         help='S3バケット名（環境変数S3_BUCKETからも取得可能）'
     )
     parser.add_argument(
-        '--parallel',
+        '--parallel', '-l',
         type=int,
-        default=10,
+        required=True,
         help='並列エンコード数（デフォルト: 10）'
     )
     parser.add_argument(
-        '--crf',
-        type=int,
-        default=36,
-        help='CRF値（デフォルト: 36）'
-    )
-    parser.add_argument(
-        '--preset',
-        type=int,
-        default=6,
-        help='プリセット値（デフォルト: 6）'
+        'extra_args',
+        nargs='*',
+        help='追加のFFmpegオプション'
     )
 
     args = parser.parse_args()
@@ -63,8 +56,7 @@ def main() -> int:
     return run_batch_encoding(
         bucket=args.bucket,
         parallel=args.parallel,
-        crf=args.crf,
-        preset=args.preset
+        extra_args=args.extra_args if args.extra_args else []
     )
 
 

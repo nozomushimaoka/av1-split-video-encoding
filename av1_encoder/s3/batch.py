@@ -69,8 +69,7 @@ def encode_video(
     input_file: Path,
     workspace: Path,
     parallel: int,
-    crf: int,
-    preset: int
+    extra_args: list[str]
 ) -> None:
     """エンコード処理を実行"""
     logger = logging.getLogger(__name__)
@@ -78,14 +77,6 @@ def encode_video(
 
     from av1_encoder.core.config import EncodingConfig
     from av1_encoder.encoding.encoder import EncodingOrchestrator
-
-    # エンコーダーオプション
-    extra_args = [
-        '-crf', str(crf),
-        '-preset', str(preset),
-        '-pix_fmt', 'yuv420p10le',
-        '-svtav1-params', 'tune=0:enable-qm=1:qm-min=0'
-    ]
 
     # 設定を作成
     config = EncodingConfig(
@@ -111,8 +102,7 @@ def process_single_file(
     input_file_name: str,
     base_name: str,
     parallel: int,
-    crf: int,
-    preset: int,
+    extra_args: list[str],
     download_future: Optional[Future[None]] = None
 ) -> Future[None]:
     """単一ファイルの処理"""
@@ -137,7 +127,7 @@ def process_single_file(
 
     try:
         # エンコード
-        encode_video(input_file, workspace, parallel, crf, preset)
+        encode_video(input_file, workspace, parallel, extra_args)
 
         # 結合
         output_file = workspace / "output.mkv"
@@ -162,8 +152,7 @@ def process_single_file(
 def run_batch_encoding(
     bucket: str,
     parallel: int,
-    crf: int,
-    preset: int
+    extra_args: list[str]
 ) -> int:
     """バッチエンコード処理を実行"""
     logger = logging.getLogger(__name__)
@@ -211,8 +200,7 @@ def run_batch_encoding(
                 input_file_name,
                 base_name,
                 parallel,
-                crf,
-                preset,
+                extra_args,
                 download_future
             )
 

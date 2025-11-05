@@ -149,7 +149,7 @@ class TestEncodeVideo:
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
 
-            encode_video(input_file, workspace, parallel=8, crf=30, preset=5)
+            encode_video(input_file, workspace, parallel=8, extra_args=['-crf', '30', '-preset', '5'])
 
             # EncodingOrchestratorが正しく呼ばれたことを確認
             mock_orchestrator_class.assert_called_once()
@@ -157,10 +157,7 @@ class TestEncodeVideo:
             assert config.input_file == input_file
             assert config.workspace_dir == workspace
             assert config.parallel_jobs == 8
-            assert '-crf' in config.extra_args
-            assert '30' in config.extra_args
-            assert '-preset' in config.extra_args
-            assert '5' in config.extra_args
+            assert config.extra_args == ['-crf', '30', '-preset', '5']
             assert config.segment_length == 10
 
             # runが呼ばれたことを確認
@@ -180,7 +177,7 @@ class TestEncodeVideo:
             mock_orchestrator.run.side_effect = RuntimeError("エンコードエラー")
 
             with pytest.raises(RuntimeError, match="エンコードエラー"):
-                encode_video(input_file, workspace, parallel=8, crf=30, preset=5)
+                encode_video(input_file, workspace, parallel=8, extra_args=['-crf', '30', '-preset', '5'])
 
 
 class TestProcessSingleFile:
@@ -206,8 +203,7 @@ class TestProcessSingleFile:
                 'test.mkv',
                 'test',
                 parallel=8,
-                crf=30,
-                preset=5
+                extra_args=['-crf', '30', '-preset', '5']
             )
 
             # エンコードと結合が呼ばれたことを確認
@@ -244,8 +240,7 @@ class TestProcessSingleFile:
                 'test.mkv',
                 'test',
                 parallel=8,
-                crf=30,
-                preset=5,
+                extra_args=['-crf', '30', '-preset', '5'],
                 download_future=download_future
             )
 
@@ -276,8 +271,7 @@ class TestProcessSingleFile:
                 'test.mkv',
                 'test',
                 parallel=8,
-                crf=30,
-                preset=5
+                extra_args=['-crf', '30', '-preset', '5']
             )
 
             # ダウンロードが呼ばれたことを確認
@@ -303,8 +297,7 @@ class TestProcessSingleFile:
                     'test.mkv',
                     'test',
                     parallel=8,
-                    crf=30,
-                    preset=5
+                    extra_args=['-crf', '30', '-preset', '5']
                 )
 
 
@@ -325,8 +318,7 @@ class TestRunBatchEncoding:
                 result = run_batch_encoding(
                     bucket='test-bucket',
                     parallel=8,
-                    crf=30,
-                    preset=5
+                    extra_args=['-crf', '30', '-preset', '5']
                 )
 
                 # S3Pipelineが初期化されたことを確認
@@ -355,8 +347,7 @@ class TestRunBatchEncoding:
             result = run_batch_encoding(
                 bucket='test-bucket',
                 parallel=8,
-                crf=30,
-                preset=5
+                extra_args=['-crf', '30', '-preset', '5']
             )
 
             # shutdownが呼ばれたことを確認
@@ -373,8 +364,7 @@ class TestRunBatchEncoding:
             result = run_batch_encoding(
                 bucket='test-bucket',
                 parallel=8,
-                crf=30,
-                preset=5
+                extra_args=['-crf', '30', '-preset', '5']
             )
 
             # エラーコードを返すことを確認
@@ -388,8 +378,7 @@ class TestRunBatchEncoding:
             result = run_batch_encoding(
                 bucket='test-bucket',
                 parallel=8,
-                crf=30,
-                preset=5
+                extra_args=['-crf', '30', '-preset', '5']
             )
 
             # shutdownが呼ばれたことを確認
@@ -424,8 +413,7 @@ class TestRunBatchEncoding:
                 result = run_batch_encoding(
                     bucket='test-bucket',
                     parallel=8,
-                    crf=30,
-                    preset=5
+                    extra_args=['-crf', '30', '-preset', '5']
                 )
 
                 # 2回ダウンロードが開始されたことを確認（2番目と3番目のファイル）
