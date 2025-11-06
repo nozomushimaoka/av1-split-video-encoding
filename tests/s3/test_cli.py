@@ -12,18 +12,26 @@ class TestSetupLogging:
 
     def test_ロギングが設定される(self):
         """ロギングが正しく設定されることをテスト"""
-        with patch('av1_encoder.s3.cli.logging.basicConfig') as mock_basic_config:
-            setup_logging()
+        import logging
 
-            # basicConfigが呼ばれたことを確認
-            mock_basic_config.assert_called_once()
-            call_kwargs = mock_basic_config.call_args[1]
+        # ロガーをリセット
+        s3_logger = logging.getLogger('av1_encoder.s3')
+        s3_logger.handlers.clear()
 
-            # 設定が正しいことを確認
-            import logging
-            assert call_kwargs['level'] == logging.INFO
-            assert 'format' in call_kwargs
-            assert 'datefmt' in call_kwargs
+        setup_logging()
+
+        # S3ロガーにハンドラーが追加されたことを確認
+        assert len(s3_logger.handlers) == 1
+
+        # ハンドラーがStreamHandlerであることを確認
+        handler = s3_logger.handlers[0]
+        assert isinstance(handler, logging.StreamHandler)
+
+        # ログレベルがINFOに設定されていることを確認
+        assert s3_logger.level == logging.INFO
+
+        # 親ロガーへの伝播が無効化されていることを確認
+        assert s3_logger.propagate is False
 
 
 class TestMainのコマンドライン引数:

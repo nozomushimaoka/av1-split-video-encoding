@@ -9,6 +9,9 @@ from typing import Optional
 
 from av1_encoder.s3.pipeline import S3Pipeline
 
+# モジュールレベルでロガーを作成
+logger = logging.getLogger(__name__)
+
 
 def merge_video_with_audio(
     workspace: Path,
@@ -21,7 +24,6 @@ def merge_video_with_audio(
     if not concat_file.exists():
         raise FileNotFoundError(f"concat.txtが見つかりません: {concat_file}")
 
-    logger = logging.getLogger(__name__)
     logger.info("結合中...")
 
     cmd = [
@@ -46,8 +48,6 @@ def merge_video_with_audio(
 
 def cleanup_files(workspace: Path, input_file: Path) -> None:
     """一時ファイルのクリーンアップ"""
-    logger = logging.getLogger(__name__)
-
     # 入力ファイルを削除
     if input_file.exists():
         input_file.unlink()
@@ -72,9 +72,6 @@ def encode_video(
     extra_args: list[str]
 ) -> None:
     """エンコード処理を実行"""
-    logger = logging.getLogger(__name__)
-    logger.info("エンコード中...")
-
     from av1_encoder.core.config import EncodingConfig
     from av1_encoder.encoding.encoder import EncodingOrchestrator
 
@@ -87,14 +84,9 @@ def encode_video(
         extra_args=extra_args
     )
 
-    try:
-        # エンコード実行
-        orchestrator = EncodingOrchestrator(config)
-        orchestrator.run()
-        logger.info("エンコード完了")
-    except Exception as e:
-        logger.error(f"エンコードに失敗: {e}")
-        raise
+    # エンコード実行（ログはEncodingOrchestratorが担当）
+    orchestrator = EncodingOrchestrator(config)
+    orchestrator.run()
 
 
 def process_single_file(
@@ -106,8 +98,6 @@ def process_single_file(
     download_future: Optional[Future[None]] = None
 ) -> Future[None]:
     """単一ファイルの処理"""
-    logger = logging.getLogger(__name__)
-
     # 前のダウンロードが完了するまで待機
     if download_future is not None:
         logger.info("前のダウンロードの完了を待機中...")
@@ -155,7 +145,6 @@ def run_batch_encoding(
     extra_args: list[str]
 ) -> int:
     """バッチエンコード処理を実行"""
-    logger = logging.getLogger(__name__)
     logger.info(f"S3バケット: {bucket}")
 
     # S3パイプラインの初期化

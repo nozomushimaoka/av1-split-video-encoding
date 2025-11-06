@@ -10,12 +10,26 @@ from av1_encoder.s3.batch import run_batch_encoding
 
 
 def setup_logging() -> None:
-    """ロギング設定"""
-    logging.basicConfig(
-        level=logging.INFO,
-        format='[%(asctime)s] %(levelname)s: %(message)s',
+    """S3モジュール専用のロギング設定"""
+    # S3モジュールのロガーを取得
+    s3_logger = logging.getLogger('av1_encoder.s3')
+
+    # 既にハンドラーが設定されている場合はスキップ
+    if s3_logger.handlers:
+        return
+
+    # ハンドラーを作成
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter(
+        '[%(asctime)s] %(levelname)s: %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
-    )
+    ))
+
+    # S3モジュールのロガーにのみハンドラーを追加
+    s3_logger.addHandler(handler)
+    s3_logger.setLevel(logging.INFO)
+    # 親ロガーへの伝播を無効化（独立したロガーとして動作）
+    s3_logger.propagate = False
 
 
 def main() -> int:
