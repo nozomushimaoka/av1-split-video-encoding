@@ -29,6 +29,7 @@ def merge_video_with_audio(
     cmd = [
         'ffmpeg',
         '-f', 'concat',
+        '-safe', '0',
         '-i', str(concat_file),
         '-i', str(input_file),
         '-map', '0:v:0',
