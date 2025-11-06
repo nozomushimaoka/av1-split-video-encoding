@@ -213,6 +213,10 @@ class TestProcessSingleFile:
             # アップロードが呼ばれたことを確認
             assert mock_s3_pipeline.upload_file_async.call_count == 1
 
+            # アップロード引数を確認（拡張子付きでアップロードされる）
+            upload_call_args = mock_s3_pipeline.upload_file_async.call_args[0]
+            assert upload_call_args[1] == 'test.mkv'  # base_name + .mkv
+
             # Futureが返されたことを確認
             assert result == mock_future
 

@@ -128,8 +128,8 @@ def process_single_file(
         input_file.unlink()
         logger.info(f"入力ファイルを削除: {input_file}")
 
-        # S3へアップロード
-        upload_future = s3.upload_file_async(output_file, base_name)
+        # S3へアップロード（拡張子付きで保存）
+        upload_future = s3.upload_file_async(output_file, f"{base_name}.mkv")
 
         # バックグラウンドでクリーンアップ
         logger.info("次の処理に移行（アップロードは継続中）")
