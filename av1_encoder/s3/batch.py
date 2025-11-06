@@ -80,7 +80,7 @@ def encode_video(
         input_file=input_file,
         workspace_dir=workspace,
         parallel_jobs=parallel,
-        segment_length=10,  # デフォルト値
+        segment_length=60,  # デフォルト値
         extra_args=extra_args
     )
 

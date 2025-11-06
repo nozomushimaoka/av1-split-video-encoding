@@ -158,7 +158,7 @@ class TestEncodeVideo:
             assert config.workspace_dir == workspace
             assert config.parallel_jobs == 8
             assert config.extra_args == ['-crf', '30', '-preset', '5']
-            assert config.segment_length == 10
+            assert config.segment_length == 60
 
             # runが呼ばれたことを確認
             mock_orchestrator.run.assert_called_once()
