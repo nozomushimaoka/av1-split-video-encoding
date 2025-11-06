@@ -206,6 +206,14 @@ class TestProcessSingleFile:
             # セグメントファイルが削除されていることを確認
             assert not any(f.name.startswith("segment_") for f in remaining_files)
 
+            # コールバックが設定されたことを確認
+            assert mock_future.add_done_callback.called
+
+            # コールバックを実行してoutput.mkvが削除されることを確認
+            callback = mock_future.add_done_callback.call_args[0][0]
+            callback(mock_future)
+            assert not output_file.exists()
+
     def test_単一ファイルの処理_前のダウンロードを待機(self, mock_s3_pipeline, tmp_path, monkeypatch):
         """前のダウンロードを待機することをテスト"""
         input_file = tmp_path / "test.mkv"

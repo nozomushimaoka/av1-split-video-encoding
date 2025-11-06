@@ -121,6 +121,18 @@ def process_single_file(
         # S3へアップロード（拡張子付きで保存）
         upload_future = s3.upload_file_async(output_file, f"{base_name}.mkv")
 
+        # アップロード完了後にoutput.mkvを削除するコールバックを設定
+        def cleanup_output(future):
+            try:
+                future.result()  # 例外があれば発生させる
+                if output_file.exists():
+                    output_file.unlink()
+                    logger.info(f"アップロード完了後にoutput.mkvを削除: {output_file}")
+            except Exception as e:
+                logger.error(f"アップロードまたは削除中にエラー: {e}")
+
+        upload_future.add_done_callback(cleanup_output)
+
         # バックグラウンドでクリーンアップ
         logger.info("次の処理に移行（アップロードは継続中）")
         return upload_future
