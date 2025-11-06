@@ -82,7 +82,7 @@ class S3Pipeline:
 
         # ベース名の差分を計算
         input_base_names = {f.replace('.mkv', '') for f in input_files}
-        output_base_names = output_files
+        output_base_names = {f.replace('.mkv', '') for f in output_files}
 
         pending_base_names = input_base_names - output_base_names
 

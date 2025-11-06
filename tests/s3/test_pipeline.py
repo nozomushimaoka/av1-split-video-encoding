@@ -132,8 +132,8 @@ class TestS3Pipelineのcalculate_pending_files:
                 'video4.mkv'
             }
             mock_list_output.return_value = {
-                'video1',  # 既に処理済み
-                'video2'   # 既に処理済み
+                'video1.mkv',  # 既に処理済み（拡張子付き）
+                'video2.mkv'   # 既に処理済み（拡張子付き）
             }
 
             pending = s3_pipeline.calculate_pending_files()
@@ -160,8 +160,8 @@ class TestS3Pipelineのcalculate_pending_files:
                 'video2.mkv'
             }
             mock_list_output.return_value = {
-                'video1',
-                'video2'
+                'video1.mkv',  # 拡張子付き
+                'video2.mkv'   # 拡張子付き
             }
 
             pending = s3_pipeline.calculate_pending_files()
