@@ -6,7 +6,6 @@ import pytest
 
 from av1_encoder.s3.batch import (
     merge_video_with_audio,
-    cleanup_files,
     encode_video,
     process_single_file,
     run_batch_encoding
@@ -89,51 +88,6 @@ class TestMergeVideoWithAudio:
                 merge_video_with_audio(mock_workspace, input_file, output_file)
 
 
-class TestCleanupFiles:
-    """cleanup_files関数のテスト"""
-
-    def test_一時ファイルをクリーンアップ(self, mock_workspace, tmp_path):
-        """一時ファイルを正常にクリーンアップすることをテスト"""
-        # 入力ファイルを作成
-        input_file = tmp_path / "input.mkv"
-        input_file.touch()
-
-        # 出力ファイルを作成
-        output_file = mock_workspace / "output.mkv"
-        output_file.touch()
-
-        # セグメントファイルを作成
-        segment1 = mock_workspace / "segment_0.mp4"
-        segment1.touch()
-        segment2 = mock_workspace / "segment_1.mp4"
-        segment2.touch()
-
-        cleanup_files(mock_workspace, input_file)
-
-        # ファイルが削除されたことを確認
-        assert not input_file.exists()
-        assert not output_file.exists()
-        assert not segment1.exists()
-        assert not segment2.exists()
-
-    def test_入力ファイルが存在しない場合はスキップ(self, mock_workspace, tmp_path):
-        """入力ファイルが存在しない場合は削除をスキップすることをテスト"""
-        input_file = tmp_path / "nonexistent.mkv"
-
-        # エラーが発生しないことを確認
-        cleanup_files(mock_workspace, input_file)
-
-    def test_出力ファイルが存在しない場合はスキップ(self, mock_workspace, tmp_path):
-        """出力ファイルが存在しない場合は削除をスキップすることをテスト"""
-        input_file = tmp_path / "input.mkv"
-        input_file.touch()
-
-        # エラーが発生しないことを確認
-        cleanup_files(mock_workspace, input_file)
-
-        assert not input_file.exists()
-
-
 class TestEncodeVideo:
     """encode_video関数のテスト"""
 
@@ -192,8 +146,24 @@ class TestProcessSingleFile:
         # カレントディレクトリをtmp_pathに変更
         monkeypatch.chdir(tmp_path)
 
-        with patch('av1_encoder.s3.batch.encode_video') as mock_encode, \
-             patch('av1_encoder.s3.batch.merge_video_with_audio') as mock_merge:
+        # ワークスペースを作成して一時ファイルを追加
+        workspace = None
+
+        def mock_encode_impl(input_f, ws, parallel, extra_args):
+            nonlocal workspace
+            workspace = ws
+            # 一時ファイルを作成（concat.txt, segment files, logs）
+            (ws / "concat.txt").touch()
+            (ws / "segment_0000.mp4").touch()
+            (ws / "segment_0001.mp4").touch()
+            (ws / "main.log").touch()
+
+        def mock_merge_impl(ws, input_f, output_f):
+            # output.mkvを作成
+            output_f.touch()
+
+        with patch('av1_encoder.s3.batch.encode_video', side_effect=mock_encode_impl) as mock_encode, \
+             patch('av1_encoder.s3.batch.merge_video_with_audio', side_effect=mock_merge_impl) as mock_merge:
 
             mock_future = Mock()
             mock_s3_pipeline.upload_file_async.return_value = mock_future
@@ -222,6 +192,19 @@ class TestProcessSingleFile:
 
             # 入力ファイルが削除されたことを確認
             assert not input_file.exists()
+
+            # セグメントファイルが削除され、output.mkv, concat.txt, ログファイルが残っていることを確認
+            assert workspace is not None
+            assert workspace.exists()
+            output_file = workspace / "output.mkv"
+            # セグメントファイルが削除されていることを確認
+            remaining_files = list(workspace.iterdir())
+            remaining_names = {f.name for f in remaining_files}
+            assert "output.mkv" in remaining_names
+            assert "concat.txt" in remaining_names
+            assert "main.log" in remaining_names
+            # セグメントファイルが削除されていることを確認
+            assert not any(f.name.startswith("segment_") for f in remaining_files)
 
     def test_単一ファイルの処理_前のダウンロードを待機(self, mock_s3_pipeline, tmp_path, monkeypatch):
         """前のダウンロードを待機することをテスト"""

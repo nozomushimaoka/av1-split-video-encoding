@@ -47,25 +47,6 @@ def merge_video_with_audio(
         raise
 
 
-def cleanup_files(workspace: Path, input_file: Path) -> None:
-    """一時ファイルのクリーンアップ"""
-    # 入力ファイルを削除
-    if input_file.exists():
-        input_file.unlink()
-        logger.info(f"入力ファイルを削除: {input_file}")
-
-    # 出力ファイルを削除（アップロード後）
-    output_file = workspace / "output.mkv"
-    if output_file.exists():
-        output_file.unlink()
-        logger.info(f"出力ファイルを削除: {output_file}")
-
-    # セグメントファイルを削除
-    for segment_file in workspace.glob("*.mp4"):
-        segment_file.unlink()
-        logger.debug(f"セグメントファイルを削除: {segment_file}")
-
-
 def encode_video(
     input_file: Path,
     workspace: Path,
@@ -127,6 +108,15 @@ def process_single_file(
         # 入力ファイルを削除
         input_file.unlink()
         logger.info(f"入力ファイルを削除: {input_file}")
+
+        # 結合後、セグメントファイルのみを削除（ログファイルとconcat.txtは保持）
+        logger.info("セグメントファイルを削除中")
+        for file in workspace.iterdir():
+            if file.is_file() and file != output_file:
+                # セグメントファイル(segment_*.mp4)のみを削除
+                if file.name.startswith("segment_") and file.suffix == ".mp4":
+                    file.unlink()
+                    logger.debug(f"削除: {file.name}")
 
         # S3へアップロード（拡張子付きで保存）
         upload_future = s3.upload_file_async(output_file, f"{base_name}.mkv")
