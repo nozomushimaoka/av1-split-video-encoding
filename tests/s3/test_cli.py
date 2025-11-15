@@ -37,11 +37,16 @@ class TestSetupLogging:
 class TestMainのコマンドライン引数:
     """CLIのコマンドライン引数のテスト"""
 
-    def test_すべての引数を指定(self):
+    def test_すべての引数を指定(self, tmp_path):
         """すべての引数を指定した場合のテスト"""
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
         test_args = [
             'prog',
             '--bucket', 'my-bucket',
+            '--pending-files', str(pending_files_path),
             '--parallel', '8', '--gop', '240',
             '--',
             '-crf', '30',
@@ -57,17 +62,23 @@ class TestMainのコマンドライン引数:
             # run_batch_encodingが正しい引数で呼ばれたことを確認
             mock_run.assert_called_once_with(
                 bucket='my-bucket',
+                pending_files_path=pending_files_path,
                 parallel=8,
                 gop_size=240,
                 extra_args=['-crf', '30', '-preset', '5']
             )
             assert result == 0
 
-    def test_並列数のみ指定(self):
+    def test_並列数のみ指定(self, tmp_path):
         """並列数のみを指定した場合のテスト"""
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
+            '--pending-files', str(pending_files_path),
             '--parallel', '10', '--gop', '240'
         ]
 
@@ -80,15 +91,24 @@ class TestMainのコマンドライン引数:
             # extra_argsが空のリストで呼ばれたことを確認
             mock_run.assert_called_once_with(
                 bucket='test-bucket',
+                pending_files_path=pending_files_path,
                 parallel=10,
                 gop_size=240,
                 extra_args=[]
             )
             assert result == 0
 
-    def test_環境変数からバケット名を取得(self):
+    def test_環境変数からバケット名を取得(self, tmp_path):
         """環境変数S3_BUCKETからバケット名を取得することをテスト"""
-        test_args = ['prog', '--parallel', '5', '--gop', '240']
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
+        test_args = [
+            'prog',
+            '--pending-files', str(pending_files_path),
+            '--parallel', '5', '--gop', '240'
+        ]
 
         with patch('sys.argv', test_args), \
              patch.dict(os.environ, {'S3_BUCKET': 'env-bucket'}), \
@@ -103,11 +123,16 @@ class TestMainのコマンドライン引数:
             assert call_kwargs['bucket'] == 'env-bucket'
             assert result == 0
 
-    def test_コマンドライン引数が環境変数より優先される(self):
+    def test_コマンドライン引数が環境変数より優先される(self, tmp_path):
         """コマンドライン引数が環境変数より優先されることをテスト"""
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
         test_args = [
             'prog',
             '--bucket', 'cli-bucket',
+            '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240'
         ]
 
@@ -124,9 +149,17 @@ class TestMainのコマンドライン引数:
             assert call_kwargs['bucket'] == 'cli-bucket'
             assert result == 0
 
-    def test_バケット名が指定されていない場合はエラー(self):
+    def test_バケット名が指定されていない場合はエラー(self, tmp_path):
         """バケット名が指定されていない場合はエラーを返すことをテスト"""
-        test_args = ['prog', '--parallel', '5', '--gop', '240']
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
+        test_args = [
+            'prog',
+            '--pending-files', str(pending_files_path),
+            '--parallel', '5', '--gop', '240'
+        ]
 
         with patch('sys.argv', test_args), \
              patch.dict(os.environ, {}, clear=True):
@@ -147,11 +180,16 @@ class TestMainのコマンドライン引数:
 class TestMainの実行:
     """main関数の実行のテスト"""
 
-    def test_処理成功時に0を返す(self):
+    def test_処理成功時に0を返す(self, tmp_path):
         """処理が成功した場合に0を返すことをテスト"""
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
+            '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240'
         ]
 
@@ -163,11 +201,16 @@ class TestMainの実行:
 
             assert result == 0
 
-    def test_処理失敗時に1を返す(self):
+    def test_処理失敗時に1を返す(self, tmp_path):
         """処理が失敗した場合に1を返すことをテスト"""
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
+            '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240'
         ]
 
@@ -179,11 +222,16 @@ class TestMainの実行:
 
             assert result == 1
 
-    def test_setup_loggingが呼ばれる(self):
+    def test_setup_loggingが呼ばれる(self, tmp_path):
         """setup_loggingが呼ばれることをテスト"""
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
+            '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240'
         ]
 
@@ -200,11 +248,16 @@ class TestMainの実行:
 class TestMainの引数型:
     """main関数の引数の型のテスト"""
 
-    def test_整数引数が正しく変換される(self):
+    def test_整数引数が正しく変換される(self, tmp_path):
         """整数引数が正しく変換されることをテスト"""
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
+            '--pending-files', str(pending_files_path),
             '--parallel', '12', '--gop', '240'
         ]
 
@@ -231,11 +284,16 @@ class TestMainの引数型:
             with pytest.raises(SystemExit):
                 main()
 
-    def test_extra_argsが正しくリストとして渡される(self):
+    def test_extra_argsが正しくリストとして渡される(self, tmp_path):
         """extra_argsが正しくリストとして渡されることをテスト"""
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
+            '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
             '--',
             '-crf', '30',
@@ -257,11 +315,16 @@ class TestMainの引数型:
 class TestMainのエッジケース:
     """main関数のエッジケースのテスト"""
 
-    def test_負の値を持つ引数(self):
+    def test_負の値を持つ引数(self, tmp_path):
         """負の値を持つ引数が正しく処理されることをテスト"""
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
+            '--pending-files', str(pending_files_path),
             '--parallel', '-1', '--gop', '240'
         ]
 
@@ -275,11 +338,16 @@ class TestMainのエッジケース:
             call_kwargs = mock_run.call_args[1]
             assert call_kwargs['parallel'] == -1
 
-    def test_非常に大きな値を持つ引数(self):
+    def test_非常に大きな値を持つ引数(self, tmp_path):
         """非常に大きな値を持つ引数が正しく処理されることをテスト"""
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
+            '--pending-files', str(pending_files_path),
             '--parallel', '1000000', '--gop', '240'
         ]
 
@@ -293,11 +361,16 @@ class TestMainのエッジケース:
             call_kwargs = mock_run.call_args[1]
             assert call_kwargs['parallel'] == 1000000
 
-    def test_特殊文字を含むバケット名(self):
+    def test_特殊文字を含むバケット名(self, tmp_path):
         """特殊文字を含むバケット名が正しく処理されることをテスト"""
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
         test_args = [
             'prog',
             '--bucket', 'test-bucket-123_456',
+            '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240'
         ]
 
@@ -311,11 +384,16 @@ class TestMainのエッジケース:
             call_kwargs = mock_run.call_args[1]
             assert call_kwargs['bucket'] == 'test-bucket-123_456'
 
-    def test_ショートオプションlが使用できる(self):
+    def test_ショートオプションlが使用できる(self, tmp_path):
         """ショートオプション-lが使用できることをテスト"""
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
+            '--pending-files', str(pending_files_path),
             '-l', '8',
             '--gop', '240'
         ]

@@ -56,7 +56,7 @@ class TestMergeVideoWithAudio:
             assert str(input_file) in cmd
             assert '-map' in cmd
             assert '0:v:0' in cmd
-            assert '1:a' in cmd
+            assert '1:a?' in cmd
             assert '-c:v' in cmd
             assert 'copy' in cmd
             assert '-c:a' in cmd
@@ -303,11 +303,13 @@ class TestProcessSingleFile:
 class TestRunBatchEncoding:
     """run_batch_encoding関数のテスト"""
 
-    def test_バッチエンコード処理を実行(self, mock_s3_pipeline):
+    def test_バッチエンコード処理を実行(self, mock_s3_pipeline, tmp_path):
         """バッチエンコード処理を正常に実行することをテスト"""
-        with patch('av1_encoder.s3.batch.S3Pipeline', return_value=mock_s3_pipeline) as mock_pipeline_class:
-            mock_s3_pipeline.calculate_pending_files.return_value = ['video1.mkv', 'video2.mkv']
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\nvideo2.mkv\n")
 
+        with patch('av1_encoder.s3.batch.S3Pipeline', return_value=mock_s3_pipeline) as mock_pipeline_class:
             mock_upload_future1 = Mock()
             mock_upload_future2 = Mock()
 
@@ -316,16 +318,14 @@ class TestRunBatchEncoding:
 
                 result = run_batch_encoding(
                     bucket='test-bucket',
+                    pending_files_path=pending_files_path,
                     gop_size=240,
-            parallel=8,
+                    parallel=8,
                     extra_args=['-crf', '30', '-preset', '5']
                 )
 
                 # S3Pipelineが初期化されたことを確認
                 mock_pipeline_class.assert_called_once_with('test-bucket')
-
-                # 処理対象ファイルが計算されたことを確認
-                mock_s3_pipeline.calculate_pending_files.assert_called_once()
 
                 # 各ファイルが処理されたことを確認
                 assert mock_process.call_count == 2
@@ -339,15 +339,18 @@ class TestRunBatchEncoding:
                 # 成功コードを返すことを確認
                 assert result == 0
 
-    def test_処理対象ファイルがない場合は終了(self, mock_s3_pipeline):
+    def test_処理対象ファイルがない場合は終了(self, mock_s3_pipeline, tmp_path):
         """処理対象ファイルがない場合は終了することをテスト"""
-        with patch('av1_encoder.s3.batch.S3Pipeline', return_value=mock_s3_pipeline):
-            mock_s3_pipeline.calculate_pending_files.return_value = []
+        # 空のpending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("")
 
+        with patch('av1_encoder.s3.batch.S3Pipeline', return_value=mock_s3_pipeline):
             result = run_batch_encoding(
                 bucket='test-bucket',
+                pending_files_path=pending_files_path,
                 gop_size=240,
-            parallel=8,
+                parallel=8,
                 extra_args=['-crf', '30', '-preset', '5']
             )
 
@@ -357,30 +360,37 @@ class TestRunBatchEncoding:
             # 成功コードを返すことを確認
             assert result == 0
 
-    def test_S3パイプライン初期化失敗時はエラーコードを返す(self):
+    def test_S3パイプライン初期化失敗時はエラーコードを返す(self, tmp_path):
         """S3パイプラインの初期化に失敗した場合はエラーコードを返すことをテスト"""
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
         with patch('av1_encoder.s3.batch.S3Pipeline') as mock_pipeline_class:
             mock_pipeline_class.side_effect = Exception("初期化エラー")
 
             result = run_batch_encoding(
                 bucket='test-bucket',
+                pending_files_path=pending_files_path,
                 gop_size=240,
-            parallel=8,
+                parallel=8,
                 extra_args=['-crf', '30', '-preset', '5']
             )
 
             # エラーコードを返すことを確認
             assert result == 1
 
-    def test_処理中にエラーが発生した場合はエラーコードを返す(self, mock_s3_pipeline):
+    def test_処理中にエラーが発生した場合はエラーコードを返す(self, mock_s3_pipeline, tmp_path):
         """処理中にエラーが発生した場合はエラーコードを返すことをテスト"""
-        with patch('av1_encoder.s3.batch.S3Pipeline', return_value=mock_s3_pipeline):
-            mock_s3_pipeline.calculate_pending_files.side_effect = Exception("処理エラー")
+        # 存在しないpending filesパスを使用してエラーを発生させる
+        pending_files_path = tmp_path / "nonexistent.txt"
 
+        with patch('av1_encoder.s3.batch.S3Pipeline', return_value=mock_s3_pipeline):
             result = run_batch_encoding(
                 bucket='test-bucket',
+                pending_files_path=pending_files_path,
                 gop_size=240,
-            parallel=8,
+                parallel=8,
                 extra_args=['-crf', '30', '-preset', '5']
             )
 
@@ -392,6 +402,10 @@ class TestRunBatchEncoding:
 
     def test_次のファイルのダウンロードをバックグラウンドで開始(self, mock_s3_pipeline, tmp_path, monkeypatch):
         """次のファイルのダウンロードをバックグラウンドで開始することをテスト"""
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\nvideo2.mkv\nvideo3.mkv\n")
+
         # カレントディレクトリをtmp_pathに変更
         monkeypatch.chdir(tmp_path)
 
@@ -401,8 +415,6 @@ class TestRunBatchEncoding:
         (tmp_path / "video3.mkv").touch()
 
         with patch('av1_encoder.s3.batch.S3Pipeline', return_value=mock_s3_pipeline):
-            mock_s3_pipeline.calculate_pending_files.return_value = ['video1.mkv', 'video2.mkv', 'video3.mkv']
-
             mock_download_future1 = Mock()
             mock_download_future2 = Mock()
             mock_s3_pipeline.download_file_async.side_effect = [mock_download_future1, mock_download_future2]
@@ -415,8 +427,9 @@ class TestRunBatchEncoding:
 
                 result = run_batch_encoding(
                     bucket='test-bucket',
+                    pending_files_path=pending_files_path,
                     gop_size=240,
-            parallel=8,
+                    parallel=8,
                     extra_args=['-crf', '30', '-preset', '5']
                 )
 
