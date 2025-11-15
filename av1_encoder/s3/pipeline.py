@@ -3,7 +3,6 @@
 import logging
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
-from typing import Set
 
 import boto3
 from botocore.exceptions import ClientError
@@ -19,86 +18,6 @@ class S3Pipeline:
         self.bucket_name = bucket_name
         self.s3_client = boto3.client('s3')
         self.executor = ThreadPoolExecutor(max_workers=2)
-
-    def list_input_files(self) -> Set[str]:
-        """S3のinput/ディレクトリから.mkvファイル一覧を取得"""
-        logger.info("input/内の.mkvファイルを取得中...")
-        try:
-            response = self.s3_client.list_objects_v2(
-                Bucket=self.bucket_name,
-                Prefix='input/'
-            )
-
-            if 'Contents' not in response:
-                logger.warning("input/ディレクトリにファイルがありません")
-                return set()
-
-            files = {
-                obj['Key'].split('/')[-1]
-                for obj in response['Contents']
-                if obj['Key'].endswith('.mkv')
-            }
-
-            logger.info(f"{len(files)}個の.mkvファイルを発見")
-            return files
-
-        except ClientError as e:
-            logger.error(f"S3からのファイル一覧取得に失敗: {e}")
-            raise
-
-    def list_output_files(self) -> Set[str]:
-        """S3のoutput/ディレクトリから既存ファイル一覧を取得"""
-        logger.info("output/内の既存ファイルを取得中...")
-        try:
-            response = self.s3_client.list_objects_v2(
-                Bucket=self.bucket_name,
-                Prefix='output/'
-            )
-
-            if 'Contents' not in response:
-                logger.info("output/ディレクトリにファイルがありません")
-                return set()
-
-            files = {
-                obj['Key'].split('/')[-1]
-                for obj in response['Contents']
-            }
-
-            logger.info(f"{len(files)}個のファイルが既に出力済み")
-            return files
-
-        except ClientError as e:
-            logger.error(f"S3からのファイル一覧取得に失敗: {e}")
-            raise
-
-    def calculate_pending_files(self) -> list[str]:
-        """処理が必要なファイルのリストを計算"""
-        input_files = self.list_input_files()
-
-        if not input_files:
-            raise ValueError(f"s3://{self.bucket_name}/input/ に.mkvファイルが見つかりません")
-
-        output_files = self.list_output_files()
-
-        # ベース名の差分を計算
-        input_base_names = {f.replace('.mkv', '') for f in input_files}
-        output_base_names = {f.replace('.mkv', '') for f in output_files}
-
-        pending_base_names = input_base_names - output_base_names
-
-        # スキップされるファイルを表示
-        skipped = input_base_names & output_base_names
-        for base_name in sorted(skipped):
-            logger.info(f"スキップ: {base_name}.mkv (既に処理済み)")
-
-        # 処理対象を表示
-        pending_files = sorted([f"{base_name}.mkv" for base_name in pending_base_names])
-        for file in pending_files:
-            logger.info(f"処理対象: {file}")
-
-        logger.info(f"\n処理開始: {len(pending_files)}ファイル\n")
-
-        return pending_files
 
     def download_file(
         self,
