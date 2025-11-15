@@ -241,3 +241,66 @@ class TestEncodingConfig:
         assert isinstance(config.workspace_dir, Path)
         assert str(config.input_file) == input_file_str
         assert str(config.workspace_dir) == workspace_dir_str
+
+    def test_get_gop_size_GOPサイズを取得(self, tmp_path):
+        """extra_argsからGOPサイズを取得できることをテスト"""
+        input_file = tmp_path / "input.mp4"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4,
+            extra_args=['-crf', '30', '-g', '240', '-keyint_min', '240']
+        )
+
+        assert config.get_gop_size() == 240
+
+    def test_get_gop_size_GOPサイズなし(self, tmp_path):
+        """extra_argsにGOPサイズがない場合デフォルト値を返すことをテスト"""
+        input_file = tmp_path / "input.mp4"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4,
+            extra_args=['-crf', '30', '-preset', '6']
+        )
+
+        assert config.get_gop_size() == 240  # デフォルト値
+
+    def test_get_gop_size_カスタムGOPサイズ(self, tmp_path):
+        """カスタムGOPサイズを取得できることをテスト"""
+        input_file = tmp_path / "input.mp4"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4,
+            extra_args=['-crf', '30', '-g', '120']
+        )
+
+        assert config.get_gop_size() == 120
+
+    def test_get_gop_size_extra_args空(self, tmp_path):
+        """extra_argsが空の場合デフォルト値を返すことをテスト"""
+        input_file = tmp_path / "input.mp4"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4
+        )
+
+        assert config.get_gop_size() == 240  # デフォルト値

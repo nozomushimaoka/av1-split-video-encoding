@@ -121,14 +121,24 @@ class EncodingOrchestrator:
 
     def _list_segments(self) -> List[SegmentInfo]:
         num_segments = self._calc_num_segments()
+
+        # フレームレートとGOPサイズを取得
+        fps = self.ffmpeg.get_fps(self.config.input_file)
+        gop_size = self.config.get_gop_size()
+
+        # GOP整列されたセグメント長を計算
+        gop_duration = gop_size / fps
+        num_gops = round(self.config.segment_length / gop_duration)
+        segment_duration = num_gops * gop_duration
+
         segments: List[SegmentInfo] = []
         for i in range(num_segments):
-            start_time = i * self.config.segment_length
+            start_time = i * segment_duration
             is_final = (i == num_segments - 1)
             segments.append(SegmentInfo(
                 index=i,
                 start_time=start_time,
-                duration=self.config.segment_length,
+                duration=segment_duration,
                 is_final=is_final,
                 file=self.workspace.work_dir / f"segment_{i:04d}.mp4",
                 log_file=self.workspace.work_dir / f"segment_{i:04d}.log"

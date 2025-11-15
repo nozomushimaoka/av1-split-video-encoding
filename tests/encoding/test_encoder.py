@@ -168,6 +168,10 @@ class TestEncodingOrchestratorのlist_segments:
 
             orchestrator = EncodingOrchestrator(encoding_config)
 
+            # get_fps() と get_gop_size() のモックを設定
+            orchestrator.ffmpeg.get_fps.return_value = 24.0
+            # encoding_config に get_gop_size() メソッドがあるので、そのまま使用される（デフォルト240）
+
             with patch.object(orchestrator, '_calc_num_segments', return_value=3):
                 segments = orchestrator._list_segments()
 
@@ -176,19 +180,19 @@ class TestEncodingOrchestratorのlist_segments:
                 # 最初のセグメント
                 assert segments[0].index == 0
                 assert segments[0].start_time == 0
-                assert segments[0].duration == 60
+                assert segments[0].duration == 60.0
                 assert segments[0].is_final is False
                 assert segments[0].file == mock_workspace.work_dir / "segment_0000.mp4"
                 assert segments[0].log_file == mock_workspace.work_dir / "segment_0000.log"
 
                 # 2番目のセグメント
                 assert segments[1].index == 1
-                assert segments[1].start_time == 60
+                assert segments[1].start_time == 60.0
                 assert segments[1].is_final is False
 
                 # 最終セグメント
                 assert segments[2].index == 2
-                assert segments[2].start_time == 120
+                assert segments[2].start_time == 120.0
                 assert segments[2].is_final is True
 
     def test_単一セグメントの場合(self, encoding_config, mock_workspace):
@@ -198,6 +202,9 @@ class TestEncodingOrchestratorのlist_segments:
              patch.object(EncodingOrchestrator, '_init_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
+
+            # get_fps() のモックを設定
+            orchestrator.ffmpeg.get_fps.return_value = 24.0
 
             with patch.object(orchestrator, '_calc_num_segments', return_value=1):
                 segments = orchestrator._list_segments()

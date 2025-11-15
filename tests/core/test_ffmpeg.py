@@ -144,6 +144,86 @@ class TestFFmpegServiceのget_duration:
             assert duration == 2112.0
 
 
+class TestFFmpegServiceのget_fps:
+    """FFmpegServiceのget_fpsメソッドのテスト"""
+
+    def test_フレームレートを取得_分数形式(self, ffmpeg_service, tmp_path):
+        """分数形式のフレームレート(24000/1001)を取得するテスト"""
+        input_file = tmp_path / "input.mp4"
+
+        mock_result = Mock()
+        mock_result.stdout = '''{
+    "streams": [
+        {
+            "index": 0,
+            "codec_name": "h264",
+            "codec_type": "video",
+            "r_frame_rate": "24000/1001",
+            "avg_frame_rate": "24000/1001"
+        }
+    ]
+}'''
+
+        with patch('av1_encoder.core.ffmpeg.subprocess.run', return_value=mock_result) as mock_run:
+            fps = ffmpeg_service.get_fps(input_file)
+
+            # 正しいコマンドで呼び出されたか確認
+            mock_run.assert_called_once_with(
+                [
+                    'ffprobe', '-v', 'quiet', '-print_format', 'json',
+                    '-show_streams', '-select_streams', 'v:0', str(input_file)
+                ],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+
+            # 正しいフレームレートが返されたか確認 (23.976...)
+            assert abs(fps - 23.976023976023978) < 0.0001
+
+    def test_フレームレートを取得_整数形式(self, ffmpeg_service, tmp_path):
+        """整数形式のフレームレート(30)を取得するテスト"""
+        input_file = tmp_path / "input.mp4"
+
+        mock_result = Mock()
+        mock_result.stdout = '''{
+    "streams": [
+        {
+            "index": 0,
+            "codec_name": "h264",
+            "codec_type": "video",
+            "r_frame_rate": "30/1",
+            "avg_frame_rate": "30/1"
+        }
+    ]
+}'''
+
+        with patch('av1_encoder.core.ffmpeg.subprocess.run', return_value=mock_result):
+            fps = ffmpeg_service.get_fps(input_file)
+            assert fps == 30.0
+
+    def test_フレームレートを取得_60fps(self, ffmpeg_service, tmp_path):
+        """60fpsのフレームレートを取得するテスト"""
+        input_file = tmp_path / "input.mp4"
+
+        mock_result = Mock()
+        mock_result.stdout = '''{
+    "streams": [
+        {
+            "index": 0,
+            "codec_name": "h264",
+            "codec_type": "video",
+            "r_frame_rate": "60/1",
+            "avg_frame_rate": "60/1"
+        }
+    ]
+}'''
+
+        with patch('av1_encoder.core.ffmpeg.subprocess.run', return_value=mock_result):
+            fps = ffmpeg_service.get_fps(input_file)
+            assert fps == 60.0
+
+
 class TestFFmpegServiceのencode_segment:
     """FFmpegServiceのencode_segmentメソッドのテスト"""
 
