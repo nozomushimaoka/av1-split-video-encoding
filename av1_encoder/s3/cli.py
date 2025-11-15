@@ -5,6 +5,7 @@ import argparse
 import logging
 import os
 import sys
+from pathlib import Path
 
 from av1_encoder.s3.batch import run_batch_encoding
 
@@ -48,6 +49,12 @@ def main() -> int:
         help='S3バケット名（環境変数S3_BUCKETからも取得可能）'
     )
     parser.add_argument(
+        '--pending-files',
+        type=Path,
+        required=True,
+        help='処理対象ファイルのリスト（list_pendingコマンドの出力）'
+    )
+    parser.add_argument(
         '--parallel', '-l',
         type=int,
         required=True,
@@ -75,6 +82,7 @@ def main() -> int:
     # バッチエンコード処理を実行
     return run_batch_encoding(
         bucket=args.bucket,
+        pending_files_path=args.pending_files,
         parallel=args.parallel,
         gop_size=args.gop,
         extra_args=args.extra_args if args.extra_args else []

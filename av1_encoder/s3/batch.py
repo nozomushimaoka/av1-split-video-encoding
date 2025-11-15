@@ -33,7 +33,7 @@ def merge_video_with_audio(
         '-i', str(concat_file),
         '-i', str(input_file),
         '-map', '0:v:0',
-        '-map', '1:a',
+        '-map', '1:a?',
         '-c:v', 'copy',
         '-c:a', 'copy',
         str(output_file)
@@ -147,6 +147,7 @@ def process_single_file(
 
 def run_batch_encoding(
     bucket: str,
+    pending_files_path: Path,
     parallel: int,
     gop_size: int,
     extra_args: list[str]
@@ -162,8 +163,17 @@ def run_batch_encoding(
         return 1
 
     try:
-        # 処理対象ファイルを計算
-        pending_files = s3.calculate_pending_files()
+        # 処理対象ファイルをファイルから読み込む
+        logger.info(f"処理対象ファイルを読み込み: {pending_files_path}")
+        try:
+            with open(pending_files_path, 'r', encoding='utf-8') as f:
+                pending_files = [line.strip() for line in f if line.strip()]
+        except FileNotFoundError:
+            logger.error(f"ファイルが見つかりません: {pending_files_path}")
+            return 1
+        except Exception as e:
+            logger.error(f"ファイルの読み込みに失敗: {e}")
+            return 1
 
         if not pending_files:
             logger.info("すべてのファイルが処理済みです")
