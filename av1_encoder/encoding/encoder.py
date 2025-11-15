@@ -124,7 +124,7 @@ class EncodingOrchestrator:
 
         # フレームレートとGOPサイズを取得
         fps = self.ffmpeg.get_fps(self.config.input_file)
-        gop_size = self.config.get_gop_size()
+        gop_size = self.config.gop_size
 
         # GOP整列されたセグメント長を計算
         gop_duration = gop_size / fps

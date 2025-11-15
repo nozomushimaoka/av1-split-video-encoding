@@ -20,6 +20,7 @@ class TestEncodingConfig:
             input_file=input_file,
             workspace_dir=workspace_dir,
             parallel_jobs=4,
+            gop_size=240,
             segment_length=120,
             extra_args=['-crf', '30', '-preset', '6', '-g', '240']
         )
@@ -40,8 +41,8 @@ class TestEncodingConfig:
         config = EncodingConfig(
             input_file=input_file,
             workspace_dir=workspace_dir,
-            parallel_jobs=4
-        )
+            parallel_jobs=4,
+            gop_size=240        )
 
         assert config.extra_args == []  # デフォルト値
         assert config.segment_length == 60  # デフォルト値
@@ -57,6 +58,7 @@ class TestEncodingConfig:
             input_file=input_file,
             workspace_dir=workspace_dir,
             parallel_jobs=4,
+            gop_size=240,
             extra_args=[]
         )
 
@@ -72,8 +74,8 @@ class TestEncodingConfig:
         config = EncodingConfig(
             input_file=input_file,
             workspace_dir=workspace_dir,
-            parallel_jobs=4
-        )
+            parallel_jobs=4,
+            gop_size=240        )
 
         assert isinstance(config.input_file, Path)
         assert isinstance(config.workspace_dir, Path)
@@ -89,6 +91,7 @@ class TestEncodingConfig:
             input_file=input_file,
             workspace_dir=workspace_dir,
             parallel_jobs=8,
+            gop_size=240,
             segment_length=120
         )
 
@@ -111,6 +114,7 @@ class TestEncodingConfig:
             input_file=input_file,
             workspace_dir=workspace_dir,
             parallel_jobs=4,
+            gop_size=240,
             extra_args=extra_args1
         )
 
@@ -118,6 +122,7 @@ class TestEncodingConfig:
             input_file=input_file,
             workspace_dir=workspace_dir,
             parallel_jobs=4,
+            gop_size=240,
             extra_args=extra_args2
         )
 
@@ -140,6 +145,7 @@ class TestEncodingConfig:
             input_file=input_file1,
             workspace_dir=workspace_dir1,
             parallel_jobs=4,
+            gop_size=240,
             segment_length=60,
             extra_args=['-crf', '30']
         )
@@ -148,6 +154,7 @@ class TestEncodingConfig:
             input_file=input_file2,
             workspace_dir=workspace_dir2,
             parallel_jobs=8,
+            gop_size=240,
             segment_length=120,
             extra_args=['-crf', '25']
         )
@@ -170,6 +177,7 @@ class TestEncodingConfig:
             input_file=input_file,
             workspace_dir=workspace_dir,
             parallel_jobs=4,
+            gop_size=240,
             segment_length=10  # カスタム値
         )
 
@@ -186,16 +194,16 @@ class TestEncodingConfig:
         config1 = EncodingConfig(
             input_file=input_file,
             workspace_dir=workspace_dir,
-            parallel_jobs=1
-        )
+            parallel_jobs=1,
+            gop_size=240        )
         assert config1.parallel_jobs == 1
 
         # 多数のスレッド
         config2 = EncodingConfig(
             input_file=input_file,
             workspace_dir=workspace_dir,
-            parallel_jobs=32
-        )
+            parallel_jobs=32,
+            gop_size=240        )
         assert config2.parallel_jobs == 32
 
     def test_extra_argsに複雑なオプションを設定(self, tmp_path):
@@ -218,6 +226,7 @@ class TestEncodingConfig:
             input_file=input_file,
             workspace_dir=workspace_dir,
             parallel_jobs=4,
+            gop_size=240,
             extra_args=complex_args
         )
 
@@ -233,17 +242,16 @@ class TestEncodingConfig:
         config = EncodingConfig(
             input_file=Path(input_file_str),
             workspace_dir=Path(workspace_dir_str),
-            parallel_jobs=4
-        )
+            parallel_jobs=4,
+            gop_size=240        )
 
         # Pathオブジェクトであることを確認
         assert isinstance(config.input_file, Path)
         assert isinstance(config.workspace_dir, Path)
         assert str(config.input_file) == input_file_str
         assert str(config.workspace_dir) == workspace_dir_str
-
-    def test_get_gop_size_GOPサイズを取得(self, tmp_path):
-        """extra_argsからGOPサイズを取得できることをテスト"""
+    def test_gop_sizeが設定される(self, tmp_path):
+        """gop_sizeが正しく設定されることをテスト"""
         input_file = tmp_path / "input.mp4"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -253,13 +261,13 @@ class TestEncodingConfig:
             input_file=input_file,
             workspace_dir=workspace_dir,
             parallel_jobs=4,
-            extra_args=['-crf', '30', '-g', '240', '-keyint_min', '240']
+            gop_size=240
         )
 
-        assert config.get_gop_size() == 240
+        assert config.gop_size == 240
 
-    def test_get_gop_size_GOPサイズなし(self, tmp_path):
-        """extra_argsにGOPサイズがない場合デフォルト値を返すことをテスト"""
+    def test_gop_sizeにカスタム値を設定(self, tmp_path):
+        """gop_sizeにカスタム値を設定できることをテスト"""
         input_file = tmp_path / "input.mp4"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -269,38 +277,7 @@ class TestEncodingConfig:
             input_file=input_file,
             workspace_dir=workspace_dir,
             parallel_jobs=4,
-            extra_args=['-crf', '30', '-preset', '6']
+            gop_size=120
         )
 
-        assert config.get_gop_size() == 240  # デフォルト値
-
-    def test_get_gop_size_カスタムGOPサイズ(self, tmp_path):
-        """カスタムGOPサイズを取得できることをテスト"""
-        input_file = tmp_path / "input.mp4"
-        input_file.touch()
-        workspace_dir = tmp_path / "workspace"
-        workspace_dir.mkdir()
-
-        config = EncodingConfig(
-            input_file=input_file,
-            workspace_dir=workspace_dir,
-            parallel_jobs=4,
-            extra_args=['-crf', '30', '-g', '120']
-        )
-
-        assert config.get_gop_size() == 120
-
-    def test_get_gop_size_extra_args空(self, tmp_path):
-        """extra_argsが空の場合デフォルト値を返すことをテスト"""
-        input_file = tmp_path / "input.mp4"
-        input_file.touch()
-        workspace_dir = tmp_path / "workspace"
-        workspace_dir.mkdir()
-
-        config = EncodingConfig(
-            input_file=input_file,
-            workspace_dir=workspace_dir,
-            parallel_jobs=4
-        )
-
-        assert config.get_gop_size() == 240  # デフォルト値
+        assert config.gop_size == 120

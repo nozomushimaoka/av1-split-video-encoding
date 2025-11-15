@@ -51,6 +51,7 @@ def encode_video(
     input_file: Path,
     workspace: Path,
     parallel: int,
+    gop_size: int,
     extra_args: list[str]
 ) -> None:
     """エンコード処理を実行"""
@@ -62,6 +63,7 @@ def encode_video(
         input_file=input_file,
         workspace_dir=workspace,
         parallel_jobs=parallel,
+        gop_size=gop_size,
         segment_length=60,  # デフォルト値
         extra_args=extra_args
     )
@@ -76,6 +78,7 @@ def process_single_file(
     input_file_name: str,
     base_name: str,
     parallel: int,
+    gop_size: int,
     extra_args: list[str],
     download_future: Optional[Future[None]] = None
 ) -> Future[None]:
@@ -99,7 +102,7 @@ def process_single_file(
 
     try:
         # エンコード
-        encode_video(input_file, workspace, parallel, extra_args)
+        encode_video(input_file, workspace, parallel, gop_size, extra_args)
 
         # 結合
         output_file = workspace / "output.mkv"
@@ -145,6 +148,7 @@ def process_single_file(
 def run_batch_encoding(
     bucket: str,
     parallel: int,
+    gop_size: int,
     extra_args: list[str]
 ) -> int:
     """バッチエンコード処理を実行"""
@@ -192,6 +196,7 @@ def run_batch_encoding(
                 input_file_name,
                 base_name,
                 parallel,
+                gop_size,
                 extra_args,
                 download_future
             )

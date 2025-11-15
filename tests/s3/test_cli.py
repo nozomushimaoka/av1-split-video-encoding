@@ -42,7 +42,7 @@ class TestMainのコマンドライン引数:
         test_args = [
             'prog',
             '--bucket', 'my-bucket',
-            '--parallel', '8',
+            '--parallel', '8', '--gop', '240',
             '--',
             '-crf', '30',
             '-preset', '5'
@@ -58,6 +58,7 @@ class TestMainのコマンドライン引数:
             mock_run.assert_called_once_with(
                 bucket='my-bucket',
                 parallel=8,
+                gop_size=240,
                 extra_args=['-crf', '30', '-preset', '5']
             )
             assert result == 0
@@ -67,7 +68,7 @@ class TestMainのコマンドライン引数:
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
-            '--parallel', '10'
+            '--parallel', '10', '--gop', '240'
         ]
 
         with patch('sys.argv', test_args), \
@@ -80,13 +81,14 @@ class TestMainのコマンドライン引数:
             mock_run.assert_called_once_with(
                 bucket='test-bucket',
                 parallel=10,
+                gop_size=240,
                 extra_args=[]
             )
             assert result == 0
 
     def test_環境変数からバケット名を取得(self):
         """環境変数S3_BUCKETからバケット名を取得することをテスト"""
-        test_args = ['prog', '--parallel', '5']
+        test_args = ['prog', '--parallel', '5', '--gop', '240']
 
         with patch('sys.argv', test_args), \
              patch.dict(os.environ, {'S3_BUCKET': 'env-bucket'}), \
@@ -106,7 +108,7 @@ class TestMainのコマンドライン引数:
         test_args = [
             'prog',
             '--bucket', 'cli-bucket',
-            '--parallel', '5'
+            '--parallel', '5', '--gop', '240'
         ]
 
         with patch('sys.argv', test_args), \
@@ -124,7 +126,7 @@ class TestMainのコマンドライン引数:
 
     def test_バケット名が指定されていない場合はエラー(self):
         """バケット名が指定されていない場合はエラーを返すことをテスト"""
-        test_args = ['prog', '--parallel', '5']
+        test_args = ['prog', '--parallel', '5', '--gop', '240']
 
         with patch('sys.argv', test_args), \
              patch.dict(os.environ, {}, clear=True):
@@ -150,7 +152,7 @@ class TestMainの実行:
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
-            '--parallel', '5'
+            '--parallel', '5', '--gop', '240'
         ]
 
         with patch('sys.argv', test_args), \
@@ -166,7 +168,7 @@ class TestMainの実行:
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
-            '--parallel', '5'
+            '--parallel', '5', '--gop', '240'
         ]
 
         with patch('sys.argv', test_args), \
@@ -182,7 +184,7 @@ class TestMainの実行:
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
-            '--parallel', '5'
+            '--parallel', '5', '--gop', '240'
         ]
 
         with patch('sys.argv', test_args), \
@@ -203,7 +205,7 @@ class TestMainの引数型:
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
-            '--parallel', '12'
+            '--parallel', '12', '--gop', '240'
         ]
 
         with patch('sys.argv', test_args), \
@@ -222,7 +224,7 @@ class TestMainの引数型:
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
-            '--parallel', 'invalid'
+            '--parallel', 'invalid', '--gop', '240'
         ]
 
         with patch('sys.argv', test_args):
@@ -234,7 +236,7 @@ class TestMainの引数型:
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
-            '--parallel', '5',
+            '--parallel', '5', '--gop', '240',
             '--',
             '-crf', '30',
             '-preset', '6'
@@ -260,7 +262,7 @@ class TestMainのエッジケース:
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
-            '--parallel', '-1'
+            '--parallel', '-1', '--gop', '240'
         ]
 
         with patch('sys.argv', test_args), \
@@ -278,7 +280,7 @@ class TestMainのエッジケース:
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
-            '--parallel', '1000000'
+            '--parallel', '1000000', '--gop', '240'
         ]
 
         with patch('sys.argv', test_args), \
@@ -296,7 +298,7 @@ class TestMainのエッジケース:
         test_args = [
             'prog',
             '--bucket', 'test-bucket-123_456',
-            '--parallel', '5'
+            '--parallel', '5', '--gop', '240'
         ]
 
         with patch('sys.argv', test_args), \
@@ -314,7 +316,8 @@ class TestMainのエッジケース:
         test_args = [
             'prog',
             '--bucket', 'test-bucket',
-            '-l', '8'
+            '-l', '8',
+            '--gop', '240'
         ]
 
         with patch('sys.argv', test_args), \

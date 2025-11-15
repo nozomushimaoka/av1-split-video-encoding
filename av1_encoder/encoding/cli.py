@@ -29,6 +29,12 @@ def main() -> int:
         help='エンコード並列数'
     )
     parser.add_argument(
+        '--gop', '-g',
+        type=int,
+        required=True,
+        help='GOP サイズ（キーフレーム間隔）'
+    )
+    parser.add_argument(
         'extra_args',
         nargs='*',
         help='追加のFFmpegオプション'
@@ -41,6 +47,7 @@ def main() -> int:
         input_file=Path(args.input_file),
         workspace_dir=Path(args.workspace),
         parallel_jobs=args.parallel,
+        gop_size=args.gop,
         extra_args=args.extra_args if args.extra_args else []
     )
 

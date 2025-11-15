@@ -21,6 +21,7 @@ def encoding_config(tmp_path):
         input_file=input_file,
         workspace_dir=workspace_dir,
         parallel_jobs=2,
+            gop_size=240,
         segment_length=60,
         extra_args=['-crf', '30', '-preset', '6', '-g', '240', '-keyint_min', '240']
     )
@@ -448,6 +449,7 @@ class TestEncodingConfig:
             input_file=input_file,
             workspace_dir=workspace_dir,
             parallel_jobs=4,
+            gop_size=240,
             segment_length=120,
             extra_args=['-crf', '30', '-preset', '6', '-g', '240']
         )
@@ -467,8 +469,8 @@ class TestEncodingConfig:
         config = EncodingConfig(
             input_file=input_file,
             workspace_dir=workspace_dir,
-            parallel_jobs=4
-        )
+            parallel_jobs=4,
+            gop_size=240        )
 
         assert config.extra_args == []
         assert config.segment_length == 60  # デフォルト値
@@ -483,6 +485,7 @@ class TestEncodingConfig:
             input_file=input_file,
             workspace_dir=workspace_dir,
             parallel_jobs=4,
+            gop_size=240,
             extra_args=[]
         )
 

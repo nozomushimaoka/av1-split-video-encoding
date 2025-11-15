@@ -35,6 +35,7 @@ def encoding_config(tmp_path):
         input_file=input_file,
         workspace_dir=workspace_dir,
         parallel_jobs=4,
+            gop_size=240,
         segment_length=60,
         extra_args=['-crf', '30', '-preset', '6', '-g', '240', '-keyint_min', '240']
     )
@@ -308,6 +309,7 @@ class TestFFmpegServiceのencode_segment:
             input_file=input_file,
             workspace_dir=workspace_dir,
             parallel_jobs=4,
+            gop_size=240,
             segment_length=60
         )
 
@@ -329,8 +331,10 @@ class TestFFmpegServiceのencode_segment:
             called_cmd = mock_popen.call_args[0][0]
             assert '-crf' not in called_cmd
             assert '-preset' not in called_cmd
-            assert '-g' not in called_cmd
-            assert '-keyint_min' not in called_cmd
+            # -g と -keyint_min は自動的に追加されるため含まれる
+            assert '-g' in called_cmd
+            assert '240' in called_cmd
+            assert '-keyint_min' in called_cmd
 
     def test_セグメントをエンコード_カスタムextra_args(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
         """カスタムextra_argsでセグメントをエンコードするテスト"""
@@ -342,6 +346,7 @@ class TestFFmpegServiceのencode_segment:
             input_file=input_file,
             workspace_dir=workspace_dir,
             parallel_jobs=4,
+            gop_size=240,
             segment_length=60,
             extra_args=[
                 '-pix_fmt', 'yuv420p10le',

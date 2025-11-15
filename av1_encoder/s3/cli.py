@@ -51,7 +51,13 @@ def main() -> int:
         '--parallel', '-l',
         type=int,
         required=True,
-        help='並列エンコード数（デフォルト: 10）'
+        help='並列エンコード数'
+    )
+    parser.add_argument(
+        '--gop', '-g',
+        type=int,
+        required=True,
+        help='GOP サイズ（キーフレーム間隔）'
     )
     parser.add_argument(
         'extra_args',
@@ -70,6 +76,7 @@ def main() -> int:
     return run_batch_encoding(
         bucket=args.bucket,
         parallel=args.parallel,
+        gop_size=args.gop,
         extra_args=args.extra_args if args.extra_args else []
     )
 

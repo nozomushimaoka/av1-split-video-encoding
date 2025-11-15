@@ -79,6 +79,9 @@ class FFmpegService:
 
         cmd.extend(['-c:v', 'libsvtav1'])
 
+        # GOP設定を追加
+        cmd.extend(['-g', str(config.gop_size), '-keyint_min', str(config.gop_size)])
+
         # 追加オプション
         if config.extra_args:
             cmd.extend(config.extra_args)

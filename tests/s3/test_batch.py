@@ -103,7 +103,7 @@ class TestEncodeVideo:
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
 
-            encode_video(input_file, workspace, parallel=8, extra_args=['-crf', '30', '-preset', '5'])
+            encode_video(input_file, workspace, parallel=8, gop_size=240, extra_args=['-crf', '30', '-preset', '5'])
 
             # EncodingOrchestratorが正しく呼ばれたことを確認
             mock_orchestrator_class.assert_called_once()
@@ -131,7 +131,7 @@ class TestEncodeVideo:
             mock_orchestrator.run.side_effect = RuntimeError("エンコードエラー")
 
             with pytest.raises(RuntimeError, match="エンコードエラー"):
-                encode_video(input_file, workspace, parallel=8, extra_args=['-crf', '30', '-preset', '5'])
+                encode_video(input_file, workspace, parallel=8, gop_size=240, extra_args=['-crf', '30', '-preset', '5'])
 
 
 class TestProcessSingleFile:
@@ -149,7 +149,7 @@ class TestProcessSingleFile:
         # ワークスペースを作成して一時ファイルを追加
         workspace = None
 
-        def mock_encode_impl(input_f, ws, parallel, extra_args):
+        def mock_encode_impl(input_f, ws, parallel, gop_size, extra_args):
             nonlocal workspace
             workspace = ws
             # 一時ファイルを作成（concat.txt, segment files, logs）
@@ -172,6 +172,7 @@ class TestProcessSingleFile:
                 mock_s3_pipeline,
                 'test.mkv',
                 'test',
+                gop_size=240,
                 parallel=8,
                 extra_args=['-crf', '30', '-preset', '5']
             )
@@ -234,6 +235,7 @@ class TestProcessSingleFile:
                 mock_s3_pipeline,
                 'test.mkv',
                 'test',
+                gop_size=240,
                 parallel=8,
                 extra_args=['-crf', '30', '-preset', '5'],
                 download_future=download_future
@@ -265,6 +267,7 @@ class TestProcessSingleFile:
                 mock_s3_pipeline,
                 'test.mkv',
                 'test',
+                gop_size=240,
                 parallel=8,
                 extra_args=['-crf', '30', '-preset', '5']
             )
@@ -291,7 +294,8 @@ class TestProcessSingleFile:
                     mock_s3_pipeline,
                     'test.mkv',
                     'test',
-                    parallel=8,
+                    gop_size=240,
+                parallel=8,
                     extra_args=['-crf', '30', '-preset', '5']
                 )
 
@@ -312,7 +316,8 @@ class TestRunBatchEncoding:
 
                 result = run_batch_encoding(
                     bucket='test-bucket',
-                    parallel=8,
+                    gop_size=240,
+            parallel=8,
                     extra_args=['-crf', '30', '-preset', '5']
                 )
 
@@ -341,7 +346,8 @@ class TestRunBatchEncoding:
 
             result = run_batch_encoding(
                 bucket='test-bucket',
-                parallel=8,
+                gop_size=240,
+            parallel=8,
                 extra_args=['-crf', '30', '-preset', '5']
             )
 
@@ -358,7 +364,8 @@ class TestRunBatchEncoding:
 
             result = run_batch_encoding(
                 bucket='test-bucket',
-                parallel=8,
+                gop_size=240,
+            parallel=8,
                 extra_args=['-crf', '30', '-preset', '5']
             )
 
@@ -372,7 +379,8 @@ class TestRunBatchEncoding:
 
             result = run_batch_encoding(
                 bucket='test-bucket',
-                parallel=8,
+                gop_size=240,
+            parallel=8,
                 extra_args=['-crf', '30', '-preset', '5']
             )
 
@@ -407,7 +415,8 @@ class TestRunBatchEncoding:
 
                 result = run_batch_encoding(
                     bucket='test-bucket',
-                    parallel=8,
+                    gop_size=240,
+            parallel=8,
                     extra_args=['-crf', '30', '-preset', '5']
                 )
 
