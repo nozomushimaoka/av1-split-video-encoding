@@ -1,8 +1,8 @@
-"""ユーティリティ関数のテスト"""
+"""CLI ユーティリティ関数のテスト"""
 
 import pytest
 
-from av1_encoder.utils import expand_svtav1_params
+from av1_encoder.cli_utils import expand_svtav1_params
 
 
 class TestExpandSvtav1Params:

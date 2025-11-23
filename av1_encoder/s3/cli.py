@@ -7,8 +7,8 @@ import os
 import sys
 from pathlib import Path
 
+from av1_encoder.cli_utils import expand_svtav1_params
 from av1_encoder.s3.batch import run_batch_encoding
-from av1_encoder.utils import expand_svtav1_params
 
 
 def setup_logging() -> None:

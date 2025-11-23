@@ -1,4 +1,4 @@
-"""共通ユーティリティ関数"""
+"""CLIユーティリティ関数"""
 
 
 def expand_svtav1_params(params_string: str) -> list[str]:

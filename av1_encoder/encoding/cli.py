@@ -4,8 +4,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from ..cli_utils import expand_svtav1_params
 from ..core.config import EncodingConfig
-from ..utils import expand_svtav1_params
 from .encoder import EncodingOrchestrator
 
 
