@@ -13,7 +13,7 @@ from av1_encoder.core.workspace import Workspace
 @pytest.fixture
 def encoding_config(tmp_path):
     """テスト用のEncodingConfigを作成するフィクスチャ"""
-    input_file = tmp_path / "input.mp4"
+    input_file = tmp_path / "input.mkv"
     input_file.touch()
     workspace_dir = tmp_path / "workspace"
     workspace_dir.mkdir()
@@ -441,7 +441,7 @@ class TestEncodingConfig:
 
     def test_configを作成(self, tmp_path):
         """EncodingConfigが正しく作成されることをテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -462,7 +462,7 @@ class TestEncodingConfig:
 
     def test_configのデフォルト値(self, tmp_path):
         """EncodingConfigのデフォルト値が正しいことをテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -477,7 +477,7 @@ class TestEncodingConfig:
 
     def test_configのsvtav1_argsを空リストに設定(self, tmp_path):
         """svtav1_argsを明示的に空リストに設定できることをテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()

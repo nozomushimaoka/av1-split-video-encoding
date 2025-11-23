@@ -61,7 +61,7 @@ mkdir workspace
 ./bin/s3-encode-simple.sh my-bucket video.mkv 4
 
 # パイプラインスクリプトで複数動画を並行処理
-./bin/s3-encode-pipeline.sh my-bucket video1.mp4 video2.mp4 video3.mp4
+./bin/s3-encode-pipeline.sh my-bucket video1.mkv video2.mkv video3.mkv
 ```
 
 ### 手動でのS3連携

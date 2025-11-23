@@ -119,8 +119,8 @@ def process_single_file(
         logger.info("セグメントファイルを削除中")
         for file in workspace.iterdir():
             if file.is_file() and file != output_file:
-                # セグメントファイル(segment_*.mp4)のみを削除
-                if file.name.startswith("segment_") and file.suffix == ".mp4":
+                # セグメントファイル(segment_*.ivf)のみを削除
+                if file.name.startswith("segment_") and file.suffix == ".ivf":
                     file.unlink()
                     logger.debug(f"削除: {file.name}")
 

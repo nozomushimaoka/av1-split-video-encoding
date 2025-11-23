@@ -27,7 +27,7 @@ def segment_info(tmp_path):
 @pytest.fixture
 def encoding_config(tmp_path):
     """テスト用のEncodingConfigを作成するフィクスチャ"""
-    input_file = tmp_path / "input.mp4"
+    input_file = tmp_path / "input.mkv"
     input_file.touch()
     workspace_dir = tmp_path / "workspace"
     workspace_dir.mkdir()
@@ -76,7 +76,7 @@ class TestFFmpegServiceのget_duration:
 
     def test_動画の長さを取得(self, ffmpeg_service, tmp_path):
         """ffprobeを使用して動画の長さを取得するテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
 
         # ffprobeの出力をモック
         mock_result = Mock()
@@ -118,7 +118,7 @@ class TestFFmpegServiceのget_duration:
 
     def test_動画の長さを取得_整数値(self, ffmpeg_service, tmp_path):
         """整数値の動画の長さを取得するテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
 
         mock_result = Mock()
         mock_result.stdout = '''{
@@ -150,7 +150,7 @@ class TestFFmpegServiceのget_fps:
 
     def test_フレームレートを取得_分数形式(self, ffmpeg_service, tmp_path):
         """分数形式のフレームレート(24000/1001)を取得するテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
 
         mock_result = Mock()
         mock_result.stdout = '''{
@@ -184,7 +184,7 @@ class TestFFmpegServiceのget_fps:
 
     def test_フレームレートを取得_整数形式(self, ffmpeg_service, tmp_path):
         """整数形式のフレームレート(30)を取得するテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
 
         mock_result = Mock()
         mock_result.stdout = '''{
@@ -205,7 +205,7 @@ class TestFFmpegServiceのget_fps:
 
     def test_フレームレートを取得_60fps(self, ffmpeg_service, tmp_path):
         """60fpsのフレームレートを取得するテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
 
         mock_result = Mock()
         mock_result.stdout = '''{
@@ -230,7 +230,7 @@ class TestFFmpegServiceのencode_segment:
 
     def test_セグメントをエンコード_成功(self, ffmpeg_service, segment_info, encoding_config, tmp_path, mock_logger):
         """セグメントを正常にエンコードするテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
 
         # FFmpegプロセスのモック
         mock_ffmpeg_process = Mock()
@@ -302,7 +302,7 @@ class TestFFmpegServiceのencode_segment:
             file=tmp_path / "segment_5.ivf",
             log_file=tmp_path / "segment_5.log"
         )
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
 
         # FFmpegプロセスのモック
         mock_ffmpeg_process = Mock()
@@ -340,7 +340,7 @@ class TestFFmpegServiceのencode_segment:
 
     def test_セグメントをエンコード_extra_argsなし(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
         """extra_argsなしでセグメントをエンコードするテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -392,7 +392,7 @@ class TestFFmpegServiceのencode_segment:
 
     def test_セグメントをエンコード_カスタムsvtav1_args(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
         """カスタムsvtav1_argsでセグメントをエンコードするテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -450,7 +450,7 @@ class TestFFmpegServiceのencode_segment:
 
     def test_セグメントをエンコード_展開済みパラメータ(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
         """展開済みパラメータでセグメントをエンコードするテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -510,7 +510,7 @@ class TestFFmpegServiceのencode_segment:
 
     def test_セグメントをエンコード_失敗(self, ffmpeg_service, segment_info, encoding_config, tmp_path, mock_logger):
         """セグメントのエンコードが失敗するテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
 
         # FFmpegプロセスのモック（成功）
         mock_ffmpeg_process = Mock()
@@ -544,7 +544,7 @@ class TestFFmpegServiceのencode_segment:
 
     def test_セグメントをエンコード_ロガーのクリーンアップ(self, ffmpeg_service, segment_info, encoding_config, tmp_path):
         """エンコード後にロガーのハンドラがクリーンアップされることをテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
 
         # FFmpegプロセスのモック
         mock_ffmpeg_process = Mock()

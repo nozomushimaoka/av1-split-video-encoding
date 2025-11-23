@@ -13,7 +13,7 @@ class TestCLIの引数パース:
         """入力ファイルのみ指定した場合の引数パースをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
-        test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
+        test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -28,7 +28,7 @@ class TestCLIの引数パース:
             assert mock_orchestrator_class.call_count == 1
             config = mock_orchestrator_class.call_args[0][0]
 
-            assert config.input_file == Path('input.mp4')
+            assert config.input_file == Path('input.mkv')
             assert config.workspace_dir == workspace
             assert config.parallel_jobs == 4
             assert config.svtav1_args == ['--crf', '30']
@@ -75,7 +75,7 @@ class TestCLIの引数パース:
         """短縮オプション -l でparallel_jobsを指定できることをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
-        test_args = ['prog', 'input.mp4', str(workspace), '-l', '16', '--gop', '240', '--svtav1-params', 'crf=30']
+        test_args = ['prog', 'input.mkv', str(workspace), '-l', '16', '--gop', '240', '--svtav1-params', 'crf=30']
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -96,7 +96,7 @@ class TestCLIの引数パース:
         workspace.mkdir()
         test_args = [
             'prog',
-            'test.mp4',
+            'test.mkv',
             str(workspace),
             '--parallel', '4', '--gop', '240',
             '--svtav1-params', 'crf=25'
@@ -113,7 +113,7 @@ class TestCLIの引数パース:
 
             config = mock_orchestrator_class.call_args[0][0]
 
-            assert config.input_file == Path('test.mp4')
+            assert config.input_file == Path('test.mkv')
             assert config.parallel_jobs == 4
             # CLI側で展開されるので、展開後の形式になる
             assert config.svtav1_args == ['--crf', '25']
@@ -127,7 +127,7 @@ class TestCLIのmain関数:
         """エンコードが成功した場合に0を返すことをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
-        test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
+        test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -144,7 +144,7 @@ class TestCLIのmain関数:
         """エンコードが失敗した場合に1を返すことをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
-        test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
+        test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -161,7 +161,7 @@ class TestCLIのmain関数:
         """任意の例外が発生した場合に1を返すことをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
-        test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
+        test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -178,7 +178,7 @@ class TestCLIのmain関数:
         """orchestrator.run()が呼び出されることをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
-        test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
+        test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -200,7 +200,7 @@ class TestCLIのEncodingConfig作成:
         workspace.mkdir()
         test_args = [
             'prog',
-            'my_video.mp4',
+            'my_video.mkv',
             str(workspace),
             '--parallel', '12', '--gop', '240',
             '--svtav1-params', 'crf=28,preset=5,g=120'
@@ -219,7 +219,7 @@ class TestCLIのEncodingConfig作成:
             config = mock_orchestrator_class.call_args[0][0]
 
             assert isinstance(config, EncodingConfig)
-            assert config.input_file == Path('my_video.mp4')
+            assert config.input_file == Path('my_video.mkv')
             assert config.workspace_dir == workspace
             assert config.parallel_jobs == 12
             # CLI側で展開されるので、展開後の形式になる
@@ -251,7 +251,7 @@ class TestCLIのデフォルト値:
         """parallelのデフォルト値がNoneであることをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
-        test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
+        test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -268,7 +268,7 @@ class TestCLIのデフォルト値:
         """-svtav1-paramsが必須パラメータであることをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
-        test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4', '--gop', '240']
+        test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240']
 
         with patch('sys.argv', test_args):
             with pytest.raises(SystemExit):
@@ -290,7 +290,7 @@ class TestCLIのargparse動作:
         """整数型の引数に文字列を指定した場合にSystemExitが発生することをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
-        test_args = ['prog', 'input.mp4', str(workspace), '--parallel', 'not-a-number', '--gop', '240']
+        test_args = ['prog', 'input.mkv', str(workspace), '--parallel', 'not-a-number', '--gop', '240']
 
         with patch('sys.argv', test_args):
             with pytest.raises(SystemExit):
@@ -306,7 +306,7 @@ class TestCLIの引数型:
         workspace.mkdir()
         test_args = [
             'prog',
-            'input.mp4',
+            'input.mkv',
             str(workspace),
             '--parallel', '10', '--gop', '240',
             '--svtav1-params', 'crf=30'
@@ -331,7 +331,7 @@ class TestCLIの引数型:
         workspace.mkdir()
         test_args = [
             'prog',
-            'path/to/input.mp4',
+            'path/to/input.mkv',
             str(workspace),
             '--parallel', '4', '--gop', '240',
             '--svtav1-params', 'crf=30'
@@ -347,7 +347,7 @@ class TestCLIの引数型:
 
             config = mock_orchestrator_class.call_args[0][0]
             assert isinstance(config.input_file, Path)
-            assert config.input_file == Path('path/to/input.mp4')
+            assert config.input_file == Path('path/to/input.mkv')
 
 
 class TestCLIのエッジケース:
@@ -357,7 +357,7 @@ class TestCLIのエッジケース:
         """負の値を持つ引数が正しく処理されることをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
-        test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '-1', '--gop', '240', '--svtav1-params', 'crf=30']
+        test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '-1', '--gop', '240', '--svtav1-params', 'crf=30']
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -375,7 +375,7 @@ class TestCLIのエッジケース:
         """svtav1_argsが正しく処理されることをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
-        test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=0,preset=0']
+        test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=0,preset=0']
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -393,7 +393,7 @@ class TestCLIのエッジケース:
         """非常に長いファイルパスが正しく処理されることをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
-        long_path = 'a' * 200 + '.mp4'
+        long_path = 'a' * 200 + '.mkv'
         test_args = ['prog', long_path, str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
 
         with patch('sys.argv', test_args), \
@@ -411,7 +411,7 @@ class TestCLIのエッジケース:
         """特殊文字を含むファイル名が正しく処理されることをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
-        special_filename = 'test-file_123 (copy).mp4'
+        special_filename = 'test-file_123 (copy).mkv'
         test_args = ['prog', special_filename, str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
 
         with patch('sys.argv', test_args), \

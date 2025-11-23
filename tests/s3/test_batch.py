@@ -34,7 +34,7 @@ class TestMergeVideoWithAudio:
         """動画と音声を正常に結合することをテスト"""
         # concat.txtを作成
         concat_file = mock_workspace / "concat.txt"
-        concat_file.write_text("file 'segment_0.mp4'\nfile 'segment_1.mp4'\n")
+        concat_file.write_text("file 'segment_0.ivf'\nfile 'segment_1.ivf'\n")
 
         input_file = tmp_path / "input.mkv"
         input_file.touch()
@@ -75,7 +75,7 @@ class TestMergeVideoWithAudio:
         """結合に失敗した場合に例外を発生することをテスト"""
         # concat.txtを作成
         concat_file = mock_workspace / "concat.txt"
-        concat_file.write_text("file 'segment_0.mp4'\n")
+        concat_file.write_text("file 'segment_0.ivf'\n")
 
         input_file = tmp_path / "input.mkv"
         input_file.touch()
@@ -154,8 +154,8 @@ class TestProcessSingleFile:
             workspace = ws
             # 一時ファイルを作成（concat.txt, segment files, logs）
             (ws / "concat.txt").touch()
-            (ws / "segment_0000.mp4").touch()
-            (ws / "segment_0001.mp4").touch()
+            (ws / "segment_0000.ivf").touch()
+            (ws / "segment_0001.ivf").touch()
             (ws / "main.log").touch()
 
         def mock_merge_impl(ws, input_f, output_f):

@@ -11,7 +11,7 @@ class TestEncodingConfig:
 
     def test_configを作成(self, tmp_path):
         """EncodingConfigが正しく作成されることをテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -33,7 +33,7 @@ class TestEncodingConfig:
 
     def test_configのデフォルト値(self, tmp_path):
         """EncodingConfigのデフォルト値が正しいことをテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -49,7 +49,7 @@ class TestEncodingConfig:
 
     def test_configのsvtav1_argsを空リストに設定(self, tmp_path):
         """svtav1_argsを明示的に空リストに設定できることをテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -66,7 +66,7 @@ class TestEncodingConfig:
 
     def test_configのパス型が正しい(self, tmp_path):
         """EncodingConfigのパス型フィールドがPathオブジェクトであることをテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -82,7 +82,7 @@ class TestEncodingConfig:
 
     def test_整数型フィールドが正しい(self, tmp_path):
         """整数型フィールドが正しいことをテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -102,7 +102,7 @@ class TestEncodingConfig:
 
     def test_異なるsvtav1_argsを設定(self, tmp_path):
         """異なるsvtav1_argsを設定できることをテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -132,9 +132,9 @@ class TestEncodingConfig:
 
     def test_複数のconfigインスタンスが独立している(self, tmp_path):
         """複数のEncodingConfigインスタンスが互いに独立していることをテスト"""
-        input_file1 = tmp_path / "input1.mp4"
+        input_file1 = tmp_path / "input1.mkv"
         input_file1.touch()
-        input_file2 = tmp_path / "input2.mp4"
+        input_file2 = tmp_path / "input2.mkv"
         input_file2.touch()
         workspace_dir1 = tmp_path / "workspace1"
         workspace_dir1.mkdir()
@@ -168,7 +168,7 @@ class TestEncodingConfig:
 
     def test_segment_lengthにカスタム値を設定(self, tmp_path):
         """segment_lengthにカスタム値を設定できることをテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -185,7 +185,7 @@ class TestEncodingConfig:
 
     def test_parallel_jobsに様々な値を設定(self, tmp_path):
         """parallel_jobsに様々な値を設定できることをテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -208,7 +208,7 @@ class TestEncodingConfig:
 
     def test_svtav1_argsに複雑なオプションを設定(self, tmp_path):
         """svtav1_argsに複雑なオプションを設定できることをテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -233,7 +233,7 @@ class TestEncodingConfig:
 
     def test_文字列パスからPathオブジェクトへの変換(self, tmp_path):
         """文字列パスからPathオブジェクトへの変換をテスト"""
-        input_file_str = str(tmp_path / "input.mp4")
+        input_file_str = str(tmp_path / "input.mkv")
         workspace_dir_str = str(tmp_path / "workspace")
 
         # 文字列で作成
@@ -250,7 +250,7 @@ class TestEncodingConfig:
         assert str(config.workspace_dir) == workspace_dir_str
     def test_gop_sizeが設定される(self, tmp_path):
         """gop_sizeが正しく設定されることをテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -266,7 +266,7 @@ class TestEncodingConfig:
 
     def test_gop_sizeにカスタム値を設定(self, tmp_path):
         """gop_sizeにカスタム値を設定できることをテスト"""
-        input_file = tmp_path / "input.mp4"
+        input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
