@@ -31,7 +31,7 @@ class TestCLIの引数パース:
             assert config.input_file == Path('input.mp4')
             assert config.workspace_dir == workspace
             assert config.parallel_jobs == 4
-            assert config.extra_args == []  # デフォルト値
+            assert config.svtav1_args == []  # デフォルト値
 
             # runが呼び出されたことを確認
             mock_orchestrator.run.assert_called_once()
@@ -69,7 +69,7 @@ class TestCLIの引数パース:
             assert config.input_file == Path('video.mkv')
             assert config.workspace_dir == workspace
             assert config.parallel_jobs == 8
-            assert config.extra_args == ['-crf', '30', '-preset', '6', '-g', '240']
+            assert config.svtav1_args == ['-crf', '30', '-preset', '6', '-g', '240']
 
             assert result == 0
 
@@ -118,7 +118,7 @@ class TestCLIの引数パース:
 
             assert config.input_file == Path('test.mp4')
             assert config.parallel_jobs == 4
-            assert config.extra_args == ['-crf', '25']
+            assert config.svtav1_args == ['-crf', '25']
             assert result == 0
 
 
@@ -227,7 +227,7 @@ class TestCLIのEncodingConfig作成:
             assert config.input_file == Path('my_video.mp4')
             assert config.workspace_dir == workspace
             assert config.parallel_jobs == 12
-            assert config.extra_args == ['-crf', '28', '-preset', '5', '-g', '120']
+            assert config.svtav1_args == ['-crf', '28', '-preset', '5', '-g', '120']
 
     def test_input_fileがPathオブジェクトに変換される(self, tmp_path):
         """input_file引数がPathオブジェクトに変換されることをテスト"""
@@ -268,8 +268,8 @@ class TestCLIのデフォルト値:
             config = mock_orchestrator_class.call_args[0][0]
             assert config.parallel_jobs == 4
 
-    def test_extra_argsのデフォルト値は空リスト(self, tmp_path):
-        """extra_argsのデフォルト値が空リストであることをテスト"""
+    def test_svtav1_argsのデフォルト値は空リスト(self, tmp_path):
+        """svtav1_argsのデフォルト値が空リストであることをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4', '--gop', '240']
@@ -283,7 +283,7 @@ class TestCLIのデフォルト値:
             main()
 
             config = mock_orchestrator_class.call_args[0][0]
-            assert config.extra_args == []
+            assert config.svtav1_args == []
 
 
 class TestCLIのargparse動作:
@@ -380,8 +380,8 @@ class TestCLIのエッジケース:
             # argparseは負の値を許可するので、-1が設定される
             assert config.parallel_jobs == -1
 
-    def test_extra_argsが正しく処理される(self, tmp_path):
-        """extra_argsが正しく処理されることをテスト"""
+    def test_svtav1_argsが正しく処理される(self, tmp_path):
+        """svtav1_argsが正しく処理されることをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4', '--gop', '240', '--', '-crf', '0', '-preset', '0']
@@ -395,7 +395,7 @@ class TestCLIのエッジケース:
             main()
 
             config = mock_orchestrator_class.call_args[0][0]
-            assert config.extra_args == ['-crf', '0', '-preset', '0']
+            assert config.svtav1_args == ['-crf', '0', '-preset', '0']
 
     def test_非常に長いファイルパス(self, tmp_path):
         """非常に長いファイルパスが正しく処理されることをテスト"""

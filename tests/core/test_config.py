@@ -22,14 +22,14 @@ class TestEncodingConfig:
             parallel_jobs=4,
             gop_size=240,
             segment_length=120,
-            extra_args=['-crf', '30', '-preset', '6', '-g', '240']
+            svtav1_args=['--crf', '30', '--preset', '6']
         )
 
         assert config.input_file == input_file
         assert config.workspace_dir == workspace_dir
         assert config.parallel_jobs == 4
         assert config.segment_length == 120
-        assert config.extra_args == ['-crf', '30', '-preset', '6', '-g', '240']
+        assert config.svtav1_args == ['--crf', '30', '--preset', '6']
 
     def test_configのデフォルト値(self, tmp_path):
         """EncodingConfigのデフォルト値が正しいことをテスト"""
@@ -44,11 +44,11 @@ class TestEncodingConfig:
             parallel_jobs=4,
             gop_size=240        )
 
-        assert config.extra_args == []  # デフォルト値
+        assert config.svtav1_args == []  # デフォルト値
         assert config.segment_length == 60  # デフォルト値
 
-    def test_configのextra_argsを空リストに設定(self, tmp_path):
-        """extra_argsを明示的に空リストに設定できることをテスト"""
+    def test_configのsvtav1_argsを空リストに設定(self, tmp_path):
+        """svtav1_argsを明示的に空リストに設定できることをテスト"""
         input_file = tmp_path / "input.mp4"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -59,10 +59,10 @@ class TestEncodingConfig:
             workspace_dir=workspace_dir,
             parallel_jobs=4,
             gop_size=240,
-            extra_args=[]
+            svtav1_args=[]
         )
 
-        assert config.extra_args == []
+        assert config.svtav1_args == []
 
     def test_configのパス型が正しい(self, tmp_path):
         """EncodingConfigのパス型フィールドがPathオブジェクトであることをテスト"""
@@ -100,22 +100,22 @@ class TestEncodingConfig:
         assert config.parallel_jobs == 8
         assert config.segment_length == 120
 
-    def test_異なるextra_argsを設定(self, tmp_path):
-        """異なるextra_argsを設定できることをテスト"""
+    def test_異なるsvtav1_argsを設定(self, tmp_path):
+        """異なるsvtav1_argsを設定できることをテスト"""
         input_file = tmp_path / "input.mp4"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
 
-        extra_args1 = ['-crf', '25']
-        extra_args2 = ['-crf', '30', '-preset', '5', '-pix_fmt', 'yuv420p10le']
+        svtav1_args1 = ['--crf', '25']
+        svtav1_args2 = ['--crf', '30', '--preset', '5', '--pix_fmt', 'yuv420p10le']
 
         config1 = EncodingConfig(
             input_file=input_file,
             workspace_dir=workspace_dir,
             parallel_jobs=4,
             gop_size=240,
-            extra_args=extra_args1
+            svtav1_args=svtav1_args1
         )
 
         config2 = EncodingConfig(
@@ -123,12 +123,12 @@ class TestEncodingConfig:
             workspace_dir=workspace_dir,
             parallel_jobs=4,
             gop_size=240,
-            extra_args=extra_args2
+            svtav1_args=svtav1_args2
         )
 
-        assert config1.extra_args == extra_args1
-        assert config2.extra_args == extra_args2
-        assert config1.extra_args != config2.extra_args
+        assert config1.svtav1_args == svtav1_args1
+        assert config2.svtav1_args == svtav1_args2
+        assert config1.svtav1_args != config2.svtav1_args
 
     def test_複数のconfigインスタンスが独立している(self, tmp_path):
         """複数のEncodingConfigインスタンスが互いに独立していることをテスト"""
@@ -147,7 +147,7 @@ class TestEncodingConfig:
             parallel_jobs=4,
             gop_size=240,
             segment_length=60,
-            extra_args=['-crf', '30']
+            svtav1_args=['--crf', '30']
         )
 
         config2 = EncodingConfig(
@@ -156,7 +156,7 @@ class TestEncodingConfig:
             parallel_jobs=8,
             gop_size=240,
             segment_length=120,
-            extra_args=['-crf', '25']
+            svtav1_args=['--crf', '25']
         )
 
         # config1を変更してもconfig2に影響しないことを確認
@@ -164,7 +164,7 @@ class TestEncodingConfig:
         assert config1.workspace_dir != config2.workspace_dir
         assert config1.parallel_jobs != config2.parallel_jobs
         assert config1.segment_length != config2.segment_length
-        assert config1.extra_args != config2.extra_args
+        assert config1.svtav1_args != config2.svtav1_args
 
     def test_segment_lengthにカスタム値を設定(self, tmp_path):
         """segment_lengthにカスタム値を設定できることをテスト"""
@@ -206,20 +206,18 @@ class TestEncodingConfig:
             gop_size=240        )
         assert config2.parallel_jobs == 32
 
-    def test_extra_argsに複雑なオプションを設定(self, tmp_path):
-        """extra_argsに複雑なオプションを設定できることをテスト"""
+    def test_svtav1_argsに複雑なオプションを設定(self, tmp_path):
+        """svtav1_argsに複雑なオプションを設定できることをテスト"""
         input_file = tmp_path / "input.mp4"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
 
         complex_args = [
-            '-crf', '30',
-            '-preset', '6',
-            '-pix_fmt', 'yuv420p10le',
-            '-svtav1-params', 'tune=0:enable-qm=1:qm-min=0',
-            '-g', '240',
-            '-keyint_min', '240'
+            '--crf', '30',
+            '--preset', '6',
+            '--pix_fmt', 'yuv420p10le',
+            '--svtav1-params', 'tune=0:enable-qm=1:qm-min=0'
         ]
 
         config = EncodingConfig(
@@ -227,11 +225,11 @@ class TestEncodingConfig:
             workspace_dir=workspace_dir,
             parallel_jobs=4,
             gop_size=240,
-            extra_args=complex_args
+            svtav1_args=complex_args
         )
 
-        assert config.extra_args == complex_args
-        assert len(config.extra_args) == 12
+        assert config.svtav1_args == complex_args
+        assert len(config.svtav1_args) == 8
 
     def test_文字列パスからPathオブジェクトへの変換(self, tmp_path):
         """文字列パスからPathオブジェクトへの変換をテスト"""

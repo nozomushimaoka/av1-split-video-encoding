@@ -35,9 +35,9 @@ def main() -> int:
         help='GOP サイズ（キーフレーム間隔）'
     )
     parser.add_argument(
-        'extra_args',
+        'svtav1_args',
         nargs='*',
-        help='追加のFFmpegオプション'
+        help='SvtAv1EncApp用の追加オプション（例: --crf 30 --preset 6）'
     )
 
     args = parser.parse_args()
@@ -48,7 +48,7 @@ def main() -> int:
         workspace_dir=Path(args.workspace),
         parallel_jobs=args.parallel,
         gop_size=args.gop,
-        extra_args=args.extra_args if args.extra_args else []
+        svtav1_args=args.svtav1_args if args.svtav1_args else []
     )
 
     # オーケストレーター初期化

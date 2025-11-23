@@ -103,7 +103,7 @@ class TestEncodeVideo:
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
 
-            encode_video(input_file, workspace, parallel=8, gop_size=240, extra_args=['-crf', '30', '-preset', '5'])
+            encode_video(input_file, workspace, parallel=8, gop_size=240, svtav1_args=['--crf', '30', '--preset', '5'])
 
             # EncodingOrchestratorが正しく呼ばれたことを確認
             mock_orchestrator_class.assert_called_once()
@@ -111,7 +111,7 @@ class TestEncodeVideo:
             assert config.input_file == input_file
             assert config.workspace_dir == workspace
             assert config.parallel_jobs == 8
-            assert config.extra_args == ['-crf', '30', '-preset', '5']
+            assert config.svtav1_args == ['--crf', '30', '--preset', '5']
             assert config.segment_length == 60
 
             # runが呼ばれたことを確認
@@ -131,7 +131,7 @@ class TestEncodeVideo:
             mock_orchestrator.run.side_effect = RuntimeError("エンコードエラー")
 
             with pytest.raises(RuntimeError, match="エンコードエラー"):
-                encode_video(input_file, workspace, parallel=8, gop_size=240, extra_args=['-crf', '30', '-preset', '5'])
+                encode_video(input_file, workspace, parallel=8, gop_size=240, svtav1_args=['--crf', '30', '--preset', '5'])
 
 
 class TestProcessSingleFile:
@@ -149,7 +149,7 @@ class TestProcessSingleFile:
         # ワークスペースを作成して一時ファイルを追加
         workspace = None
 
-        def mock_encode_impl(input_f, ws, parallel, gop_size, extra_args):
+        def mock_encode_impl(input_f, ws, parallel, gop_size, svtav1_args):
             nonlocal workspace
             workspace = ws
             # 一時ファイルを作成（concat.txt, segment files, logs）
@@ -174,7 +174,7 @@ class TestProcessSingleFile:
                 'test',
                 gop_size=240,
                 parallel=8,
-                extra_args=['-crf', '30', '-preset', '5']
+                svtav1_args=['--crf', '30', '--preset', '5']
             )
 
             # エンコードと結合が呼ばれたことを確認
@@ -233,7 +233,7 @@ class TestProcessSingleFile:
                 'test',
                 gop_size=240,
                 parallel=8,
-                extra_args=['-crf', '30', '-preset', '5'],
+                svtav1_args=['--crf', '30', '--preset', '5'],
                 download_future=download_future
             )
 
@@ -265,7 +265,7 @@ class TestProcessSingleFile:
                 'test',
                 gop_size=240,
                 parallel=8,
-                extra_args=['-crf', '30', '-preset', '5']
+                svtav1_args=['--crf', '30', '--preset', '5']
             )
 
             # ダウンロードが呼ばれたことを確認
@@ -292,7 +292,7 @@ class TestProcessSingleFile:
                     'test',
                     gop_size=240,
                 parallel=8,
-                    extra_args=['-crf', '30', '-preset', '5']
+                    svtav1_args=['--crf', '30', '--preset', '5']
                 )
 
 
@@ -315,7 +315,7 @@ class TestRunBatchEncoding:
                     pending_files_path=pending_files_path,
                     gop_size=240,
                     parallel=8,
-                    extra_args=['-crf', '30', '-preset', '5']
+                    svtav1_args=['--crf', '30', '--preset', '5']
                 )
 
                 # S3Pipelineが初期化されたことを確認
@@ -342,7 +342,7 @@ class TestRunBatchEncoding:
                 pending_files_path=pending_files_path,
                 gop_size=240,
                 parallel=8,
-                extra_args=['-crf', '30', '-preset', '5']
+                svtav1_args=['--crf', '30', '--preset', '5']
             )
 
             # shutdownが呼ばれたことを確認
@@ -365,7 +365,7 @@ class TestRunBatchEncoding:
                 pending_files_path=pending_files_path,
                 gop_size=240,
                 parallel=8,
-                extra_args=['-crf', '30', '-preset', '5']
+                svtav1_args=['--crf', '30', '--preset', '5']
             )
 
             # エラーコードを返すことを確認
@@ -382,7 +382,7 @@ class TestRunBatchEncoding:
                 pending_files_path=pending_files_path,
                 gop_size=240,
                 parallel=8,
-                extra_args=['-crf', '30', '-preset', '5']
+                svtav1_args=['--crf', '30', '--preset', '5']
             )
 
             # shutdownが呼ばれたことを確認
@@ -421,7 +421,7 @@ class TestRunBatchEncoding:
                     pending_files_path=pending_files_path,
                     gop_size=240,
                     parallel=8,
-                    extra_args=['-crf', '30', '-preset', '5']
+                    svtav1_args=['--crf', '30', '--preset', '5']
                 )
 
                 # 2回ダウンロードが開始されたことを確認（2番目と3番目のファイル）

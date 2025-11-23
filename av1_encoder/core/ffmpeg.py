@@ -3,7 +3,6 @@ import logging
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
 
 from .config import EncodingConfig
 
@@ -16,21 +15,6 @@ class SegmentInfo:
     is_final: bool
     file: Path
     log_file: Path
-
-
-def _convert_ffmpeg_args_to_svtav1(args: List[str]) -> List[str]:
-    """FFmpeg形式のパラメータをSvtAv1EncApp形式に変換する
-
-    例: ['-crf', '30', '-preset', '6'] -> ['--crf', '30', '--preset', '6']
-    """
-    converted = []
-    for arg in args:
-        if arg.startswith('-') and not arg.startswith('--'):
-            # 単一ハイフンを二重ハイフンに変換（-crf -> --crf）
-            converted.append('-' + arg)
-        else:
-            converted.append(arg)
-    return converted
 
 
 class FFmpegService:
@@ -108,10 +92,9 @@ class FFmpegService:
             '--keyint', str(config.gop_size)
         ]
 
-        # 追加オプション（FFmpeg形式からSvtAv1EncApp形式に変換）
-        if config.extra_args:
-            converted_args = _convert_ffmpeg_args_to_svtav1(config.extra_args)
-            svtav1_cmd.extend(converted_args)
+        # 追加オプション（SvtAv1EncApp形式）
+        if config.svtav1_args:
+            svtav1_cmd.extend(config.svtav1_args)
 
         # 出力ファイル指定
         svtav1_cmd.extend(['-b', str(segment_info.file)])

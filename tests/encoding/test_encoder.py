@@ -21,9 +21,9 @@ def encoding_config(tmp_path):
         input_file=input_file,
         workspace_dir=workspace_dir,
         parallel_jobs=2,
-            gop_size=240,
+        gop_size=240,
         segment_length=60,
-        extra_args=['-crf', '30', '-preset', '6', '-g', '240', '-keyint_min', '240']
+        svtav1_args=['--crf', '30', '--preset', '6']
     )
 
 
@@ -451,13 +451,13 @@ class TestEncodingConfig:
             parallel_jobs=4,
             gop_size=240,
             segment_length=120,
-            extra_args=['-crf', '30', '-preset', '6', '-g', '240']
+            svtav1_args=['--crf', '30', '--preset', '6']
         )
 
         assert config.input_file == input_file
         assert config.workspace_dir == workspace_dir
         assert config.parallel_jobs == 4
-        assert config.extra_args == ['-crf', '30', '-preset', '6', '-g', '240']
+        assert config.svtav1_args == ['--crf', '30', '--preset', '6']
         assert config.segment_length == 120
 
     def test_configのデフォルト値(self, tmp_path):
@@ -472,11 +472,11 @@ class TestEncodingConfig:
             parallel_jobs=4,
             gop_size=240        )
 
-        assert config.extra_args == []
+        assert config.svtav1_args == []
         assert config.segment_length == 60  # デフォルト値
 
-    def test_configのextra_argsを空リストに設定(self, tmp_path):
-        """extra_argsを明示的に空リストに設定できることをテスト"""
+    def test_configのsvtav1_argsを空リストに設定(self, tmp_path):
+        """svtav1_argsを明示的に空リストに設定できることをテスト"""
         input_file = tmp_path / "input.mp4"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -486,7 +486,7 @@ class TestEncodingConfig:
             workspace_dir=workspace_dir,
             parallel_jobs=4,
             gop_size=240,
-            extra_args=[]
+            svtav1_args=[]
         )
 
-        assert config.extra_args == []
+        assert config.svtav1_args == []

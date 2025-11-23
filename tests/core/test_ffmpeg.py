@@ -35,9 +35,9 @@ def encoding_config(tmp_path):
         input_file=input_file,
         workspace_dir=workspace_dir,
         parallel_jobs=4,
-            gop_size=240,
+        gop_size=240,
         segment_length=60,
-        extra_args=['-crf', '30', '-preset', '6', '-g', '240', '-keyint_min', '240']
+        svtav1_args=['--crf', '30', '--preset', '6']
     )
 
 
@@ -392,8 +392,8 @@ class TestFFmpegServiceのencode_segment:
             assert '--keyint' in svtav1_cmd
             assert '240' in svtav1_cmd
 
-    def test_セグメントをエンコード_カスタムextra_args(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
-        """カスタムextra_argsでセグメントをエンコードするテスト"""
+    def test_セグメントをエンコード_カスタムsvtav1_args(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
+        """カスタムsvtav1_argsでセグメントをエンコードするテスト"""
         input_file = tmp_path / "input.mp4"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -404,10 +404,10 @@ class TestFFmpegServiceのencode_segment:
             parallel_jobs=4,
             gop_size=240,
             segment_length=60,
-            extra_args=[
-                '-pix_fmt', 'yuv420p10le',
-                '-svtav1-params', 'tune=0:enable-qm=1:qm-min=0',
-                '-crf', '25'
+            svtav1_args=[
+                '--pix_fmt', 'yuv420p10le',
+                '--svtav1-params', 'tune=0:enable-qm=1:qm-min=0',
+                '--crf', '25'
             ]
         )
 
@@ -441,7 +441,6 @@ class TestFFmpegServiceのencode_segment:
             assert result is True
 
             # カスタムオプションが含まれていることを確認（SvtAv1EncAppコマンド）
-            # FFmpeg形式(-で始まる)がSvtAv1EncApp形式(--で始まる)に変換されていることを確認
             svtav1_call = mock_popen.call_args_list[1]
             svtav1_cmd = svtav1_call[0][0]
             assert '--pix_fmt' in svtav1_cmd

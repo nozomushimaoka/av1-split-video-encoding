@@ -49,8 +49,8 @@ class TestMainのコマンドライン引数:
             '--pending-files', str(pending_files_path),
             '--parallel', '8', '--gop', '240',
             '--',
-            '-crf', '30',
-            '-preset', '5'
+            '--crf', '30',
+            '--preset', '5'
         ]
 
         with patch('sys.argv', test_args), \
@@ -65,7 +65,7 @@ class TestMainのコマンドライン引数:
                 pending_files_path=pending_files_path,
                 parallel=8,
                 gop_size=240,
-                extra_args=['-crf', '30', '-preset', '5']
+                svtav1_args=['--crf', '30', '--preset', '5']
             )
             assert result == 0
 
@@ -88,13 +88,13 @@ class TestMainのコマンドライン引数:
 
             result = main()
 
-            # extra_argsが空のリストで呼ばれたことを確認
+            # svtav1_argsが空のリストで呼ばれたことを確認
             mock_run.assert_called_once_with(
                 bucket='test-bucket',
                 pending_files_path=pending_files_path,
                 parallel=10,
                 gop_size=240,
-                extra_args=[]
+                svtav1_args=[]
             )
             assert result == 0
 
@@ -284,8 +284,8 @@ class TestMainの引数型:
             with pytest.raises(SystemExit):
                 main()
 
-    def test_extra_argsが正しくリストとして渡される(self, tmp_path):
-        """extra_argsが正しくリストとして渡されることをテスト"""
+    def test_svtav1_argsが正しくリストとして渡される(self, tmp_path):
+        """svtav1_argsが正しくリストとして渡されることをテスト"""
         # pending filesファイルを作成
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("video1.mkv\n")
@@ -296,8 +296,8 @@ class TestMainの引数型:
             '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
             '--',
-            '-crf', '30',
-            '-preset', '6'
+            '--crf', '30',
+            '--preset', '6'
         ]
 
         with patch('sys.argv', test_args), \
@@ -306,10 +306,10 @@ class TestMainの引数型:
 
             main()
 
-            # extra_argsがリストで渡されたことを確認
+            # svtav1_argsがリストで渡されたことを確認
             call_kwargs = mock_run.call_args[1]
-            assert isinstance(call_kwargs['extra_args'], list)
-            assert call_kwargs['extra_args'] == ['-crf', '30', '-preset', '6']
+            assert isinstance(call_kwargs['svtav1_args'], list)
+            assert call_kwargs['svtav1_args'] == ['--crf', '30', '--preset', '6']
 
 
 class TestMainのエッジケース:

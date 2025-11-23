@@ -52,7 +52,7 @@ def encode_video(
     workspace: Path,
     parallel: int,
     gop_size: int,
-    extra_args: list[str]
+    svtav1_args: list[str]
 ) -> None:
     """エンコード処理を実行"""
     from av1_encoder.core.config import EncodingConfig
@@ -65,7 +65,7 @@ def encode_video(
         parallel_jobs=parallel,
         gop_size=gop_size,
         segment_length=60,  # デフォルト値
-        extra_args=extra_args
+        svtav1_args=svtav1_args
     )
 
     # エンコード実行（ログはEncodingOrchestratorが担当）
@@ -79,7 +79,7 @@ def process_single_file(
     base_name: str,
     parallel: int,
     gop_size: int,
-    extra_args: list[str],
+    svtav1_args: list[str],
     download_future: Optional[Future[None]] = None
 ) -> None:
     """単一ファイルの処理"""
@@ -102,7 +102,7 @@ def process_single_file(
 
     try:
         # エンコード
-        encode_video(input_file, workspace, parallel, gop_size, extra_args)
+        encode_video(input_file, workspace, parallel, gop_size, svtav1_args)
 
         # 結合
         output_file = workspace / "output.mkv"
@@ -148,7 +148,7 @@ def run_batch_encoding(
     pending_files_path: Path,
     parallel: int,
     gop_size: int,
-    extra_args: list[str]
+    svtav1_args: list[str]
 ) -> int:
     """バッチエンコード処理を実行"""
     logger.info(f"S3バケット: {bucket}")
@@ -204,7 +204,7 @@ def run_batch_encoding(
                 base_name,
                 parallel,
                 gop_size,
-                extra_args,
+                svtav1_args,
                 download_future
             )
 
