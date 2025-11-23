@@ -6,9 +6,46 @@ from pathlib import Path
 
 import boto3
 from botocore.exceptions import ClientError
-from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
+
+
+class ProgressCallback:
+    """1GB毎に進捗をログ出力するコールバック"""
+
+    def __init__(self, filename: str, total_size: int, update_interval: int = 1024 * 1024 * 1024):
+        """
+        Args:
+            filename: ファイル名
+            total_size: 総ファイルサイズ(バイト)
+            update_interval: 更新間隔(バイト数)、デフォルトは1GB
+        """
+        self.filename = filename
+        self.total_size = total_size
+        self.update_interval = update_interval
+        self.accumulated = 0
+        self.transferred = 0
+
+    def __call__(self, bytes_transferred: int) -> None:
+        """転送されたバイト数を蓄積し、1GB毎にログ出力"""
+        self.accumulated += bytes_transferred
+        self.transferred += bytes_transferred
+
+        if self.accumulated >= self.update_interval:
+            # 1GB単位でログ出力
+            progress_gb = self.transferred / (1024 * 1024 * 1024)
+            total_gb = self.total_size / (1024 * 1024 * 1024)
+            percentage = (self.transferred / self.total_size * 100) if self.total_size > 0 else 0
+            logger.info(f"{self.filename}: {progress_gb:.2f}GB / {total_gb:.2f}GB ({percentage:.1f}%)")
+            self.accumulated %= self.update_interval
+
+    def flush(self) -> None:
+        """最終的な進捗をログ出力(転送完了時に呼び出す)"""
+        if self.transferred > 0 and self.transferred < self.total_size:
+            progress_gb = self.transferred / (1024 * 1024 * 1024)
+            total_gb = self.total_size / (1024 * 1024 * 1024)
+            percentage = (self.transferred / self.total_size * 100) if self.total_size > 0 else 0
+            logger.info(f"{self.filename}: {progress_gb:.2f}GB / {total_gb:.2f}GB ({percentage:.1f}%)")
 
 
 class S3Pipeline:
@@ -41,20 +78,16 @@ class S3Pipeline:
             )
             file_size = response['ContentLength']
 
-            # プログレスバー付きでダウンロード
+            # プログレスコールバック付きでダウンロード
             if show_progress:
-                with tqdm(
-                    total=file_size,
-                    unit='B',
-                    unit_scale=True,
-                    desc=f"[DL] {filename}"
-                ) as pbar:
-                    self.s3_client.download_file(
-                        Bucket=self.bucket_name,
-                        Key=s3_key,
-                        Filename=str(local_path),
-                        Callback=lambda bytes_transferred: pbar.update(bytes_transferred)
-                    )
+                callback = ProgressCallback(f"[DL] {filename}", file_size)
+                self.s3_client.download_file(
+                    Bucket=self.bucket_name,
+                    Key=s3_key,
+                    Filename=str(local_path),
+                    Callback=callback
+                )
+                callback.flush()  # 残りの進捗をログ出力
             else:
                 self.s3_client.download_file(
                     Bucket=self.bucket_name,
@@ -95,20 +128,16 @@ class S3Pipeline:
         try:
             file_size = local_path.stat().st_size
 
-            # プログレスバー付きでアップロード
+            # プログレスコールバック付きでアップロード
             if show_progress:
-                with tqdm(
-                    total=file_size,
-                    unit='B',
-                    unit_scale=True,
-                    desc=f"[UP] {base_name}"
-                ) as pbar:
-                    self.s3_client.upload_file(
-                        Filename=str(local_path),
-                        Bucket=self.bucket_name,
-                        Key=s3_key,
-                        Callback=lambda bytes_transferred: pbar.update(bytes_transferred)
-                    )
+                callback = ProgressCallback(f"[UP] {base_name}", file_size)
+                self.s3_client.upload_file(
+                    Filename=str(local_path),
+                    Bucket=self.bucket_name,
+                    Key=s3_key,
+                    Callback=callback
+                )
+                callback.flush()  # 残りの進捗をログ出力
             else:
                 self.s3_client.upload_file(
                     Filename=str(local_path),
