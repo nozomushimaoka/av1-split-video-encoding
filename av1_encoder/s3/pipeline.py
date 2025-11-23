@@ -41,7 +41,7 @@ class ProgressCallback:
 
     def flush(self) -> None:
         """最終的な進捗をログ出力(転送完了時に呼び出す)"""
-        if self.transferred > 0 and self.transferred < self.total_size:
+        if self.transferred > 0:
             progress_gb = self.transferred / (1024 * 1024 * 1024)
             total_gb = self.total_size / (1024 * 1024 * 1024)
             percentage = (self.transferred / self.total_size * 100) if self.total_size > 0 else 0
@@ -105,7 +105,7 @@ class S3Pipeline:
         self,
         filename: str,
         local_path: Path
-    ) -> Future:
+    ) -> Future[None]:
         """バックグラウンドでダウンロードを開始"""
         logger.info(f"[DL] 次ファイルのダウンロード開始: {filename}")
         return self.executor.submit(
@@ -155,7 +155,7 @@ class S3Pipeline:
         self,
         local_path: Path,
         base_name: str
-    ) -> Future:
+    ) -> Future[None]:
         """バックグラウンドでアップロードを開始"""
         logger.info(f"バックグラウンドアップロード開始: {base_name}")
         return self.executor.submit(

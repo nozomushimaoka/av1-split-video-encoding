@@ -43,7 +43,7 @@ def merge_video_with_audio(
         subprocess.run(cmd, check=True, capture_output=True)
         logger.info("結合完了")
     except subprocess.CalledProcessError as e:
-        logger.error(f"結合に失敗: {e.stderr.decode('utf-8', errors='ignore')}")
+        logger.error(f"結合に失敗: {e.stderr.decode('utf-8', errors='replace')}")
         raise
 
 
@@ -103,6 +103,7 @@ def process_single_file(
     workspace = Path(f"encode_{base_name}_{timestamp}")
     workspace.mkdir(parents=True, exist_ok=True)
 
+    output_file = None
     try:
         # エンコード
         encode_video(input_file, workspace, parallel, gop_size, svtav1_args, ffmpeg_args)
@@ -143,6 +144,14 @@ def process_single_file(
 
     except Exception as e:
         logger.error(f"処理中にエラーが発生: {e}")
+        # エラー時のクリーンアップ
+        logger.info("エラーが発生したため、ダウンロードした入力ファイルを削除します")
+        if input_file.exists():
+            try:
+                input_file.unlink()
+                logger.info(f"入力ファイルを削除: {input_file}")
+            except Exception as cleanup_error:
+                logger.warning(f"入力ファイルの削除に失敗: {cleanup_error}")
         raise
 
 
@@ -217,12 +226,6 @@ def run_batch_encoding(
             download_future = next_download_future
 
             logger.info(f"完了: {input_file_name}")
-
-        # 最後のダウンロードを待つ
-        if download_future is not None:
-            logger.info("最後のダウンロードの完了を待機中...")
-            download_future.result()
-            logger.info("最後のダウンロード完了")
 
         logger.info("")
         logger.info("すべての処理が完了しました")
