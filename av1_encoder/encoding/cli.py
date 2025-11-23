@@ -38,16 +38,14 @@ def main() -> int:
     parser.add_argument(
         '-svtav1-params',
         type=str,
-        default=None,
+        required=True,
         help='SvtAv1EncApp用のパラメータ（コロン区切り、例: preset=4:crf=30:enable-qm=1）'
     )
 
     args = parser.parse_args()
 
     # svtav1_argsを構築（コロン区切りを展開）
-    svtav1_args = []
-    if args.svtav1_params:
-        svtav1_args = expand_svtav1_params(args.svtav1_params)
+    svtav1_args = expand_svtav1_params(args.svtav1_params)
 
     # 設定を作成
     config = EncodingConfig(
