@@ -188,32 +188,28 @@ class TestProcessSingleFile:
             upload_call_args = mock_s3_pipeline.upload_file_async.call_args[0]
             assert upload_call_args[1] == 'test.mkv'  # base_name + .mkv
 
-            # Futureが返されたことを確認
-            assert result == mock_future
+            # 戻り値はNone（変更後）
+            assert result is None
+
+            # アップロード完了待機が呼ばれたことを確認
+            mock_future.result.assert_called_once()
 
             # 入力ファイルが削除されたことを確認
             assert not input_file.exists()
 
-            # セグメントファイルが削除され、output.mkv, concat.txt, ログファイルが残っていることを確認
+            # セグメントファイルが削除され、concat.txt, ログファイルが残っていることを確認
             assert workspace is not None
             assert workspace.exists()
             output_file = workspace / "output.mkv"
             # セグメントファイルが削除されていることを確認
             remaining_files = list(workspace.iterdir())
             remaining_names = {f.name for f in remaining_files}
-            assert "output.mkv" in remaining_names
+            # output.mkvはアップロード後に削除される（変更後）
+            assert "output.mkv" not in remaining_names
             assert "concat.txt" in remaining_names
             assert "main.log" in remaining_names
             # セグメントファイルが削除されていることを確認
             assert not any(f.name.startswith("segment_") for f in remaining_files)
-
-            # コールバックが設定されたことを確認
-            assert mock_future.add_done_callback.called
-
-            # コールバックを実行してoutput.mkvが削除されることを確認
-            callback = mock_future.add_done_callback.call_args[0][0]
-            callback(mock_future)
-            assert not output_file.exists()
 
     def test_単一ファイルの処理_前のダウンロードを待機(self, mock_s3_pipeline, tmp_path, monkeypatch):
         """前のダウンロードを待機することをテスト"""
@@ -310,11 +306,9 @@ class TestRunBatchEncoding:
         pending_files_path.write_text("video1.mkv\nvideo2.mkv\n")
 
         with patch('av1_encoder.s3.batch.S3Pipeline', return_value=mock_s3_pipeline) as mock_pipeline_class:
-            mock_upload_future1 = Mock()
-            mock_upload_future2 = Mock()
-
             with patch('av1_encoder.s3.batch.process_single_file') as mock_process:
-                mock_process.side_effect = [mock_upload_future1, mock_upload_future2]
+                # process_single_fileはNoneを返す（変更後）
+                mock_process.return_value = None
 
                 result = run_batch_encoding(
                     bucket='test-bucket',
@@ -329,9 +323,6 @@ class TestRunBatchEncoding:
 
                 # 各ファイルが処理されたことを確認
                 assert mock_process.call_count == 2
-
-                # 最後のアップロードを待機したことを確認
-                mock_upload_future2.result.assert_called_once()
 
                 # shutdownが呼ばれたことを確認
                 mock_s3_pipeline.shutdown.assert_called_once()
@@ -441,7 +432,7 @@ class TestRunBatchEncoding:
                 # video3.mkvの処理時にdownload_future2は次がないのでNone
                 mock_download_future2.result.assert_called_once()
 
-                # 最後のアップロードを待機したことを確認
-                mock_upload_future.result.assert_called_once()
+                # アップロードは各ファイルで3回呼ばれる（変更後: process_single_file内でresult()を呼ぶ）
+                assert mock_upload_future.result.call_count == 3
 
                 assert result == 0

@@ -81,7 +81,7 @@ def process_single_file(
     gop_size: int,
     extra_args: list[str],
     download_future: Optional[Future[None]] = None
-) -> Future[None]:
+) -> None:
     """単一ファイルの処理"""
     # 前のダウンロードが完了するまで待機
     if download_future is not None:
@@ -122,23 +122,21 @@ def process_single_file(
                     logger.debug(f"削除: {file.name}")
 
         # S3へアップロード（拡張子付きで保存）
+        logger.info("S3へのアップロード開始（バックグラウンド）")
         upload_future = s3.upload_file_async(output_file, f"{base_name}.mkv")
 
-        # アップロード完了後にoutput.mkvを削除するコールバックを設定
-        def cleanup_output(future):
-            try:
-                future.result()  # 例外があれば発生させる
-                if output_file.exists():
-                    output_file.unlink()
-                    logger.info(f"アップロード完了後にoutput.mkvを削除: {output_file}")
-            except Exception as e:
-                logger.error(f"アップロードまたは削除中にエラー: {e}")
+        # アップロード完了を待つ
+        logger.info("アップロード完了を待機中...")
+        upload_future.result()  # アップロード完了まで待機
+        logger.info("アップロード完了")
 
-        upload_future.add_done_callback(cleanup_output)
+        # アップロード完了後にoutput.mkvを削除
+        if output_file.exists():
+            logger.info(f"output.mkvを削除中: {output_file}")
+            output_file.unlink()
+            logger.info(f"output.mkvを削除完了: {output_file}")
 
-        # バックグラウンドでクリーンアップ
-        logger.info("次の処理に移行（アップロードは継続中）")
-        return upload_future
+        logger.info("ファイル処理が完全に完了")
 
     except Exception as e:
         logger.error(f"処理中にエラーが発生: {e}")
@@ -181,7 +179,6 @@ def run_batch_encoding(
 
         # ファイルを順次処理
         download_future: Optional[Future[None]] = None
-        upload_future: Optional[Future[None]] = None
 
         for i, input_file_name in enumerate(pending_files):
             base_name = input_file_name.replace('.mkv', '')
@@ -200,8 +197,8 @@ def run_batch_encoding(
                     next_local_path
                 )
 
-            # 現在のファイルを処理
-            upload_future = process_single_file(
+            # 現在のファイルを処理（アップロードと削除まで完了する）
+            process_single_file(
                 s3,
                 input_file_name,
                 base_name,
@@ -216,14 +213,11 @@ def run_batch_encoding(
 
             logger.info(f"完了: {input_file_name}")
 
-        # 最後のダウンロードとアップロードを待つ
+        # 最後のダウンロードを待つ
         if download_future is not None:
             logger.info("最後のダウンロードの完了を待機中...")
             download_future.result()
-
-        if upload_future is not None:
-            logger.info("最後のアップロードの完了を待機中...")
-            upload_future.result()
+            logger.info("最後のダウンロード完了")
 
         logger.info("")
         logger.info("すべての処理が完了しました")

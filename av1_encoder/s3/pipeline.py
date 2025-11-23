@@ -138,4 +138,6 @@ class S3Pipeline:
 
     def shutdown(self) -> None:
         """リソースのクリーンアップ"""
+        logger.info("[S3] ExecutorをShutdown中...")
         self.executor.shutdown(wait=True)
+        logger.info("[S3] Shutdown完了")
