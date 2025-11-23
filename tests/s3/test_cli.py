@@ -64,7 +64,8 @@ class TestMainのコマンドライン引数:
                 parallel=8,
                 gop_size=240,
                 # CLI側で展開されるので、展開後の形式になる
-                svtav1_args=['--crf', '30', '--preset', '5']
+                svtav1_args=['--crf', '30', '--preset', '5'],
+                ffmpeg_args=[]
             )
             assert result == 0
 
@@ -94,7 +95,8 @@ class TestMainのコマンドライン引数:
                 pending_files_path=pending_files_path,
                 parallel=10,
                 gop_size=240,
-                svtav1_args=['--crf', '30']
+                svtav1_args=['--crf', '30'],
+                ffmpeg_args=[]
             )
             assert result == 0
 

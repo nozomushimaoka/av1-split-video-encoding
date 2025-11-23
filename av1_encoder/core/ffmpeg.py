@@ -77,6 +77,10 @@ class FFmpegService:
         if not is_final_segment:
             ffmpeg_cmd.extend(['-t', str(duration)])
 
+        # 追加のFFmpegパラメータ（既に展開済み）
+        if config.ffmpeg_args:
+            ffmpeg_cmd.extend(config.ffmpeg_args)
+
         # Y4M形式でパイプ出力（10-bit）
         ffmpeg_cmd.extend([
             '-f', 'yuv4mpegpipe',

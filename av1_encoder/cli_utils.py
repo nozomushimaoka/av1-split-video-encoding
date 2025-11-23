@@ -29,3 +29,33 @@ def expand_svtav1_params(params_string: str) -> list[str]:
             key, value = param.split('=', 1)
             result.extend([f'--{key}', value])
     return result
+
+
+def expand_ffmpeg_params(params_string: str) -> list[str]:
+    """
+    カンマ区切りのFFmpegパラメータを展開
+
+    Args:
+        params_string: カンマ区切りのパラメータ文字列
+                      例: "vf=scale=1920:1080,c:v=libx264"
+
+    Returns:
+        展開されたパラメータのリスト
+        例: ['-vf', 'scale=1920:1080', '-c:v', 'libx264']
+
+    Examples:
+        >>> expand_ffmpeg_params("vf=scale=1920:1080")
+        ['-vf', 'scale=1920:1080']
+
+        >>> expand_ffmpeg_params("vf=scale=1920:1080,c:v=libx264")
+        ['-vf', 'scale=1920:1080', '-c:v', 'libx264']
+
+        >>> expand_ffmpeg_params("")
+        []
+    """
+    result = []
+    for param in params_string.split(','):
+        if '=' in param:
+            key, value = param.split('=', 1)
+            result.extend([f'-{key}', value])
+    return result

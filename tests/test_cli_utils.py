@@ -2,7 +2,7 @@
 
 import pytest
 
-from av1_encoder.cli_utils import expand_svtav1_params
+from av1_encoder.cli_utils import expand_ffmpeg_params, expand_svtav1_params
 
 
 class TestExpandSvtav1Params:
@@ -79,3 +79,66 @@ class TestExpandSvtav1Params:
         """先頭と末尾にコロンがある場合を正しく処理することをテスト"""
         result = expand_svtav1_params(":preset=4:crf=30:")
         assert result == ['--preset', '4', '--crf', '30']
+
+class TestExpandFfmpegParams:
+    """expand_ffmpeg_params関数のテスト"""
+
+    def test_単一パラメータを展開(self):
+        """単一のパラメータを正しく展開することをテスト"""
+        result = expand_ffmpeg_params("r=30")
+        assert result == ['-r', '30']
+
+    def test_複数パラメータを展開(self):
+        """複数のパラメータを正しく展開することをテスト"""
+        result = expand_ffmpeg_params("vf=scale=1920:1080,r=30,c:v=libx264")
+        assert result == ['-vf', 'scale=1920:1080', '-r', '30', '-c:v', 'libx264']
+
+    def test_空文字列を処理(self):
+        """空文字列の場合に空リストを返すことをテスト"""
+        result = expand_ffmpeg_params("")
+        assert result == []
+
+    def test_等号を含まないパラメータはスキップ(self):
+        """等号を含まないパラメータはスキップされることをテスト"""
+        result = expand_ffmpeg_params("r=30,invalid,vf=scale=1920:1080")
+        assert result == ['-r', '30', '-vf', 'scale=1920:1080']
+
+    def test_値に等号を含むパラメータ(self):
+        """値に等号を含むパラメータを正しく処理することをテスト"""
+        result = expand_ffmpeg_params("metadata=key=value")
+        assert result == ['-metadata', 'key=value']
+
+    def test_値にコロンを含むパラメータ(self):
+        """値にコロンを含むパラメータ（scale等）を正しく処理することをテスト"""
+        result = expand_ffmpeg_params("vf=scale=1920:1080")
+        assert result == ['-vf', 'scale=1920:1080']
+
+    def test_複雑なフィルター(self):
+        """複雑なフィルター指定を正しく処理することをテスト"""
+        result = expand_ffmpeg_params("vf=scale=1920:1080:flags=lanczos,r=30")
+        assert result == ['-vf', 'scale=1920:1080:flags=lanczos', '-r', '30']
+
+    def test_コーデックパラメータ(self):
+        """コーデックパラメータを正しく処理することをテスト"""
+        result = expand_ffmpeg_params("c:v=libx264,c:a=aac")
+        assert result == ['-c:v', 'libx264', '-c:a', 'aac']
+
+    def test_空の値を持つパラメータ(self):
+        """空の値を持つパラメータを正しく処理することをテスト"""
+        result = expand_ffmpeg_params("key=")
+        assert result == ['-key', '']
+
+    def test_カンマのみの文字列(self):
+        """カンマのみの文字列を正しく処理することをテスト"""
+        result = expand_ffmpeg_params(",,,")
+        assert result == []
+
+    def test_先頭と末尾にカンマ(self):
+        """先頭と末尾にカンマがある場合を正しく処理することをテスト"""
+        result = expand_ffmpeg_params(",vf=scale=1920:1080,r=30,")
+        assert result == ['-vf', 'scale=1920:1080', '-r', '30']
+
+    def test_ハイフン付きプレフィックス(self):
+        """ハイフン1つがプレフィックスとして正しく付与されることをテスト"""
+        result = expand_ffmpeg_params("vf=yadif")
+        assert result == ['-vf', 'yadif']
