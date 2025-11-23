@@ -39,7 +39,7 @@ def main() -> int:
         '-svtav1-params',
         type=str,
         required=True,
-        help='SvtAv1EncApp用のパラメータ（コロン区切り、例: preset=4:crf=30:enable-qm=1）'
+        help='SvtAv1EncApp用のパラメータ（カンマ区切り、例: preset=4,crf=30,enable-qm=1）'
     )
     parser.add_argument(
         '-ffmpeg-params',
@@ -50,7 +50,7 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    # svtav1_argsを構築（コロン区切りを展開）
+    # svtav1_argsを構築（カンマ区切りを展開）
     svtav1_args = expand_svtav1_params(args.svtav1_params)
 
     # ffmpeg_argsを構築（カンマ区切りを展開）

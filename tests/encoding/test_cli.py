@@ -48,7 +48,7 @@ class TestCLIの引数パース:
             'video.mkv',
             str(workspace),
             '--parallel', '8', '--gop', '240',
-            '-svtav1-params', 'crf=30:preset=6:g=240'
+            '-svtav1-params', 'crf=30,preset=6,g=240'
         ]
 
         with patch('sys.argv', test_args), \
@@ -203,7 +203,7 @@ class TestCLIのEncodingConfig作成:
             'my_video.mp4',
             str(workspace),
             '--parallel', '12', '--gop', '240',
-            '-svtav1-params', 'crf=28:preset=5:g=120'
+            '-svtav1-params', 'crf=28,preset=5,g=120'
         ]
 
         with patch('sys.argv', test_args), \
@@ -375,7 +375,7 @@ class TestCLIのエッジケース:
         """svtav1_argsが正しく処理されることをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
-        test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4', '--gop', '240', '-svtav1-params', 'crf=0:preset=0']
+        test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4', '--gop', '240', '-svtav1-params', 'crf=0,preset=0']
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:

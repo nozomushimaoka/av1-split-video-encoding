@@ -48,7 +48,7 @@ class TestMainのコマンドライン引数:
             '--bucket', 'my-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '8', '--gop', '240',
-            '-svtav1-params', 'crf=30:preset=5'
+            '-svtav1-params', 'crf=30,preset=5'
         ]
 
         with patch('sys.argv', test_args), \
@@ -304,7 +304,7 @@ class TestMainの引数型:
             '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
-            '-svtav1-params', 'crf=30:preset=6'
+            '-svtav1-params', 'crf=30,preset=6'
         ]
 
         with patch('sys.argv', test_args), \

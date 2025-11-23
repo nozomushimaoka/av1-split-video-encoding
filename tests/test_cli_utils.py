@@ -15,7 +15,7 @@ class TestExpandSvtav1Params:
 
     def test_複数パラメータを展開(self):
         """複数のパラメータを正しく展開することをテスト"""
-        result = expand_svtav1_params("preset=4:crf=30:enable-qm=1")
+        result = expand_svtav1_params("preset=4,crf=30,enable-qm=1")
         assert result == ['--preset', '4', '--crf', '30', '--enable-qm', '1']
 
     def test_空文字列を処理(self):
@@ -25,7 +25,7 @@ class TestExpandSvtav1Params:
 
     def test_等号を含まないパラメータはスキップ(self):
         """等号を含まないパラメータはスキップされることをテスト"""
-        result = expand_svtav1_params("preset=4:invalid:crf=30")
+        result = expand_svtav1_params("preset=4,invalid,crf=30")
         assert result == ['--preset', '4', '--crf', '30']
 
     def test_値に等号を含むパラメータ(self):
@@ -35,12 +35,12 @@ class TestExpandSvtav1Params:
 
     def test_数値パラメータ(self):
         """数値パラメータを正しく展開することをテスト"""
-        result = expand_svtav1_params("crf=0:preset=13:qm-min=8")
+        result = expand_svtav1_params("crf=0,preset=13,qm-min=8")
         assert result == ['--crf', '0', '--preset', '13', '--qm-min', '8']
 
     def test_複雑なパラメータ組み合わせ(self):
         """複雑なパラメータの組み合わせを正しく展開することをテスト"""
-        result = expand_svtav1_params("preset=4:crf=30:enable-qm=1:qm-min=8:scd=1")
+        result = expand_svtav1_params("preset=4,crf=30,enable-qm=1,qm-min=8,scd=1")
         assert result == [
             '--preset', '4',
             '--crf', '30',
@@ -51,7 +51,7 @@ class TestExpandSvtav1Params:
 
     def test_ハイフンを含むキー(self):
         """ハイフンを含むキー名を正しく処理することをテスト"""
-        result = expand_svtav1_params("enable-qm=1:qm-min=8")
+        result = expand_svtav1_params("enable-qm=1,qm-min=8")
         assert result == ['--enable-qm', '1', '--qm-min', '8']
 
     def test_空の値を持つパラメータ(self):
@@ -70,14 +70,14 @@ class TestExpandSvtav1Params:
         result = expand_svtav1_params("key=value-with_special.chars")
         assert result == ['--key', 'value-with_special.chars']
 
-    def test_コロンのみの文字列(self):
-        """コロンのみの文字列を正しく処理することをテスト"""
-        result = expand_svtav1_params(":::")
+    def test_カンマのみの文字列(self):
+        """カンマのみの文字列を正しく処理することをテスト"""
+        result = expand_svtav1_params(",,,")
         assert result == []
 
-    def test_先頭と末尾にコロン(self):
-        """先頭と末尾にコロンがある場合を正しく処理することをテスト"""
-        result = expand_svtav1_params(":preset=4:crf=30:")
+    def test_先頭と末尾にカンマ(self):
+        """先頭と末尾にカンマがある場合を正しく処理することをテスト"""
+        result = expand_svtav1_params(",preset=4,crf=30,")
         assert result == ['--preset', '4', '--crf', '30']
 
 class TestExpandFfmpegParams:
