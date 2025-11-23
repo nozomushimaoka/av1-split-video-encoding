@@ -277,8 +277,6 @@ class TestFFmpegServiceのencode_segment:
             assert '60' in ffmpeg_cmd  # duration
             assert '-f' in ffmpeg_cmd
             assert 'yuv4mpegpipe' in ffmpeg_cmd
-            assert '-pix_fmt' in ffmpeg_cmd
-            assert 'yuv420p10le' in ffmpeg_cmd
 
             # SvtAv1EncAppコマンドの確認
             svtav1_call = mock_popen.call_args_list[1]

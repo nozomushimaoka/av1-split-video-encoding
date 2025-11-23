@@ -81,10 +81,9 @@ class FFmpegService:
         if config.ffmpeg_args:
             ffmpeg_cmd.extend(config.ffmpeg_args)
 
-        # Y4M形式でパイプ出力（10-bit）
+        # Y4M形式でパイプ出力
         ffmpeg_cmd.extend([
             '-f', 'yuv4mpegpipe',
-            '-pix_fmt', 'yuv420p10le',
             '-strict', '-1',
             '-'
         ])
