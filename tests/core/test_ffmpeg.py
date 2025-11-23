@@ -450,6 +450,66 @@ class TestFFmpegServiceのencode_segment:
             assert '--crf' in svtav1_cmd
             assert '25' in svtav1_cmd
 
+    def test_セグメントをエンコード_展開済みパラメータ(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
+        """展開済みパラメータでセグメントをエンコードするテスト"""
+        input_file = tmp_path / "input.mp4"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4,
+            gop_size=240,
+            segment_length=60,
+            # CLI側で展開済みの形式
+            svtav1_args=['--preset', '4', '--crf', '30', '--enable-qm', '1', '--qm-min', '8', '--scd', '1']
+        )
+
+        # FFmpegプロセスのモック
+        mock_ffmpeg_process = Mock()
+        mock_ffmpeg_process.stdout = Mock()
+        mock_ffmpeg_process.stderr = Mock()
+        mock_ffmpeg_process.stderr.read.return_value = b""
+        mock_ffmpeg_process.wait.return_value = 0
+
+        # SvtAv1EncAppプロセスのモック
+        mock_svtav1_process = Mock()
+        mock_svtav1_process.stderr = iter([])
+        mock_svtav1_process.wait.return_value = 0
+
+        mock_handler = Mock()
+
+        def popen_side_effect(cmd, **kwargs):
+            if cmd[0] == 'ffmpeg':
+                return mock_ffmpeg_process
+            elif cmd[0] == 'SvtAv1EncApp':
+                return mock_svtav1_process
+            return Mock()
+
+        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', side_effect=popen_side_effect) as mock_popen, \
+             patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
+             patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
+
+            result = ffmpeg_service.encode_segment(segment_info, input_file, config)
+
+            assert result is True
+
+            # -svtav1-paramsが展開されていることを確認（SvtAv1EncAppコマンド）
+            svtav1_call = mock_popen.call_args_list[1]
+            svtav1_cmd = svtav1_call[0][0]
+            assert '--preset' in svtav1_cmd
+            assert '4' in svtav1_cmd
+            assert '--crf' in svtav1_cmd
+            assert '30' in svtav1_cmd
+            assert '--enable-qm' in svtav1_cmd
+            assert '1' in svtav1_cmd
+            assert '--qm-min' in svtav1_cmd
+            assert '8' in svtav1_cmd
+            assert '--scd' in svtav1_cmd
+            # 展開されているので、-svtav1-paramsそのものは含まれない
+            assert '-svtav1-params' not in svtav1_cmd
+
     def test_セグメントをエンコード_失敗(self, ffmpeg_service, segment_info, encoding_config, tmp_path, mock_logger):
         """セグメントのエンコードが失敗するテスト"""
         input_file = tmp_path / "input.mp4"
@@ -526,5 +586,6 @@ class TestFFmpegServiceのencode_segment:
             # ハンドラがクローズされ、削除されたことを確認
             mock_handler.close.assert_called_once()
             mock_logger.removeHandler.assert_called_once_with(mock_handler)
+
 
 

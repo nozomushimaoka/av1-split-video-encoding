@@ -13,7 +13,8 @@
 ## 必要な環境
 
 - Python 3.8以上
-- FFmpeg (libsvtav1サポート)
+- FFmpeg
+- SvtAv1EncApp (PATH に含まれている必要があります)
 - AWS CLI (S3を使用する場合)
 
 ## セットアップ
@@ -46,7 +47,11 @@ mkdir workspace
 
 ```bash
 mkdir workspace
-./unified_parallel_encode.py video.mkv --workspace workspace --parallel 8 -- -crf 30 -preset 6 -pix_fmt yuv420p10le
+# 個別オプション形式
+./unified_parallel_encode.py video.mkv --workspace workspace --parallel 8 -- --crf 30 --preset 6
+
+# -svtav1-params形式（コロン区切りで複数のパラメータを指定）
+./unified_parallel_encode.py video.mkv --workspace workspace --parallel 8 -- -svtav1-params preset=4:crf=30:enable-qm=1:qm-min=8:scd=1
 ```
 
 ### S3との連携（bin/s3-encode-simple.shを使用）
@@ -87,8 +92,12 @@ rm -rf "$WORKSPACE"
   - エンコード前に作成しておく必要があります
   - 出力ファイルは `<workspace>/output.mkv` に保存されます
 - `--parallel, -l`: 並列ジョブ数（デフォルト: 4）
-- `extra_args`: `--` の後に追加のFFmpegオプション
-  - 例: `-crf 30 -preset 6 -pix_fmt yuv420p10le -g 240 -keyint_min 240`
+- `--gop, -g`: GOP サイズ（キーフレーム間隔、必須）
+- `svtav1_args`: `--` の後に追加のSvtAv1EncAppオプション
+  - 個別オプション形式: `--crf 30 --preset 6`
+  - `-svtav1-params`形式: `-svtav1-params preset=4:crf=30:enable-qm=1:qm-min=8:scd=1`
+    - コロン区切りで複数のパラメータを指定可能
+    - `key=value`形式で指定したパラメータは自動的に`--key value`に展開されます
 
 ### ヘルプの表示
 
@@ -98,9 +107,10 @@ rm -rf "$WORKSPACE"
 
 ## 処理フロー
 
-1. **セグメント分割・エンコード**: 動画を60秒ごとに分割し、並列でAV1エンコード
-2. **セグメント結合**: エンコード済みセグメントを結合
-3. **音声処理**: 元動画から音声を抽出し、エンコード済み動画と多重化
+1. **セグメント分割**: 動画を60秒ごとに分割
+2. **並列エンコード**: 各セグメントをFFmpegでデコードし、SvtAv1EncAppでAV1エンコード（IVF形式）
+3. **セグメント結合**: エンコード済みセグメントをFFmpegで結合
+4. **音声処理**: 元動画から音声を抽出し、エンコード済み動画と多重化（MKV形式）
 
 ## 出力
 
@@ -108,11 +118,11 @@ rm -rf "$WORKSPACE"
 
 ```
 <workspace>/
-├── output.mkv           # 最終出力ファイル
+├── output.mkv           # 最終出力ファイル（MKV形式）
 ├── main.log             # 全体のログ
-├── segment_0000.mp4     # エンコード済みセグメント（処理後に削除）
-├── segment_0001.mp4
-├── segment_0002.mp4
+├── segment_0000.ivf     # エンコード済みセグメント（IVF形式、処理後に削除）
+├── segment_0001.ivf
+├── segment_0002.ivf
 ├── ...
 ├── segment_0000.log     # 各セグメントのエンコードログ
 ├── segment_0001.log
@@ -146,7 +156,8 @@ av1-split-video-encoding/
 
 - **config.py**: データモデルの定義（`EncodingConfig`, `SegmentInfo`）
 - **workspace.py**: 作業ディレクトリとログの管理
-- **ffmpeg.py**: FFmpegコマンド実行（動画情報取得、エンコード、結合、音声処理）
+- **ffmpeg.py**: FFmpegとSvtAv1EncAppの実行（動画情報取得、パイプライン処理、結合、音声処理）
+  - `expand_svtav1_params()`: `-svtav1-params`形式のパラメータ展開
 - **encoder.py**: 処理全体のオーケストレーション（並列実行管理、フロー制御）
 - **cli.py**: コマンドライン引数処理とmain関数
 
@@ -169,13 +180,13 @@ av1-split-video-encoding/
 
 ## トラブルシューティング
 
-### FFmpegがlibsvtav1をサポートしていない
+### SvtAv1EncAppが見つからない
 
 ```bash
-ffmpeg -codecs | grep av1
+which SvtAv1EncApp
 ```
 
-libsvtav1が表示されない場合は、FFmpegを再ビルドする必要があります。
+SvtAv1EncAppがPATHに含まれていることを確認してください。SVT-AV1をソースからビルドし、インストールする必要があります。
 
 ### S3アクセスエラー
 

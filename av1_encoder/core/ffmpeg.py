@@ -92,7 +92,7 @@ class FFmpegService:
             '--keyint', str(config.gop_size)
         ]
 
-        # 追加オプション（SvtAv1EncApp形式）
+        # 追加オプション（SvtAv1EncApp形式、既に展開済み）
         if config.svtav1_args:
             svtav1_cmd.extend(config.svtav1_args)
 

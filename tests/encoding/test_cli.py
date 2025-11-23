@@ -48,10 +48,7 @@ class TestCLIの引数パース:
             'video.mkv',
             str(workspace),
             '--parallel', '8', '--gop', '240',
-            '--',
-            '-crf', '30',
-            '-preset', '6',
-            '-g', '240'
+            '-svtav1-params', 'crf=30:preset=6:g=240'
         ]
 
         with patch('sys.argv', test_args), \
@@ -69,7 +66,8 @@ class TestCLIの引数パース:
             assert config.input_file == Path('video.mkv')
             assert config.workspace_dir == workspace
             assert config.parallel_jobs == 8
-            assert config.svtav1_args == ['-crf', '30', '-preset', '6', '-g', '240']
+            # CLI側で展開されるので、展開後の形式になる
+            assert config.svtav1_args == ['--crf', '30', '--preset', '6', '--g', '240']
 
             assert result == 0
 
@@ -101,8 +99,7 @@ class TestCLIの引数パース:
             'test.mp4',
             str(workspace),
             '--parallel', '4', '--gop', '240',
-            '--',
-            '-crf', '25'
+            '-svtav1-params', 'crf=25'
         ]
 
         with patch('sys.argv', test_args), \
@@ -118,7 +115,8 @@ class TestCLIの引数パース:
 
             assert config.input_file == Path('test.mp4')
             assert config.parallel_jobs == 4
-            assert config.svtav1_args == ['-crf', '25']
+            # CLI側で展開されるので、展開後の形式になる
+            assert config.svtav1_args == ['--crf', '25']
             assert result == 0
 
 
@@ -205,10 +203,7 @@ class TestCLIのEncodingConfig作成:
             'my_video.mp4',
             str(workspace),
             '--parallel', '12', '--gop', '240',
-            '--',
-            '-crf', '28',
-            '-preset', '5',
-            '-g', '120'
+            '-svtav1-params', 'crf=28:preset=5:g=120'
         ]
 
         with patch('sys.argv', test_args), \
@@ -227,7 +222,8 @@ class TestCLIのEncodingConfig作成:
             assert config.input_file == Path('my_video.mp4')
             assert config.workspace_dir == workspace
             assert config.parallel_jobs == 12
-            assert config.svtav1_args == ['-crf', '28', '-preset', '5', '-g', '120']
+            # CLI側で展開されるので、展開後の形式になる
+            assert config.svtav1_args == ['--crf', '28', '--preset', '5', '--g', '120']
 
     def test_input_fileがPathオブジェクトに変換される(self, tmp_path):
         """input_file引数がPathオブジェクトに変換されることをテスト"""
@@ -384,7 +380,7 @@ class TestCLIのエッジケース:
         """svtav1_argsが正しく処理されることをテスト"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
-        test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4', '--gop', '240', '--', '-crf', '0', '-preset', '0']
+        test_args = ['prog', 'input.mp4', str(workspace), '--parallel', '4', '--gop', '240', '-svtav1-params', 'crf=0:preset=0']
 
         with patch('sys.argv', test_args), \
              patch('av1_encoder.encoding.cli.EncodingOrchestrator') as mock_orchestrator_class:
@@ -395,7 +391,8 @@ class TestCLIのエッジケース:
             main()
 
             config = mock_orchestrator_class.call_args[0][0]
-            assert config.svtav1_args == ['-crf', '0', '-preset', '0']
+            # CLI側で展開されるので、展開後の形式になる
+            assert config.svtav1_args == ['--crf', '0', '--preset', '0']
 
     def test_非常に長いファイルパス(self, tmp_path):
         """非常に長いファイルパスが正しく処理されることをテスト"""

@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from av1_encoder.s3.batch import run_batch_encoding
+from av1_encoder.utils import expand_svtav1_params
 
 
 def setup_logging() -> None:
@@ -67,9 +68,10 @@ def main() -> int:
         help='GOP サイズ（キーフレーム間隔）'
     )
     parser.add_argument(
-        'svtav1_args',
-        nargs='*',
-        help='SvtAv1EncApp用の追加オプション（例: --crf 30 --preset 6）'
+        '-svtav1-params',
+        type=str,
+        default=None,
+        help='SvtAv1EncApp用のパラメータ（コロン区切り、例: preset=4:crf=30:enable-qm=1）'
     )
 
     args = parser.parse_args()
@@ -79,13 +81,18 @@ def main() -> int:
         logger.error("Error: S3バケット名を指定してください（--bucket または環境変数S3_BUCKET）")
         return 1
 
+    # svtav1_argsを構築（コロン区切りを展開）
+    svtav1_args = []
+    if args.svtav1_params:
+        svtav1_args = expand_svtav1_params(args.svtav1_params)
+
     # バッチエンコード処理を実行
     return run_batch_encoding(
         bucket=args.bucket,
         pending_files_path=args.pending_files,
         parallel=args.parallel,
         gop_size=args.gop,
-        svtav1_args=args.svtav1_args if args.svtav1_args else []
+        svtav1_args=svtav1_args
     )
 
 

@@ -48,9 +48,7 @@ class TestMainのコマンドライン引数:
             '--bucket', 'my-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '8', '--gop', '240',
-            '--',
-            '--crf', '30',
-            '--preset', '5'
+            '-svtav1-params', 'crf=30:preset=5'
         ]
 
         with patch('sys.argv', test_args), \
@@ -65,6 +63,7 @@ class TestMainのコマンドライン引数:
                 pending_files_path=pending_files_path,
                 parallel=8,
                 gop_size=240,
+                # CLI側で展開されるので、展開後の形式になる
                 svtav1_args=['--crf', '30', '--preset', '5']
             )
             assert result == 0
@@ -295,9 +294,7 @@ class TestMainの引数型:
             '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
-            '--',
-            '--crf', '30',
-            '--preset', '6'
+            '-svtav1-params', 'crf=30:preset=6'
         ]
 
         with patch('sys.argv', test_args), \
@@ -309,6 +306,7 @@ class TestMainの引数型:
             # svtav1_argsがリストで渡されたことを確認
             call_kwargs = mock_run.call_args[1]
             assert isinstance(call_kwargs['svtav1_args'], list)
+            # CLI側で展開されるので、展開後の形式になる
             assert call_kwargs['svtav1_args'] == ['--crf', '30', '--preset', '6']
 
 
