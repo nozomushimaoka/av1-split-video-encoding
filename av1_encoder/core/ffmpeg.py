@@ -1,6 +1,7 @@
 import json
 import logging
 import subprocess
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -142,6 +143,16 @@ class FFmpegService:
             if ffmpeg_process.stdout:
                 ffmpeg_process.stdout.close()
 
+            # FFmpegのstderrを別スレッドで読み取る
+            def read_ffmpeg_stderr():
+                if ffmpeg_process.stderr:
+                    for line in ffmpeg_process.stderr:
+                        decoded_line = line.decode('utf-8', errors='replace').rstrip()
+                        segment_logger.debug(f"[FFmpeg] {decoded_line}")
+
+            ffmpeg_thread = threading.Thread(target=read_ffmpeg_stderr, daemon=True)
+            ffmpeg_thread.start()
+
             # SvtAv1EncAppの出力を1行ずつ読み取ってログに記録
             if svtav1_process.stderr:
                 for line in svtav1_process.stderr:
@@ -153,11 +164,8 @@ class FFmpegService:
             # FFmpegの終了を待つ
             ffmpeg_return_code = ffmpeg_process.wait()
 
-            # FFmpegのエラー出力をログに記録
-            if ffmpeg_process.stderr:
-                ffmpeg_errors = ffmpeg_process.stderr.read().decode('utf-8', errors='replace')
-                if ffmpeg_errors:
-                    segment_logger.debug(f"[FFmpeg stderr] {ffmpeg_errors}")
+            # FFmpegスレッドの終了を待つ
+            ffmpeg_thread.join(timeout=5)
 
             # どちらかのプロセスが失敗した場合
             if ffmpeg_return_code != 0:
