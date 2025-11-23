@@ -142,3 +142,23 @@ class TestExpandFfmpegParams:
         """ハイフン1つがプレフィックスとして正しく付与されることをテスト"""
         result = expand_ffmpeg_params("vf=yadif")
         assert result == ['-vf', 'yadif']
+
+    def test_エスケープされたカンマを含むパラメータ(self):
+        """\\,でエスケープされたカンマを正しく処理することをテスト"""
+        result = expand_ffmpeg_params(r"vf=scale=1920:-1\,fps=30,pix_fmt=yuv420p10le")
+        assert result == ['-vf', 'scale=1920:-1,fps=30', '-pix_fmt', 'yuv420p10le']
+
+    def test_複数のエスケープされたカンマ(self):
+        """複数の\\,エスケープを正しく処理することをテスト"""
+        result = expand_ffmpeg_params(r"vf=eq=contrast=1.2\,brightness=0.1\,saturation=1.5")
+        assert result == ['-vf', 'eq=contrast=1.2,brightness=0.1,saturation=1.5']
+
+    def test_エスケープと非エスケープの混在(self):
+        """エスケープされたカンマと通常のカンマが混在する場合をテスト"""
+        result = expand_ffmpeg_params(r"vf=scale=1920:-1\,fps=30,pix_fmt=yuv420p10le,r=60")
+        assert result == ['-vf', 'scale=1920:-1,fps=30', '-pix_fmt', 'yuv420p10le', '-r', '60']
+
+    def test_エスケープのみのパラメータ(self):
+        """エスケープされたカンマのみを含むパラメータをテスト"""
+        result = expand_ffmpeg_params(r"vf=hue=s=0\,eq=brightness=0.1")
+        assert result == ['-vf', 'hue=s=0,eq=brightness=0.1']
