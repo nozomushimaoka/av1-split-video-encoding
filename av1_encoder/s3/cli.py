@@ -68,13 +68,13 @@ def main() -> int:
         help='GOP サイズ（キーフレーム間隔）'
     )
     parser.add_argument(
-        '-svtav1-params',
+        '--svtav1-params',
         type=str,
         required=True,
-        help='SvtAv1EncApp用のパラメータ（コロン区切り、例: preset=4:crf=30:enable-qm=1）'
+        help='SvtAv1EncApp用のパラメータ（カンマ区切り、例: preset=4,crf=30,enable-qm=1）'
     )
     parser.add_argument(
-        '-ffmpeg-params',
+        '--ffmpeg-params',
         type=str,
         default=None,
         help='FFmpeg用のパラメータ（カンマ区切り、例: vf=scale=1920:1080,r=30）'
@@ -87,7 +87,7 @@ def main() -> int:
         logger.error("Error: S3バケット名を指定してください（--bucket または環境変数S3_BUCKET）")
         return 1
 
-    # svtav1_argsを構築（コロン区切りを展開）
+    # svtav1_argsを構築（カンマ区切りを展開）
     svtav1_args = expand_svtav1_params(args.svtav1_params)
 
     # ffmpeg_argsを構築（カンマ区切りを展開）

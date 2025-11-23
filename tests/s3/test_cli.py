@@ -48,7 +48,7 @@ class TestMainのコマンドライン引数:
             '--bucket', 'my-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '8', '--gop', '240',
-            '-svtav1-params', 'crf=30,preset=5'
+            '--svtav1-params', 'crf=30,preset=5'
         ]
 
         with patch('sys.argv', test_args), \
@@ -80,7 +80,7 @@ class TestMainのコマンドライン引数:
             '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '10', '--gop', '240',
-            '-svtav1-params', 'crf=30'
+            '--svtav1-params', 'crf=30'
         ]
 
         with patch('sys.argv', test_args), \
@@ -110,7 +110,7 @@ class TestMainのコマンドライン引数:
             'prog',
             '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
-            '-svtav1-params', 'crf=30'
+            '--svtav1-params', 'crf=30'
         ]
 
         with patch('sys.argv', test_args), \
@@ -137,7 +137,7 @@ class TestMainのコマンドライン引数:
             '--bucket', 'cli-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
-            '-svtav1-params', 'crf=30'
+            '--svtav1-params', 'crf=30'
         ]
 
         with patch('sys.argv', test_args), \
@@ -163,7 +163,7 @@ class TestMainのコマンドライン引数:
             'prog',
             '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
-            '-svtav1-params', 'crf=30'
+            '--svtav1-params', 'crf=30'
         ]
 
         with patch('sys.argv', test_args), \
@@ -196,7 +196,7 @@ class TestMainの実行:
             '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
-            '-svtav1-params', 'crf=30'
+            '--svtav1-params', 'crf=30'
         ]
 
         with patch('sys.argv', test_args), \
@@ -218,7 +218,7 @@ class TestMainの実行:
             '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
-            '-svtav1-params', 'crf=30'
+            '--svtav1-params', 'crf=30'
         ]
 
         with patch('sys.argv', test_args), \
@@ -240,7 +240,7 @@ class TestMainの実行:
             '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
-            '-svtav1-params', 'crf=30'
+            '--svtav1-params', 'crf=30'
         ]
 
         with patch('sys.argv', test_args), \
@@ -267,7 +267,7 @@ class TestMainの引数型:
             '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '12', '--gop', '240',
-            '-svtav1-params', 'crf=30'
+            '--svtav1-params', 'crf=30'
         ]
 
         with patch('sys.argv', test_args), \
@@ -304,7 +304,7 @@ class TestMainの引数型:
             '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
-            '-svtav1-params', 'crf=30,preset=6'
+            '--svtav1-params', 'crf=30,preset=6'
         ]
 
         with patch('sys.argv', test_args), \
@@ -334,7 +334,7 @@ class TestMainのエッジケース:
             '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '-1', '--gop', '240',
-            '-svtav1-params', 'crf=30'
+            '--svtav1-params', 'crf=30'
         ]
 
         with patch('sys.argv', test_args), \
@@ -358,7 +358,7 @@ class TestMainのエッジケース:
             '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '1000000', '--gop', '240',
-            '-svtav1-params', 'crf=30'
+            '--svtav1-params', 'crf=30'
         ]
 
         with patch('sys.argv', test_args), \
@@ -382,7 +382,7 @@ class TestMainのエッジケース:
             '--bucket', 'test-bucket-123_456',
             '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
-            '-svtav1-params', 'crf=30'
+            '--svtav1-params', 'crf=30'
         ]
 
         with patch('sys.argv', test_args), \
@@ -407,7 +407,7 @@ class TestMainのエッジケース:
             '--pending-files', str(pending_files_path),
             '-l', '8',
             '--gop', '240',
-            '-svtav1-params', 'crf=30'
+            '--svtav1-params', 'crf=30'
         ]
 
         with patch('sys.argv', test_args), \
