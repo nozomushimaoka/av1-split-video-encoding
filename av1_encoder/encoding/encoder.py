@@ -110,7 +110,7 @@ class EncodingOrchestrator:
         self.logger.info("concat.txt生成開始")
 
         # セグメントファイルをリストアップ
-        segment_files = sorted(self.workspace.work_dir.glob("segment_*.mp4"))
+        segment_files = sorted(self.workspace.work_dir.glob("segment_*.ivf"))
 
         # concat.txtを生成
         concat_txt_content = [f"file '{segment_file.resolve()}'\n" for segment_file in segment_files]
@@ -140,7 +140,7 @@ class EncodingOrchestrator:
                 start_time=start_time,
                 duration=segment_duration,
                 is_final=is_final,
-                file=self.workspace.work_dir / f"segment_{i:04d}.mp4",
+                file=self.workspace.work_dir / f"segment_{i:04d}.ivf",
                 log_file=self.workspace.work_dir / f"segment_{i:04d}.log"
             ))
         return segments

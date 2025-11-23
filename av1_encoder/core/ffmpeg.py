@@ -3,6 +3,7 @@ import logging
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import List
 
 from .config import EncodingConfig
 
@@ -15,6 +16,21 @@ class SegmentInfo:
     is_final: bool
     file: Path
     log_file: Path
+
+
+def _convert_ffmpeg_args_to_svtav1(args: List[str]) -> List[str]:
+    """FFmpeg形式のパラメータをSvtAv1EncApp形式に変換する
+
+    例: ['-crf', '30', '-preset', '6'] -> ['--crf', '30', '--preset', '6']
+    """
+    converted = []
+    for arg in args:
+        if arg.startswith('-') and not arg.startswith('--'):
+            # 単一ハイフンを二重ハイフンに変換（-crf -> --crf）
+            converted.append('-' + arg)
+        else:
+            converted.append(arg)
+    return converted
 
 
 class FFmpegService:
@@ -66,8 +82,8 @@ class FFmpegService:
         duration = segment_info.duration
         is_final_segment = segment_info.is_final
 
-        # FFmpegコマンド構築（Input Seekingで高速化）
-        cmd = [
+        # FFmpegデコードコマンド構築（Y4M形式でstdoutに出力）
+        ffmpeg_cmd = [
             'ffmpeg',
             '-ss', str(start_time),
             '-i', str(input_file)
@@ -75,18 +91,30 @@ class FFmpegService:
 
         # 最終セグメント以外は-tオプションで長さを指定
         if not is_final_segment:
-            cmd.extend(['-t', str(duration)])
+            ffmpeg_cmd.extend(['-t', str(duration)])
 
-        cmd.extend(['-c:v', 'libsvtav1'])
+        # Y4M形式でパイプ出力（10-bit）
+        ffmpeg_cmd.extend([
+            '-f', 'yuv4mpegpipe',
+            '-pix_fmt', 'yuv420p10le',
+            '-strict', '-1',
+            '-'
+        ])
 
-        # GOP設定を追加
-        cmd.extend(['-g', str(config.gop_size), '-keyint_min', str(config.gop_size)])
+        # SvtAv1EncAppコマンド構築
+        svtav1_cmd = [
+            'SvtAv1EncApp',
+            '-i', 'stdin',
+            '--keyint', str(config.gop_size)
+        ]
 
-        # 追加オプション
+        # 追加オプション（FFmpeg形式からSvtAv1EncApp形式に変換）
         if config.extra_args:
-            cmd.extend(config.extra_args)
+            converted_args = _convert_ffmpeg_args_to_svtav1(config.extra_args)
+            svtav1_cmd.extend(converted_args)
 
-        cmd.extend(['-an', '-y', str(segment_info.file)])
+        # 出力ファイル指定
+        svtav1_cmd.extend(['-b', str(segment_info.file)])
 
         # セグメント専用ロガーを作成
         segment_logger = logging.getLogger(f"av1_encoder.segment_{segment_idx}")
@@ -103,27 +131,55 @@ class FFmpegService:
 
         # 実行
         try:
-            segment_logger.debug(f"コマンド: {' '.join(cmd)}")
+            segment_logger.debug(f"FFmpegコマンド: {' '.join(ffmpeg_cmd)}")
+            segment_logger.debug(f"SvtAv1EncAppコマンド: {' '.join(svtav1_cmd)}")
 
-            # FFmpegをリアルタイムで実行し、出力をロガーでキャプチャ
-            process = subprocess.Popen(
-                cmd,
+            # FFmpegプロセスを起動（stdoutをパイプ出力）
+            ffmpeg_process = subprocess.Popen(
+                ffmpeg_cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
+                stderr=subprocess.PIPE,
+                bufsize=0
+            )
+
+            # SvtAv1EncAppプロセスを起動（stdinをFFmpegから受け取り）
+            svtav1_process = subprocess.Popen(
+                svtav1_cmd,
+                stdin=ffmpeg_process.stdout,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
                 bufsize=1
             )
 
-            # 出力を1行ずつ読み取ってログに記録
-            if process.stdout:
-                for line in process.stdout:
-                    segment_logger.debug(line.rstrip())
+            # FFmpegのstdoutを閉じる（SvtAv1EncAppが完全に制御するため）
+            if ffmpeg_process.stdout:
+                ffmpeg_process.stdout.close()
 
-            # プロセスの終了を待つ
-            return_code = process.wait()
+            # SvtAv1EncAppの出力を1行ずつ読み取ってログに記録
+            if svtav1_process.stderr:
+                for line in svtav1_process.stderr:
+                    segment_logger.debug(f"[SvtAv1EncApp] {line.rstrip()}")
 
-            if return_code != 0:
-                segment_logger.error(f"エラー (終了コード: {return_code})")
+            # SvtAv1EncAppの終了を待つ
+            svtav1_return_code = svtav1_process.wait()
+
+            # FFmpegの終了を待つ
+            ffmpeg_return_code = ffmpeg_process.wait()
+
+            # FFmpegのエラー出力をログに記録
+            if ffmpeg_process.stderr:
+                ffmpeg_errors = ffmpeg_process.stderr.read().decode('utf-8', errors='replace')
+                if ffmpeg_errors:
+                    segment_logger.debug(f"[FFmpeg stderr] {ffmpeg_errors}")
+
+            # どちらかのプロセスが失敗した場合
+            if ffmpeg_return_code != 0:
+                segment_logger.error(f"FFmpegエラー (終了コード: {ffmpeg_return_code})")
+                return False
+
+            if svtav1_return_code != 0:
+                segment_logger.error(f"SvtAv1EncAppエラー (終了コード: {svtav1_return_code})")
                 return False
 
             segment_logger.info(f"セグメント {segment_idx} 完了")

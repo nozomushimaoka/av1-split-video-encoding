@@ -183,7 +183,7 @@ class TestEncodingOrchestratorのlist_segments:
                 assert segments[0].start_time == 0
                 assert segments[0].duration == 60.0
                 assert segments[0].is_final is False
-                assert segments[0].file == mock_workspace.work_dir / "segment_0000.mp4"
+                assert segments[0].file == mock_workspace.work_dir / "segment_0000.ivf"
                 assert segments[0].log_file == mock_workspace.work_dir / "segment_0000.log"
 
                 # 2番目のセグメント
@@ -272,9 +272,9 @@ class TestEncodingOrchestratorのencode_segments:
 
             # 3つのセグメントを返すようにモック
             segments = [
-                SegmentInfo(0, 0, 60, False, Path("seg0.mp4"), Path("seg0.log")),
-                SegmentInfo(1, 60, 60, False, Path("seg1.mp4"), Path("seg1.log")),
-                SegmentInfo(2, 120, 60, True, Path("seg2.mp4"), Path("seg2.log"))
+                SegmentInfo(0, 0, 60, False, Path("seg0.ivf"), Path("seg0.log")),
+                SegmentInfo(1, 60, 60, False, Path("seg1.ivf"), Path("seg1.log")),
+                SegmentInfo(2, 120, 60, True, Path("seg2.ivf"), Path("seg2.log"))
             ]
 
             with patch.object(orchestrator, '_list_segments', return_value=segments), \
@@ -320,8 +320,8 @@ class TestEncodingOrchestratorのencode_segments:
             orchestrator.ffmpeg = Mock()
 
             segments = [
-                SegmentInfo(0, 0, 60, False, Path("seg0.mp4"), Path("seg0.log")),
-                SegmentInfo(1, 60, 60, True, Path("seg1.mp4"), Path("seg1.log"))
+                SegmentInfo(0, 0, 60, False, Path("seg0.ivf"), Path("seg0.log")),
+                SegmentInfo(1, 60, 60, True, Path("seg1.ivf"), Path("seg1.log"))
             ]
 
             with patch.object(orchestrator, '_list_segments', return_value=segments), \
@@ -365,9 +365,9 @@ class TestEncodingOrchestratorのgenerate_concat_file:
 
             # セグメントファイルを作成
             segment_files = [
-                mock_workspace.work_dir / "segment_0000.mp4",
-                mock_workspace.work_dir / "segment_0001.mp4",
-                mock_workspace.work_dir / "segment_0002.mp4"
+                mock_workspace.work_dir / "segment_0000.ivf",
+                mock_workspace.work_dir / "segment_0001.ivf",
+                mock_workspace.work_dir / "segment_0002.ivf"
             ]
 
             for seg_file in segment_files:

@@ -19,7 +19,7 @@ def segment_info(tmp_path):
         start_time=0,
         duration=60,
         is_final=False,
-        file=tmp_path / "segment_0.mkv",
+        file=tmp_path / "segment_0.ivf",
         log_file=tmp_path / "segment_0.log"
     )
 
@@ -59,7 +59,7 @@ class TestSegmentInfo:
             start_time=60,
             duration=60,
             is_final=False,
-            file=tmp_path / "segment_1.mkv",
+            file=tmp_path / "segment_1.ivf",
             log_file=tmp_path / "segment_1.log"
         )
 
@@ -67,7 +67,7 @@ class TestSegmentInfo:
         assert segment_info.start_time == 60
         assert segment_info.duration == 60
         assert segment_info.is_final is False
-        assert segment_info.file == tmp_path / "segment_1.mkv"
+        assert segment_info.file == tmp_path / "segment_1.ivf"
         assert segment_info.log_file == tmp_path / "segment_1.log"
 
 
@@ -232,14 +232,28 @@ class TestFFmpegServiceのencode_segment:
         """セグメントを正常にエンコードするテスト"""
         input_file = tmp_path / "input.mp4"
 
-        # Popenのモック
-        mock_process = Mock()
-        mock_process.stdout = iter(["frame=100", "fps=30"])
-        mock_process.wait.return_value = 0
+        # FFmpegプロセスのモック
+        mock_ffmpeg_process = Mock()
+        mock_ffmpeg_process.stdout = Mock()
+        mock_ffmpeg_process.stderr = Mock()
+        mock_ffmpeg_process.stderr.read.return_value = b""
+        mock_ffmpeg_process.wait.return_value = 0
+
+        # SvtAv1EncAppプロセスのモック
+        mock_svtav1_process = Mock()
+        mock_svtav1_process.stderr = iter(["Encoding frame 100", "Encoding complete"])
+        mock_svtav1_process.wait.return_value = 0
 
         mock_handler = Mock()
 
-        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', return_value=mock_process) as mock_popen, \
+        def popen_side_effect(cmd, **kwargs):
+            if cmd[0] == 'ffmpeg':
+                return mock_ffmpeg_process
+            elif cmd[0] == 'SvtAv1EncApp':
+                return mock_svtav1_process
+            return Mock()
+
+        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', side_effect=popen_side_effect) as mock_popen, \
              patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
              patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
 
@@ -248,26 +262,37 @@ class TestFFmpegServiceのencode_segment:
             # 成功を返すことを確認
             assert result is True
 
-            # Popenが正しいコマンドで呼び出されたか確認
-            called_cmd = mock_popen.call_args[0][0]
-            assert called_cmd[0] == 'ffmpeg'
-            assert '-ss' in called_cmd
-            assert '0' in called_cmd  # start_time
-            assert '-i' in called_cmd
-            assert str(input_file) in called_cmd
-            assert '-t' in called_cmd  # is_finalがFalseなので-tオプションがある
-            assert '60' in called_cmd  # duration
-            assert '-c:v' in called_cmd
-            assert 'libsvtav1' in called_cmd
-            assert '-crf' in called_cmd
-            assert '30' in called_cmd
-            assert '-preset' in called_cmd
-            assert '6' in called_cmd
-            assert '-g' in called_cmd
-            assert '240' in called_cmd
-            assert '-keyint_min' in called_cmd
-            assert '-an' in called_cmd
-            assert '-y' in called_cmd
+            # Popenが2回呼び出されたことを確認（FFmpeg + SvtAv1EncApp）
+            assert mock_popen.call_count == 2
+
+            # FFmpegコマンドの確認
+            ffmpeg_call = mock_popen.call_args_list[0]
+            ffmpeg_cmd = ffmpeg_call[0][0]
+            assert ffmpeg_cmd[0] == 'ffmpeg'
+            assert '-ss' in ffmpeg_cmd
+            assert '0' in ffmpeg_cmd  # start_time
+            assert '-i' in ffmpeg_cmd
+            assert str(input_file) in ffmpeg_cmd
+            assert '-t' in ffmpeg_cmd  # is_finalがFalseなので-tオプションがある
+            assert '60' in ffmpeg_cmd  # duration
+            assert '-f' in ffmpeg_cmd
+            assert 'yuv4mpegpipe' in ffmpeg_cmd
+            assert '-pix_fmt' in ffmpeg_cmd
+            assert 'yuv420p10le' in ffmpeg_cmd
+
+            # SvtAv1EncAppコマンドの確認
+            svtav1_call = mock_popen.call_args_list[1]
+            svtav1_cmd = svtav1_call[0][0]
+            assert svtav1_cmd[0] == 'SvtAv1EncApp'
+            assert '-i' in svtav1_cmd
+            assert 'stdin' in svtav1_cmd
+            assert '--keyint' in svtav1_cmd
+            assert '240' in svtav1_cmd
+            assert '--crf' in svtav1_cmd
+            assert '30' in svtav1_cmd
+            assert '--preset' in svtav1_cmd
+            assert '6' in svtav1_cmd
+            assert '-b' in svtav1_cmd
 
     def test_セグメントをエンコード_最終セグメント(self, ffmpeg_service, tmp_path, encoding_config, mock_logger):
         """最終セグメントをエンコードするテスト（-tオプションなし）"""
@@ -276,18 +301,33 @@ class TestFFmpegServiceのencode_segment:
             start_time=300,
             duration=60,
             is_final=True,  # 最終セグメント
-            file=tmp_path / "segment_5.mkv",
+            file=tmp_path / "segment_5.ivf",
             log_file=tmp_path / "segment_5.log"
         )
         input_file = tmp_path / "input.mp4"
 
-        mock_process = Mock()
-        mock_process.stdout = iter([])
-        mock_process.wait.return_value = 0
+        # FFmpegプロセスのモック
+        mock_ffmpeg_process = Mock()
+        mock_ffmpeg_process.stdout = Mock()
+        mock_ffmpeg_process.stderr = Mock()
+        mock_ffmpeg_process.stderr.read.return_value = b""
+        mock_ffmpeg_process.wait.return_value = 0
+
+        # SvtAv1EncAppプロセスのモック
+        mock_svtav1_process = Mock()
+        mock_svtav1_process.stderr = iter([])
+        mock_svtav1_process.wait.return_value = 0
 
         mock_handler = Mock()
 
-        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', return_value=mock_process) as mock_popen, \
+        def popen_side_effect(cmd, **kwargs):
+            if cmd[0] == 'ffmpeg':
+                return mock_ffmpeg_process
+            elif cmd[0] == 'SvtAv1EncApp':
+                return mock_svtav1_process
+            return Mock()
+
+        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', side_effect=popen_side_effect) as mock_popen, \
              patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
              patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
 
@@ -295,9 +335,10 @@ class TestFFmpegServiceのencode_segment:
 
             assert result is True
 
-            # -tオプションがないことを確認
-            called_cmd = mock_popen.call_args[0][0]
-            assert '-t' not in called_cmd
+            # -tオプションがないことを確認（FFmpegコマンド）
+            ffmpeg_call = mock_popen.call_args_list[0]
+            ffmpeg_cmd = ffmpeg_call[0][0]
+            assert '-t' not in ffmpeg_cmd
 
     def test_セグメントをエンコード_extra_argsなし(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
         """extra_argsなしでセグメントをエンコードするテスト"""
@@ -313,13 +354,28 @@ class TestFFmpegServiceのencode_segment:
             segment_length=60
         )
 
-        mock_process = Mock()
-        mock_process.stdout = iter([])
-        mock_process.wait.return_value = 0
+        # FFmpegプロセスのモック
+        mock_ffmpeg_process = Mock()
+        mock_ffmpeg_process.stdout = Mock()
+        mock_ffmpeg_process.stderr = Mock()
+        mock_ffmpeg_process.stderr.read.return_value = b""
+        mock_ffmpeg_process.wait.return_value = 0
+
+        # SvtAv1EncAppプロセスのモック
+        mock_svtav1_process = Mock()
+        mock_svtav1_process.stderr = iter([])
+        mock_svtav1_process.wait.return_value = 0
 
         mock_handler = Mock()
 
-        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', return_value=mock_process) as mock_popen, \
+        def popen_side_effect(cmd, **kwargs):
+            if cmd[0] == 'ffmpeg':
+                return mock_ffmpeg_process
+            elif cmd[0] == 'SvtAv1EncApp':
+                return mock_svtav1_process
+            return Mock()
+
+        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', side_effect=popen_side_effect) as mock_popen, \
              patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
              patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
 
@@ -327,14 +383,14 @@ class TestFFmpegServiceのencode_segment:
 
             assert result is True
 
-            # extra_argsがないので追加オプションが含まれていないことを確認
-            called_cmd = mock_popen.call_args[0][0]
-            assert '-crf' not in called_cmd
-            assert '-preset' not in called_cmd
-            # -g と -keyint_min は自動的に追加されるため含まれる
-            assert '-g' in called_cmd
-            assert '240' in called_cmd
-            assert '-keyint_min' in called_cmd
+            # extra_argsがないので追加オプションが含まれていないことを確認（SvtAv1EncAppコマンド）
+            svtav1_call = mock_popen.call_args_list[1]
+            svtav1_cmd = svtav1_call[0][0]
+            assert '--crf' not in svtav1_cmd
+            assert '--preset' not in svtav1_cmd
+            # --keyint は自動的に追加されるため含まれる
+            assert '--keyint' in svtav1_cmd
+            assert '240' in svtav1_cmd
 
     def test_セグメントをエンコード_カスタムextra_args(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
         """カスタムextra_argsでセグメントをエンコードするテスト"""
@@ -355,13 +411,28 @@ class TestFFmpegServiceのencode_segment:
             ]
         )
 
-        mock_process = Mock()
-        mock_process.stdout = iter([])
-        mock_process.wait.return_value = 0
+        # FFmpegプロセスのモック
+        mock_ffmpeg_process = Mock()
+        mock_ffmpeg_process.stdout = Mock()
+        mock_ffmpeg_process.stderr = Mock()
+        mock_ffmpeg_process.stderr.read.return_value = b""
+        mock_ffmpeg_process.wait.return_value = 0
+
+        # SvtAv1EncAppプロセスのモック
+        mock_svtav1_process = Mock()
+        mock_svtav1_process.stderr = iter([])
+        mock_svtav1_process.wait.return_value = 0
 
         mock_handler = Mock()
 
-        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', return_value=mock_process) as mock_popen, \
+        def popen_side_effect(cmd, **kwargs):
+            if cmd[0] == 'ffmpeg':
+                return mock_ffmpeg_process
+            elif cmd[0] == 'SvtAv1EncApp':
+                return mock_svtav1_process
+            return Mock()
+
+        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', side_effect=popen_side_effect) as mock_popen, \
              patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
              patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
 
@@ -369,26 +440,43 @@ class TestFFmpegServiceのencode_segment:
 
             assert result is True
 
-            # カスタムオプションが含まれていることを確認
-            called_cmd = mock_popen.call_args[0][0]
-            assert '-pix_fmt' in called_cmd
-            assert 'yuv420p10le' in called_cmd
-            assert '-svtav1-params' in called_cmd
-            assert 'tune=0:enable-qm=1:qm-min=0' in called_cmd
-            assert '-crf' in called_cmd
-            assert '25' in called_cmd
+            # カスタムオプションが含まれていることを確認（SvtAv1EncAppコマンド）
+            # FFmpeg形式(-で始まる)がSvtAv1EncApp形式(--で始まる)に変換されていることを確認
+            svtav1_call = mock_popen.call_args_list[1]
+            svtav1_cmd = svtav1_call[0][0]
+            assert '--pix_fmt' in svtav1_cmd
+            assert 'yuv420p10le' in svtav1_cmd
+            assert '--svtav1-params' in svtav1_cmd
+            assert 'tune=0:enable-qm=1:qm-min=0' in svtav1_cmd
+            assert '--crf' in svtav1_cmd
+            assert '25' in svtav1_cmd
 
     def test_セグメントをエンコード_失敗(self, ffmpeg_service, segment_info, encoding_config, tmp_path, mock_logger):
         """セグメントのエンコードが失敗するテスト"""
         input_file = tmp_path / "input.mp4"
 
-        mock_process = Mock()
-        mock_process.stdout = iter(["Error message"])
-        mock_process.wait.return_value = 1  # エラーコード
+        # FFmpegプロセスのモック（成功）
+        mock_ffmpeg_process = Mock()
+        mock_ffmpeg_process.stdout = Mock()
+        mock_ffmpeg_process.stderr = Mock()
+        mock_ffmpeg_process.stderr.read.return_value = b""
+        mock_ffmpeg_process.wait.return_value = 0
+
+        # SvtAv1EncAppプロセスのモック（失敗）
+        mock_svtav1_process = Mock()
+        mock_svtav1_process.stderr = iter(["Error message"])
+        mock_svtav1_process.wait.return_value = 1  # エラーコード
 
         mock_handler = Mock()
 
-        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', return_value=mock_process), \
+        def popen_side_effect(cmd, **kwargs):
+            if cmd[0] == 'ffmpeg':
+                return mock_ffmpeg_process
+            elif cmd[0] == 'SvtAv1EncApp':
+                return mock_svtav1_process
+            return Mock()
+
+        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', side_effect=popen_side_effect), \
              patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
              patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
 
@@ -401,9 +489,17 @@ class TestFFmpegServiceのencode_segment:
         """エンコード後にロガーのハンドラがクリーンアップされることをテスト"""
         input_file = tmp_path / "input.mp4"
 
-        mock_process = Mock()
-        mock_process.stdout = iter([])
-        mock_process.wait.return_value = 0
+        # FFmpegプロセスのモック
+        mock_ffmpeg_process = Mock()
+        mock_ffmpeg_process.stdout = Mock()
+        mock_ffmpeg_process.stderr = Mock()
+        mock_ffmpeg_process.stderr.read.return_value = b""
+        mock_ffmpeg_process.wait.return_value = 0
+
+        # SvtAv1EncAppプロセスのモック
+        mock_svtav1_process = Mock()
+        mock_svtav1_process.stderr = iter([])
+        mock_svtav1_process.wait.return_value = 0
 
         mock_handler = Mock()
         mock_logger = Mock()
@@ -415,7 +511,14 @@ class TestFFmpegServiceのencode_segment:
             handlers_list.append(handler)
         mock_logger.addHandler.side_effect = add_handler
 
-        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', return_value=mock_process), \
+        def popen_side_effect(cmd, **kwargs):
+            if cmd[0] == 'ffmpeg':
+                return mock_ffmpeg_process
+            elif cmd[0] == 'SvtAv1EncApp':
+                return mock_svtav1_process
+            return Mock()
+
+        with patch('av1_encoder.core.ffmpeg.subprocess.Popen', side_effect=popen_side_effect), \
              patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
              patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
 
