@@ -162,13 +162,13 @@ class FFmpegService:
                     for line in svtav1_process.stderr:
                         segment_logger.debug(f"[SvtAv1EncApp] {line.rstrip()}")
 
-            ffmpeg_thread = threading.Thread(target=read_ffmpeg_stderr, daemon=True)
+            ffmpeg_thread = threading.Thread(target=read_ffmpeg_stderr)
             ffmpeg_thread.start()
 
-            svtav1_stdout_thread = threading.Thread(target=read_svtav1_stdout, daemon=True)
+            svtav1_stdout_thread = threading.Thread(target=read_svtav1_stdout)
             svtav1_stdout_thread.start()
 
-            svtav1_stderr_thread = threading.Thread(target=read_svtav1_stderr, daemon=True)
+            svtav1_stderr_thread = threading.Thread(target=read_svtav1_stderr)
             svtav1_stderr_thread.start()
 
             # SvtAv1EncAppの終了を待つ
