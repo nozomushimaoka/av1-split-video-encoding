@@ -33,6 +33,22 @@ class TestSetupLogging:
         # 親ロガーへの伝播が無効化されていることを確認
         assert s3_logger.propagate is False
 
+    def test_既存ハンドラがある場合はスキップ(self):
+        """既存のハンドラがある場合はスキップされることをテスト"""
+        import logging
+
+        # ロガーをリセット
+        s3_logger = logging.getLogger('av1_encoder.s3')
+        s3_logger.handlers.clear()
+
+        # 最初の呼び出し
+        setup_logging()
+        assert len(s3_logger.handlers) == 1
+
+        # 2回目の呼び出し（ハンドラは追加されない）
+        setup_logging()
+        assert len(s3_logger.handlers) == 1  # 変わらず1つ
+
 
 class TestMainのコマンドライン引数:
     """CLIのコマンドライン引数のテスト"""

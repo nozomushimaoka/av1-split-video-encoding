@@ -295,6 +295,73 @@ class TestProcessSingleFile:
                     svtav1_args=['--crf', '30', '--preset', '5']
                 )
 
+    def test_エラー時に入力ファイルを削除(self, mock_s3_pipeline, tmp_path, monkeypatch):
+        """エラー発生時に入力ファイルが削除されることをテスト"""
+        input_file = tmp_path / "test.mkv"
+        input_file.touch()
+
+        # カレントディレクトリをtmp_pathに変更
+        monkeypatch.chdir(tmp_path)
+
+        with patch('av1_encoder.s3.batch.encode_video') as mock_encode:
+            mock_encode.side_effect = RuntimeError("エンコードエラー")
+
+            # ファイルが存在することを確認
+            assert input_file.exists()
+
+            with pytest.raises(RuntimeError, match="エンコードエラー"):
+                process_single_file(
+                    mock_s3_pipeline,
+                    'test.mkv',
+                    'test',
+                    gop_size=240,
+                    parallel=8,
+                    svtav1_args=['--crf', '30', '--preset', '5']
+                )
+
+            # エラー後に入力ファイルが削除されたことを確認
+            assert not input_file.exists()
+
+    def test_エラー時の入力ファイル削除が失敗してもワーニング(self, mock_s3_pipeline, tmp_path, monkeypatch, caplog):
+        """エラー時の入力ファイル削除が失敗してもワーニングログを出すことをテスト"""
+        import logging
+        from pathlib import Path
+        caplog.set_level(logging.WARNING)
+
+        input_file = tmp_path / "test.mkv"
+        input_file.touch()
+
+        # カレントディレクトリをtmp_pathに変更
+        monkeypatch.chdir(tmp_path)
+
+        with patch('av1_encoder.s3.batch.encode_video') as mock_encode:
+            mock_encode.side_effect = RuntimeError("エンコードエラー")
+
+            # Path.unlinkをパッチして失敗させる
+            original_unlink = Path.unlink
+
+            def failing_unlink(self):
+                if str(self).endswith('test.mkv'):
+                    raise PermissionError("削除権限がありません")
+                else:
+                    return original_unlink(self)
+
+            with patch('pathlib.Path.unlink', new=failing_unlink):
+                with pytest.raises(RuntimeError, match="エンコードエラー"):
+                    process_single_file(
+                        mock_s3_pipeline,
+                        'test.mkv',
+                        'test',
+                        gop_size=240,
+                        parallel=8,
+                        svtav1_args=['--crf', '30', '--preset', '5']
+                    )
+
+                # ワーニングログが出力されたことを確認
+                warning_logs = [r for r in caplog.records if r.levelname == 'WARNING']
+                assert len(warning_logs) > 0
+                assert any("削除に失敗" in r.message for r in warning_logs)
+
 
 class TestRunBatchEncoding:
     """run_batch_encoding関数のテスト"""

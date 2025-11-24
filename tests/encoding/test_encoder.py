@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch, MagicMock
 import logging
 import pytest
 
-from av1_encoder.encoding.encoder import EncodingOrchestrator
+from av1_encoder.encoding.encoder import EncodingOrchestrator, _worker_init
 from av1_encoder.core.config import EncodingConfig
 from av1_encoder.core.ffmpeg import SegmentInfo
 from av1_encoder.core.workspace import Workspace
@@ -46,6 +46,25 @@ def mock_logger():
     """ロガーのモックを作成するフィクスチャ"""
     logger = Mock(spec=logging.Logger)
     return logger
+
+
+class TestWorkerInit:
+    """_worker_init関数のテスト"""
+
+    def test_シグナルハンドラをデフォルトに戻す(self):
+        """_worker_initがシグナルハンドラをデフォルトに戻すことをテスト"""
+        import signal
+
+        with patch('signal.signal') as mock_signal:
+            _worker_init()
+
+            # signal.signalが2回呼ばれたことを確認（SIGINT, SIGTERM）
+            assert mock_signal.call_count == 2
+
+            # SIGINT, SIGTERMに対してSIG_DFLが設定されたことを確認
+            calls = mock_signal.call_args_list
+            assert calls[0][0] == (signal.SIGINT, signal.SIG_DFL)
+            assert calls[1][0] == (signal.SIGTERM, signal.SIG_DFL)
 
 
 class TestEncodingOrchestrator初期化:
@@ -134,6 +153,98 @@ class TestEncodingOrchestratorのrun:
 
                 # logger.exceptionが呼び出されたことを確認
                 orchestrator.logger.exception.assert_called_once_with("エラー")
+
+    def test_KeyboardInterrupt時の処理(self, encoding_config):
+        """KeyboardInterrupt時に適切に処理されることをテスト"""
+        import sys
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path'), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
+             patch.object(EncodingOrchestrator, '_init_logger'):
+
+            orchestrator = EncodingOrchestrator(encoding_config)
+            orchestrator.logger = Mock()
+
+            # エンコード中にKeyboardInterrupt
+            with patch.object(orchestrator, '_encode_segments', side_effect=KeyboardInterrupt):
+                with pytest.raises(SystemExit) as exc_info:
+                    orchestrator.run()
+
+                # 終了コード130で終了することを確認
+                assert exc_info.value.code == 130
+
+                # エラーログが出力されたことを確認
+                orchestrator.logger.error.assert_called_once_with("処理が中断されました")
+
+
+class TestEncodingOrchestratorのシグナルハンドラ:
+    """EncodingOrchestratorのシグナルハンドラのテスト"""
+
+    def test_メインプロセスでシグナル受信時にKeyboardInterruptを発生(self, encoding_config):
+        """メインプロセスでシグナル受信時にKeyboardInterruptが発生することをテスト"""
+        import signal
+        import os
+
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path'), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
+             patch.object(EncodingOrchestrator, '_init_logger'):
+
+            orchestrator = EncodingOrchestrator(encoding_config)
+            orchestrator.logger = Mock()
+
+            # メインプロセスのPIDと一致することを確認
+            assert orchestrator._main_pid == os.getpid()
+
+            # シグナルハンドラを直接呼び出し
+            with pytest.raises(KeyboardInterrupt):
+                orchestrator._signal_handler(signal.SIGINT, None)
+
+            # ログが出力されたことを確認
+            orchestrator.logger.warning.assert_called_once()
+            assert "中断シグナル" in orchestrator.logger.warning.call_args[0][0]
+
+    def test_ワーカープロセスではシグナルを無視(self, encoding_config):
+        """ワーカープロセスではシグナルを無視することをテスト"""
+        import signal
+
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path'), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
+             patch.object(EncodingOrchestrator, '_init_logger'):
+
+            orchestrator = EncodingOrchestrator(encoding_config)
+            orchestrator.logger = Mock()
+
+            # 異なるPIDに変更（ワーカープロセスをシミュレート）
+            original_pid = orchestrator._main_pid
+            orchestrator._main_pid = original_pid + 1000
+
+            # シグナルハンドラを呼び出しても例外は発生しない
+            orchestrator._signal_handler(signal.SIGINT, None)
+
+            # ログが出力されていないことを確認
+            orchestrator.logger.warning.assert_not_called()
+
+    def test_シグナルハンドラが設定される(self, encoding_config):
+        """run実行時にシグナルハンドラが設定されることをテスト"""
+        import signal
+
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path'), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
+             patch.object(EncodingOrchestrator, '_init_logger'), \
+             patch.object(EncodingOrchestrator, '_encode_segments'), \
+             patch.object(EncodingOrchestrator, '_generate_concat_file'), \
+             patch.object(EncodingOrchestrator, '_print_completion'), \
+             patch('signal.signal') as mock_signal:
+
+            orchestrator = EncodingOrchestrator(encoding_config)
+            orchestrator.run()
+
+            # signal.signalが2回呼ばれたことを確認（SIGINT, SIGTERM）
+            assert mock_signal.call_count >= 2
+
+            # SIGINT, SIGTERMに対してハンドラが設定されたことを確認
+            signal_calls = [call[0] for call in mock_signal.call_args_list]
+            assert any(signal.SIGINT in call for call in signal_calls)
+            assert any(signal.SIGTERM in call for call in signal_calls)
 
 
 class TestEncodingOrchestratorのprint_completion:
