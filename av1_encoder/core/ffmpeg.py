@@ -109,6 +109,26 @@ class FFmpegService:
 
         return svtav1_cmd
 
+    def _setup_segment_logger(
+        self,
+        segment_idx: int,
+        log_file: Path
+    ) -> logging.Logger:
+        """セグメント専用ロガーを作成して設定する"""
+        segment_logger = logging.getLogger(f"av1_encoder.segment_{segment_idx}")
+        segment_logger.setLevel(logging.DEBUG)  # DEBUGレベルでFFmpeg出力を記録
+        segment_logger.handlers.clear()
+        segment_logger.propagate = False
+
+        # ファイルハンドラを追加
+        file_handler = logging.FileHandler(log_file, encoding='utf-8', mode='w')
+        file_handler.setLevel(logging.DEBUG)  # ファイルには全て記録
+        formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        file_handler.setFormatter(formatter)
+        segment_logger.addHandler(file_handler)
+
+        return segment_logger
+
     def encode_segment(
         self,
         segment_info: SegmentInfo,
@@ -136,17 +156,10 @@ class FFmpegService:
         )
 
         # セグメント専用ロガーを作成
-        segment_logger = logging.getLogger(f"av1_encoder.segment_{segment_idx}")
-        segment_logger.setLevel(logging.DEBUG)  # DEBUGレベルでFFmpeg出力を記録
-        segment_logger.handlers.clear()
-        segment_logger.propagate = False
-
-        # ファイルハンドラを追加
-        file_handler = logging.FileHandler(segment_info.log_file, encoding='utf-8', mode='w')
-        file_handler.setLevel(logging.DEBUG)  # ファイルには全て記録
-        formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-        file_handler.setFormatter(formatter)
-        segment_logger.addHandler(file_handler)
+        segment_logger = self._setup_segment_logger(
+            segment_idx=segment_idx,
+            log_file=segment_info.log_file
+        )
 
         # 実行
         try:

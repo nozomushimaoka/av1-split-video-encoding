@@ -1,4 +1,5 @@
 from unittest.mock import Mock, patch
+import logging
 import pytest
 
 from av1_encoder.core.ffmpeg import FFmpegService, SegmentInfo
@@ -490,6 +491,83 @@ class TestFFmpegServiceのbuild_svtav1_command:
         assert '--keyint' in cmd
         assert '120' in cmd
         assert '240' not in cmd
+
+
+class TestFFmpegServiceのsetup_segment_logger:
+    """FFmpegServiceの_setup_segment_loggerメソッドのテスト"""
+
+    def test_セグメントロガーを設定(self, ffmpeg_service, tmp_path):
+        """セグメント専用ロガーを作成して設定するテスト"""
+        log_file = tmp_path / "segment_0.log"
+        segment_idx = 0
+
+        logger = ffmpeg_service._setup_segment_logger(
+            segment_idx=segment_idx,
+            log_file=log_file
+        )
+
+        # ロガーの基本設定を確認
+        assert logger.name == "av1_encoder.segment_0"
+        assert logger.level == logging.DEBUG
+        assert logger.propagate is False
+        assert len(logger.handlers) == 1
+
+        # ハンドラの設定を確認
+        handler = logger.handlers[0]
+        assert isinstance(handler, logging.FileHandler)
+        assert handler.level == logging.DEBUG
+
+        # クリーンアップ
+        for h in logger.handlers[:]:
+            h.close()
+            logger.removeHandler(h)
+
+    def test_セグメントロガーを設定_異なるインデックス(self, ffmpeg_service, tmp_path):
+        """異なるセグメントインデックスでロガーを設定するテスト"""
+        log_file = tmp_path / "segment_5.log"
+        segment_idx = 5
+
+        logger = ffmpeg_service._setup_segment_logger(
+            segment_idx=segment_idx,
+            log_file=log_file
+        )
+
+        # ロガー名に正しいインデックスが含まれることを確認
+        assert logger.name == "av1_encoder.segment_5"
+
+        # クリーンアップ
+        for h in logger.handlers[:]:
+            h.close()
+            logger.removeHandler(h)
+
+    def test_セグメントロガーを設定_ハンドラクリア(self, ffmpeg_service, tmp_path):
+        """既存のハンドラをクリアしてから新しいハンドラを追加することをテスト"""
+        log_file = tmp_path / "segment_0.log"
+        segment_idx = 0
+
+        # 最初のロガーを作成
+        logger1 = ffmpeg_service._setup_segment_logger(
+            segment_idx=segment_idx,
+            log_file=log_file
+        )
+        assert len(logger1.handlers) == 1
+        first_handler = logger1.handlers[0]
+
+        # 同じインデックスで再度作成（既存のハンドラがクリアされる）
+        logger2 = ffmpeg_service._setup_segment_logger(
+            segment_idx=segment_idx,
+            log_file=log_file
+        )
+
+        # 新しいハンドラが1つだけ存在することを確認
+        assert len(logger2.handlers) == 1
+        # 同じロガーインスタンスが返されることを確認
+        assert logger1 is logger2
+
+        # クリーンアップ
+        for h in logger2.handlers[:]:
+            h.close()
+            logger2.removeHandler(h)
 
 
 class TestFFmpegServiceのencode_segment:
