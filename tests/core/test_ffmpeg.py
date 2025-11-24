@@ -360,6 +360,138 @@ class TestFFmpegServiceのbuild_ffmpeg_command:
         assert 'yuv4mpegpipe' in cmd
 
 
+class TestFFmpegServiceのbuild_svtav1_command:
+    """FFmpegServiceの_build_svtav1_commandメソッドのテスト"""
+
+    def test_SvtAv1EncAppコマンドを構築_基本(self, ffmpeg_service, tmp_path):
+        """基本的なSvtAv1EncAppコマンドを構築するテスト"""
+        input_file = tmp_path / "input.mkv"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+        output_file = tmp_path / "segment_0.ivf"
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4,
+            gop_size=240,
+            segment_length=60
+        )
+
+        cmd = ffmpeg_service._build_svtav1_command(
+            output_file=output_file,
+            config=config
+        )
+
+        # コマンド構造の確認
+        assert cmd[0] == 'SvtAv1EncApp'
+        assert '-i' in cmd
+        assert 'stdin' in cmd
+        assert '--keyint' in cmd
+        assert '240' in cmd
+        assert '-b' in cmd
+        assert str(output_file) in cmd
+
+    def test_SvtAv1EncAppコマンドを構築_追加オプションあり(self, ffmpeg_service, tmp_path):
+        """追加オプションを含むSvtAv1EncAppコマンドを構築するテスト"""
+        input_file = tmp_path / "input.mkv"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+        output_file = tmp_path / "segment_0.ivf"
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4,
+            gop_size=240,
+            segment_length=60,
+            svtav1_args=['--crf', '30', '--preset', '6']
+        )
+
+        cmd = ffmpeg_service._build_svtav1_command(
+            output_file=output_file,
+            config=config
+        )
+
+        # 基本構造の確認
+        assert cmd[0] == 'SvtAv1EncApp'
+        assert '-i' in cmd
+        assert 'stdin' in cmd
+        assert '--keyint' in cmd
+        assert '240' in cmd
+        # 追加オプションの確認
+        assert '--crf' in cmd
+        assert '30' in cmd
+        assert '--preset' in cmd
+        assert '6' in cmd
+        # 出力ファイルは最後
+        assert '-b' in cmd
+        assert str(output_file) in cmd
+
+    def test_SvtAv1EncAppコマンドを構築_複雑な追加オプション(self, ffmpeg_service, tmp_path):
+        """複雑な追加オプションを含むSvtAv1EncAppコマンドを構築するテスト"""
+        input_file = tmp_path / "input.mkv"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+        output_file = tmp_path / "segment_0.ivf"
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4,
+            gop_size=240,
+            segment_length=60,
+            svtav1_args=[
+                '--preset', '4',
+                '--crf', '25',
+                '--enable-qm', '1',
+                '--qm-min', '8',
+                '--scd', '1'
+            ]
+        )
+
+        cmd = ffmpeg_service._build_svtav1_command(
+            output_file=output_file,
+            config=config
+        )
+
+        # 複雑な追加オプションの確認
+        assert '--preset' in cmd
+        assert '4' in cmd
+        assert '--crf' in cmd
+        assert '25' in cmd
+        assert '--enable-qm' in cmd
+        assert '1' in cmd
+        assert '--qm-min' in cmd
+        assert '8' in cmd
+        assert '--scd' in cmd
+
+    def test_SvtAv1EncAppコマンドを構築_異なるGOPサイズ(self, ffmpeg_service, tmp_path):
+        """異なるGOPサイズでSvtAv1EncAppコマンドを構築するテスト"""
+        input_file = tmp_path / "input.mkv"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+        output_file = tmp_path / "segment_0.ivf"
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4,
+            gop_size=120,  # 異なるGOPサイズ
+            segment_length=60
+        )
+
+        cmd = ffmpeg_service._build_svtav1_command(
+            output_file=output_file,
+            config=config
+        )
+
+        # GOPサイズの確認
+        assert '--keyint' in cmd
+        assert '120' in cmd
+        assert '240' not in cmd
+
+
 class TestFFmpegServiceのencode_segment:
     """FFmpegServiceのencode_segmentメソッドのテスト"""
 

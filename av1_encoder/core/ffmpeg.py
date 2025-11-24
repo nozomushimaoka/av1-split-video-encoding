@@ -88,6 +88,27 @@ class FFmpegService:
 
         return ffmpeg_cmd
 
+    def _build_svtav1_command(
+        self,
+        output_file: Path,
+        config: EncodingConfig
+    ) -> list[str]:
+        """SvtAv1EncAppコマンドを構築"""
+        svtav1_cmd = [
+            'SvtAv1EncApp',
+            '-i', 'stdin',
+            '--keyint', str(config.gop_size)
+        ]
+
+        # 追加オプション（SvtAv1EncApp形式、既に展開済み）
+        if config.svtav1_args:
+            svtav1_cmd.extend(config.svtav1_args)
+
+        # 出力ファイル指定
+        svtav1_cmd.extend(['-b', str(output_file)])
+
+        return svtav1_cmd
+
     def encode_segment(
         self,
         segment_info: SegmentInfo,
@@ -109,18 +130,10 @@ class FFmpegService:
         )
 
         # SvtAv1EncAppコマンド構築
-        svtav1_cmd = [
-            'SvtAv1EncApp',
-            '-i', 'stdin',
-            '--keyint', str(config.gop_size)
-        ]
-
-        # 追加オプション（SvtAv1EncApp形式、既に展開済み）
-        if config.svtav1_args:
-            svtav1_cmd.extend(config.svtav1_args)
-
-        # 出力ファイル指定
-        svtav1_cmd.extend(['-b', str(segment_info.file)])
+        svtav1_cmd = self._build_svtav1_command(
+            output_file=segment_info.file,
+            config=config
+        )
 
         # セグメント専用ロガーを作成
         segment_logger = logging.getLogger(f"av1_encoder.segment_{segment_idx}")
