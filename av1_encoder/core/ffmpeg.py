@@ -150,8 +150,17 @@ class FFmpegService:
                         decoded_line = line.decode('utf-8', errors='replace').rstrip()
                         segment_logger.debug(f"[FFmpeg] {decoded_line}")
 
+            # SvtAv1EncAppのstdoutを別スレッドで読み取る（バッファ詰まり防止）
+            def read_svtav1_stdout():
+                if svtav1_process.stdout:
+                    for line in svtav1_process.stdout:
+                        segment_logger.debug(f"[SvtAv1EncApp stdout] {line.rstrip()}")
+
             ffmpeg_thread = threading.Thread(target=read_ffmpeg_stderr, daemon=True)
             ffmpeg_thread.start()
+
+            svtav1_stdout_thread = threading.Thread(target=read_svtav1_stdout, daemon=True)
+            svtav1_stdout_thread.start()
 
             # SvtAv1EncAppの出力を1行ずつ読み取ってログに記録
             if svtav1_process.stderr:
@@ -166,6 +175,9 @@ class FFmpegService:
 
             # FFmpegスレッドの終了を待つ
             ffmpeg_thread.join(timeout=5)
+
+            # SvtAv1EncApp stdoutスレッドの終了を待つ
+            svtav1_stdout_thread.join(timeout=5)
 
             # どちらかのプロセスが失敗した場合
             if ffmpeg_return_code != 0:

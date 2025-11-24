@@ -235,12 +235,12 @@ class TestFFmpegServiceのencode_segment:
         # FFmpegプロセスのモック
         mock_ffmpeg_process = Mock()
         mock_ffmpeg_process.stdout = Mock()
-        mock_ffmpeg_process.stderr = Mock()
-        mock_ffmpeg_process.stderr.read.return_value = b""
+        mock_ffmpeg_process.stderr = iter([])
         mock_ffmpeg_process.wait.return_value = 0
 
         # SvtAv1EncAppプロセスのモック
         mock_svtav1_process = Mock()
+        mock_svtav1_process.stdout = iter([])
         mock_svtav1_process.stderr = iter(["Encoding frame 100", "Encoding complete"])
         mock_svtav1_process.wait.return_value = 0
 
@@ -307,12 +307,12 @@ class TestFFmpegServiceのencode_segment:
         # FFmpegプロセスのモック
         mock_ffmpeg_process = Mock()
         mock_ffmpeg_process.stdout = Mock()
-        mock_ffmpeg_process.stderr = Mock()
-        mock_ffmpeg_process.stderr.read.return_value = b""
+        mock_ffmpeg_process.stderr = iter([])
         mock_ffmpeg_process.wait.return_value = 0
 
         # SvtAv1EncAppプロセスのモック
         mock_svtav1_process = Mock()
+        mock_svtav1_process.stdout = iter([])
         mock_svtav1_process.stderr = iter([])
         mock_svtav1_process.wait.return_value = 0
 
@@ -355,12 +355,12 @@ class TestFFmpegServiceのencode_segment:
         # FFmpegプロセスのモック
         mock_ffmpeg_process = Mock()
         mock_ffmpeg_process.stdout = Mock()
-        mock_ffmpeg_process.stderr = Mock()
-        mock_ffmpeg_process.stderr.read.return_value = b""
+        mock_ffmpeg_process.stderr = iter([])
         mock_ffmpeg_process.wait.return_value = 0
 
         # SvtAv1EncAppプロセスのモック
         mock_svtav1_process = Mock()
+        mock_svtav1_process.stdout = iter([])
         mock_svtav1_process.stderr = iter([])
         mock_svtav1_process.wait.return_value = 0
 
@@ -412,12 +412,12 @@ class TestFFmpegServiceのencode_segment:
         # FFmpegプロセスのモック
         mock_ffmpeg_process = Mock()
         mock_ffmpeg_process.stdout = Mock()
-        mock_ffmpeg_process.stderr = Mock()
-        mock_ffmpeg_process.stderr.read.return_value = b""
+        mock_ffmpeg_process.stderr = iter([])
         mock_ffmpeg_process.wait.return_value = 0
 
         # SvtAv1EncAppプロセスのモック
         mock_svtav1_process = Mock()
+        mock_svtav1_process.stdout = iter([])
         mock_svtav1_process.stderr = iter([])
         mock_svtav1_process.wait.return_value = 0
 
@@ -467,12 +467,12 @@ class TestFFmpegServiceのencode_segment:
         # FFmpegプロセスのモック
         mock_ffmpeg_process = Mock()
         mock_ffmpeg_process.stdout = Mock()
-        mock_ffmpeg_process.stderr = Mock()
-        mock_ffmpeg_process.stderr.read.return_value = b""
+        mock_ffmpeg_process.stderr = iter([])
         mock_ffmpeg_process.wait.return_value = 0
 
         # SvtAv1EncAppプロセスのモック
         mock_svtav1_process = Mock()
+        mock_svtav1_process.stdout = iter([])
         mock_svtav1_process.stderr = iter([])
         mock_svtav1_process.wait.return_value = 0
 
@@ -515,12 +515,12 @@ class TestFFmpegServiceのencode_segment:
         # FFmpegプロセスのモック（成功）
         mock_ffmpeg_process = Mock()
         mock_ffmpeg_process.stdout = Mock()
-        mock_ffmpeg_process.stderr = Mock()
-        mock_ffmpeg_process.stderr.read.return_value = b""
+        mock_ffmpeg_process.stderr = iter([])
         mock_ffmpeg_process.wait.return_value = 0
 
         # SvtAv1EncAppプロセスのモック（失敗）
         mock_svtav1_process = Mock()
+        mock_svtav1_process.stdout = iter([])
         mock_svtav1_process.stderr = iter(["Error message"])
         mock_svtav1_process.wait.return_value = 1  # エラーコード
 
@@ -549,12 +549,12 @@ class TestFFmpegServiceのencode_segment:
         # FFmpegプロセスのモック
         mock_ffmpeg_process = Mock()
         mock_ffmpeg_process.stdout = Mock()
-        mock_ffmpeg_process.stderr = Mock()
-        mock_ffmpeg_process.stderr.read.return_value = b""
+        mock_ffmpeg_process.stderr = iter([])
         mock_ffmpeg_process.wait.return_value = 0
 
         # SvtAv1EncAppプロセスのモック
         mock_svtav1_process = Mock()
+        mock_svtav1_process.stdout = iter([])
         mock_svtav1_process.stderr = iter([])
         mock_svtav1_process.wait.return_value = 0
 
