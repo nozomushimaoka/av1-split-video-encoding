@@ -282,7 +282,7 @@ class TestS3Pipelineのdownload_file_async:
 
             # Futureの結果を待つとdownload_fileが呼ばれることを確認
             future.result()
-            mock_download.assert_called_once_with('test.mkv', local_path, show_progress=False)
+            mock_download.assert_called_once_with('test.mkv', local_path, show_progress=True)
 
 
 class TestS3Pipelineのupload_file:
@@ -331,7 +331,7 @@ class TestS3Pipelineのupload_file_async:
 
             # Futureの結果を待つとupload_fileが呼ばれることを確認
             future.result()
-            mock_upload.assert_called_once_with(local_path, 'video1', show_progress=False)
+            mock_upload.assert_called_once_with(local_path, 'video1', show_progress=True)
 
 
 class TestS3Pipelineのshutdown:

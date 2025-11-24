@@ -112,7 +112,7 @@ class S3Pipeline:
             self.download_file,
             filename,
             local_path,
-            show_progress=False  # バックグラウンドではプログレスバーを表示しない
+            show_progress=True
         )
 
     def upload_file(
@@ -162,7 +162,7 @@ class S3Pipeline:
             self.upload_file,
             local_path,
             base_name,
-            show_progress=False  # バックグラウンドではプログレスバーを表示しない
+            show_progress=True
         )
 
     def shutdown(self) -> None:
