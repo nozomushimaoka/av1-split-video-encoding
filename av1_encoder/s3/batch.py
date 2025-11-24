@@ -40,10 +40,17 @@ def merge_video_with_audio(
     ]
 
     try:
-        subprocess.run(cmd, check=True, capture_output=True)
+        # capture_output=Trueは大きな出力でメモリを消費するため、DEVNULLにリダイレクト
+        subprocess.run(
+            cmd,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True
+        )
         logger.info("結合完了")
     except subprocess.CalledProcessError as e:
-        logger.error(f"結合に失敗: {e.stderr.decode('utf-8', errors='replace')}")
+        logger.error(f"結合に失敗: {e.stderr}")
         raise
 
 
