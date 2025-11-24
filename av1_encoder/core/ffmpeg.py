@@ -156,16 +156,20 @@ class FFmpegService:
                     for line in svtav1_process.stdout:
                         segment_logger.debug(f"[SvtAv1EncApp stdout] {line.rstrip()}")
 
+            # SvtAv1EncAppのstderrを別スレッドで読み取る（バッファ詰まり防止）
+            def read_svtav1_stderr():
+                if svtav1_process.stderr:
+                    for line in svtav1_process.stderr:
+                        segment_logger.debug(f"[SvtAv1EncApp] {line.rstrip()}")
+
             ffmpeg_thread = threading.Thread(target=read_ffmpeg_stderr, daemon=True)
             ffmpeg_thread.start()
 
             svtav1_stdout_thread = threading.Thread(target=read_svtav1_stdout, daemon=True)
             svtav1_stdout_thread.start()
 
-            # SvtAv1EncAppの出力を1行ずつ読み取ってログに記録
-            if svtav1_process.stderr:
-                for line in svtav1_process.stderr:
-                    segment_logger.debug(f"[SvtAv1EncApp] {line.rstrip()}")
+            svtav1_stderr_thread = threading.Thread(target=read_svtav1_stderr, daemon=True)
+            svtav1_stderr_thread.start()
 
             # SvtAv1EncAppの終了を待つ
             svtav1_return_code = svtav1_process.wait()
@@ -173,11 +177,10 @@ class FFmpegService:
             # FFmpegの終了を待つ
             ffmpeg_return_code = ffmpeg_process.wait()
 
-            # FFmpegスレッドの終了を待つ
+            # 全スレッドの終了を待つ
             ffmpeg_thread.join(timeout=5)
-
-            # SvtAv1EncApp stdoutスレッドの終了を待つ
             svtav1_stdout_thread.join(timeout=5)
+            svtav1_stderr_thread.join(timeout=5)
 
             # どちらかのプロセスが失敗した場合
             if ffmpeg_return_code != 0:
