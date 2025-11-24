@@ -56,18 +56,15 @@ class FFmpegService:
         else:
             return float(fps_str)
 
-    def encode_segment(
+    def _build_ffmpeg_command(
         self,
-        segment_info: SegmentInfo,
         input_file: Path,
+        start_time: float,
+        duration: float,
+        is_final_segment: bool,
         config: EncodingConfig
-    ) -> bool:
-        segment_idx = segment_info.index
-        start_time = segment_info.start_time
-        duration = segment_info.duration
-        is_final_segment = segment_info.is_final
-
-        # FFmpegデコードコマンド構築（Y4M形式でstdoutに出力）
+    ) -> list[str]:
+        """FFmpegデコードコマンドを構築（Y4M形式でstdoutに出力）"""
         ffmpeg_cmd = [
             'ffmpeg',
             '-ss', str(start_time),
@@ -88,6 +85,28 @@ class FFmpegService:
             '-strict', '-1',
             '-'
         ])
+
+        return ffmpeg_cmd
+
+    def encode_segment(
+        self,
+        segment_info: SegmentInfo,
+        input_file: Path,
+        config: EncodingConfig
+    ) -> bool:
+        segment_idx = segment_info.index
+        start_time = segment_info.start_time
+        duration = segment_info.duration
+        is_final_segment = segment_info.is_final
+
+        # FFmpegデコードコマンド構築（Y4M形式でstdoutに出力）
+        ffmpeg_cmd = self._build_ffmpeg_command(
+            input_file=input_file,
+            start_time=start_time,
+            duration=duration,
+            is_final_segment=is_final_segment,
+            config=config
+        )
 
         # SvtAv1EncAppコマンド構築
         svtav1_cmd = [

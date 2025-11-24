@@ -225,6 +225,141 @@ class TestFFmpegServiceのget_fps:
             assert fps == 60.0
 
 
+class TestFFmpegServiceのbuild_ffmpeg_command:
+    """FFmpegServiceの_build_ffmpeg_commandメソッドのテスト"""
+
+    def test_FFmpegコマンドを構築_通常セグメント(self, ffmpeg_service, tmp_path):
+        """通常セグメント（最終でない）のFFmpegコマンドを構築するテスト"""
+        input_file = tmp_path / "input.mkv"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4,
+            gop_size=240,
+            segment_length=60
+        )
+
+        cmd = ffmpeg_service._build_ffmpeg_command(
+            input_file=input_file,
+            start_time=120.0,
+            duration=60.0,
+            is_final_segment=False,
+            config=config
+        )
+
+        # コマンド構造の確認
+        assert cmd[0] == 'ffmpeg'
+        assert '-ss' in cmd
+        assert '120.0' in cmd
+        assert '-i' in cmd
+        assert str(input_file) in cmd
+        assert '-t' in cmd  # 最終セグメントではないので-tオプションがある
+        assert '60.0' in cmd
+        assert '-f' in cmd
+        assert 'yuv4mpegpipe' in cmd
+        assert '-strict' in cmd
+        assert '-1' in cmd
+        assert cmd[-1] == '-'
+
+    def test_FFmpegコマンドを構築_最終セグメント(self, ffmpeg_service, tmp_path):
+        """最終セグメントのFFmpegコマンドを構築するテスト（-tオプションなし）"""
+        input_file = tmp_path / "input.mkv"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4,
+            gop_size=240,
+            segment_length=60
+        )
+
+        cmd = ffmpeg_service._build_ffmpeg_command(
+            input_file=input_file,
+            start_time=300.0,
+            duration=60.0,
+            is_final_segment=True,
+            config=config
+        )
+
+        # -tオプションがないことを確認
+        assert '-t' not in cmd
+        assert '60.0' not in cmd
+        # 他の基本構造は同じ
+        assert cmd[0] == 'ffmpeg'
+        assert '-ss' in cmd
+        assert '300.0' in cmd
+        assert '-f' in cmd
+        assert 'yuv4mpegpipe' in cmd
+
+    def test_FFmpegコマンドを構築_追加パラメータあり(self, ffmpeg_service, tmp_path):
+        """追加のFFmpegパラメータを含むコマンドを構築するテスト"""
+        input_file = tmp_path / "input.mkv"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4,
+            gop_size=240,
+            segment_length=60,
+            ffmpeg_args=['-vf', 'scale=1920:1080', '-r', '24']
+        )
+
+        cmd = ffmpeg_service._build_ffmpeg_command(
+            input_file=input_file,
+            start_time=0.0,
+            duration=60.0,
+            is_final_segment=False,
+            config=config
+        )
+
+        # 追加パラメータが含まれていることを確認
+        assert '-vf' in cmd
+        assert 'scale=1920:1080' in cmd
+        assert '-r' in cmd
+        assert '24' in cmd
+        # Y4M形式の出力オプションは最後にある
+        assert '-f' in cmd
+        assert 'yuv4mpegpipe' in cmd
+        assert cmd[-3:] == ['-strict', '-1', '-']
+
+    def test_FFmpegコマンドを構築_追加パラメータなし(self, ffmpeg_service, tmp_path):
+        """追加パラメータなしでコマンドを構築するテスト"""
+        input_file = tmp_path / "input.mkv"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4,
+            gop_size=240,
+            segment_length=60
+        )
+
+        cmd = ffmpeg_service._build_ffmpeg_command(
+            input_file=input_file,
+            start_time=0.0,
+            duration=60.0,
+            is_final_segment=False,
+            config=config
+        )
+
+        # 基本構造のみであることを確認
+        assert cmd[0] == 'ffmpeg'
+        assert '-ss' in cmd
+        assert '-i' in cmd
+        assert '-t' in cmd
+        assert '-f' in cmd
+        assert 'yuv4mpegpipe' in cmd
+
+
 class TestFFmpegServiceのencode_segment:
     """FFmpegServiceのencode_segmentメソッドのテスト"""
 
