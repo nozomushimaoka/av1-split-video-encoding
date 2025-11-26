@@ -81,7 +81,41 @@ class TestMainのコマンドライン引数:
                 gop_size=240,
                 # CLI側で展開されるので、展開後の形式になる
                 svtav1_args=['--crf', '30', '--preset', '5'],
-                ffmpeg_args=[]
+                ffmpeg_args=[],
+                audio_args=[]
+            )
+            assert result == 0
+
+    def test_音声パラメータを指定(self, tmp_path):
+        """音声パラメータを指定した場合のテスト"""
+        # pending filesファイルを作成
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
+        test_args = [
+            'prog',
+            '--bucket', 'my-bucket',
+            '--pending-files', str(pending_files_path),
+            '--parallel', '8', '--gop', '240',
+            '--svtav1-params', 'crf=30,preset=5',
+            '--audio-params', 'c:a=aac,b:a=128k'
+        ]
+
+        with patch('sys.argv', test_args), \
+             patch('av1_encoder.s3.cli.run_batch_encoding') as mock_run:
+            mock_run.return_value = 0
+
+            result = main()
+
+            # audio_argsが展開されたことを確認
+            mock_run.assert_called_once_with(
+                bucket='my-bucket',
+                pending_files_path=pending_files_path,
+                parallel=8,
+                gop_size=240,
+                svtav1_args=['--crf', '30', '--preset', '5'],
+                ffmpeg_args=[],
+                audio_args=['-c:a', 'aac', '-b:a', '128k']
             )
             assert result == 0
 
@@ -112,7 +146,8 @@ class TestMainのコマンドライン引数:
                 parallel=10,
                 gop_size=240,
                 svtav1_args=['--crf', '30'],
-                ffmpeg_args=[]
+                ffmpeg_args=[],
+                audio_args=[]
             )
             assert result == 0
 

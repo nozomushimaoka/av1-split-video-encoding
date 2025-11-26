@@ -7,7 +7,8 @@ import os
 import sys
 from pathlib import Path
 
-from av1_encoder.cli_utils import expand_ffmpeg_params, expand_svtav1_params
+from av1_encoder.cli_utils import (expand_audio_params, expand_ffmpeg_params,
+                                   expand_svtav1_params)
 from av1_encoder.s3.batch import run_batch_encoding
 
 
@@ -79,6 +80,12 @@ def main() -> int:
         default=None,
         help='FFmpeg用のパラメータ（カンマ区切り、例: vf=scale=1920:1080,r=30）'
     )
+    parser.add_argument(
+        '--audio-params',
+        type=str,
+        default=None,
+        help='音声パラメータ（カンマ区切り、例: c:a=aac,b:a=128k）'
+    )
 
     args = parser.parse_args()
 
@@ -95,6 +102,11 @@ def main() -> int:
     if args.ffmpeg_params:
         ffmpeg_args = expand_ffmpeg_params(args.ffmpeg_params)
 
+    # audio_argsを構築（カンマ区切りを展開）
+    audio_args = []
+    if args.audio_params:
+        audio_args = expand_audio_params(args.audio_params)
+
     # バッチエンコード処理を実行
     return run_batch_encoding(
         bucket=args.bucket,
@@ -102,7 +114,8 @@ def main() -> int:
         parallel=args.parallel,
         gop_size=args.gop,
         svtav1_args=svtav1_args,
-        ffmpeg_args=ffmpeg_args
+        ffmpeg_args=ffmpeg_args,
+        audio_args=audio_args
     )
 
 

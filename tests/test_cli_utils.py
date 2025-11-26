@@ -2,7 +2,8 @@
 
 import pytest
 
-from av1_encoder.cli_utils import expand_ffmpeg_params, expand_svtav1_params
+from av1_encoder.cli_utils import (expand_audio_params, expand_ffmpeg_params,
+                                   expand_svtav1_params)
 
 
 class TestExpandSvtav1Params:
@@ -162,3 +163,77 @@ class TestExpandFfmpegParams:
         """エスケープされたカンマのみを含むパラメータをテスト"""
         result = expand_ffmpeg_params(r"vf=hue=s=0\,eq=brightness=0.1")
         assert result == ['-vf', 'hue=s=0,eq=brightness=0.1']
+
+
+class TestExpandAudioParams:
+    """expand_audio_params関数のテスト"""
+
+    def test_単一パラメータを展開(self):
+        """単一のパラメータを正しく展開することをテスト"""
+        result = expand_audio_params("c:a=aac")
+        assert result == ['-c:a', 'aac']
+
+    def test_複数パラメータを展開(self):
+        """複数のパラメータを正しく展開することをテスト"""
+        result = expand_audio_params("c:a=aac,b:a=128k,ar=48000")
+        assert result == ['-c:a', 'aac', '-b:a', '128k', '-ar', '48000']
+
+    def test_空文字列を処理(self):
+        """空文字列の場合に空リストを返すことをテスト"""
+        result = expand_audio_params("")
+        assert result == []
+
+    def test_copyコーデックを指定(self):
+        """copyコーデックを正しく処理することをテスト"""
+        result = expand_audio_params("c:a=copy")
+        assert result == ['-c:a', 'copy']
+
+    def test_Opusコーデックとパラメータ(self):
+        """Opusコーデックとパラメータを正しく処理することをテスト"""
+        result = expand_audio_params("c:a=libopus,b:a=96k,ac=1")
+        assert result == ['-c:a', 'libopus', '-b:a', '96k', '-ac', '1']
+
+    def test_サンプリングレートとチャンネル数(self):
+        """サンプリングレートとチャンネル数を正しく処理することをテスト"""
+        result = expand_audio_params("c:a=aac,ar=48000,ac=2")
+        assert result == ['-c:a', 'aac', '-ar', '48000', '-ac', '2']
+
+    def test_品質ベースのエンコード(self):
+        """品質ベースのエンコード(-q:a)を正しく処理することをテスト"""
+        result = expand_audio_params("c:a=libvorbis,q:a=5")
+        assert result == ['-c:a', 'libvorbis', '-q:a', '5']
+
+    def test_等号を含まないパラメータはスキップ(self):
+        """等号を含まないパラメータはスキップされることをテスト"""
+        result = expand_audio_params("c:a=aac,invalid,b:a=128k")
+        assert result == ['-c:a', 'aac', '-b:a', '128k']
+
+    def test_エスケープされたカンマを含むパラメータ(self):
+        """\\,でエスケープされたカンマを正しく処理することをテスト"""
+        result = expand_audio_params(r"c:a=aac,af=volume=0.5\,aformat=s16,b:a=128k")
+        assert result == ['-c:a', 'aac', '-af', 'volume=0.5,aformat=s16', '-b:a', '128k']
+
+    def test_空の値を持つパラメータ(self):
+        """空の値を持つパラメータを正しく処理することをテスト"""
+        result = expand_audio_params("c:a=")
+        assert result == ['-c:a', '']
+
+    def test_カンマのみの文字列(self):
+        """カンマのみの文字列を正しく処理することをテスト"""
+        result = expand_audio_params(",,,")
+        assert result == []
+
+    def test_先頭と末尾にカンマ(self):
+        """先頭と末尾にカンマがある場合を正しく処理することをテスト"""
+        result = expand_audio_params(",c:a=aac,b:a=128k,")
+        assert result == ['-c:a', 'aac', '-b:a', '128k']
+
+    def test_ハイフン付きプレフィックス(self):
+        """ハイフン1つがプレフィックスとして正しく付与されることをテスト"""
+        result = expand_audio_params("c:a=aac")
+        assert result == ['-c:a', 'aac']
+
+    def test_複数の音声ストリーム指定(self):
+        """複数の音声ストリームを正しく処理することをテスト"""
+        result = expand_audio_params("c:a:0=aac,c:a:1=libopus")
+        assert result == ['-c:a:0', 'aac', '-c:a:1', 'libopus']

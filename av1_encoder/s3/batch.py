@@ -16,9 +16,18 @@ logger = logging.getLogger(__name__)
 def merge_video_with_audio(
     workspace: Path,
     input_file: Path,
-    output_file: Path
+    output_file: Path,
+    audio_args: list[str] | None = None
 ) -> None:
-    """エンコードされた動画と元の音声を結合"""
+    """エンコードされた動画と元の音声を結合
+
+    Args:
+        workspace: ワークスペースディレクトリ
+        input_file: 元の入力ファイル（音声ソース）
+        output_file: 出力ファイル
+        audio_args: 音声引数（展開済み、例: ['-c:a', 'aac', '-b:a', '128k']）
+                   指定がない場合は ['-c:a', 'copy'] を使用
+    """
     concat_file = workspace / "concat.txt"
 
     if not concat_file.exists():
@@ -26,6 +35,7 @@ def merge_video_with_audio(
 
     logger.info("結合中...")
 
+    # 基本的なコマンド構築
     cmd = [
         'ffmpeg',
         '-f', 'concat',
@@ -35,9 +45,17 @@ def merge_video_with_audio(
         '-map', '0:v:0',
         '-map', '1:a?',
         '-c:v', 'copy',
-        '-c:a', 'copy',
-        str(output_file)
     ]
+
+    # 音声引数の追加
+    if audio_args:
+        cmd.extend(audio_args)
+    else:
+        # デフォルトは音声をコピー
+        cmd.extend(['-c:a', 'copy'])
+
+    # 出力ファイルを追加
+    cmd.append(str(output_file))
 
     try:
         # capture_output=Trueは大きな出力でメモリを消費するため、DEVNULLにリダイレクト
@@ -60,7 +78,8 @@ def encode_video(
     parallel: int,
     gop_size: int,
     svtav1_args: list[str],
-    ffmpeg_args: list[str] | None = None
+    ffmpeg_args: list[str] | None = None,
+    audio_args: list[str] | None = None
 ) -> None:
     """エンコード処理を実行"""
     from av1_encoder.core.config import EncodingConfig
@@ -74,7 +93,8 @@ def encode_video(
         gop_size=gop_size,
         segment_length=60,  # デフォルト値
         svtav1_args=svtav1_args,
-        ffmpeg_args=ffmpeg_args or []
+        ffmpeg_args=ffmpeg_args or [],
+        audio_args=audio_args or []
     )
 
     # エンコード実行（ログはEncodingOrchestratorが担当）
@@ -90,6 +110,7 @@ def process_single_file(
     gop_size: int,
     svtav1_args: list[str],
     ffmpeg_args: list[str] | None = None,
+    audio_args: list[str] | None = None,
     download_future: Optional[Future[None]] = None
 ) -> None:
     """単一ファイルの処理"""
@@ -113,11 +134,11 @@ def process_single_file(
     output_file = None
     try:
         # エンコード
-        encode_video(input_file, workspace, parallel, gop_size, svtav1_args, ffmpeg_args)
+        encode_video(input_file, workspace, parallel, gop_size, svtav1_args, ffmpeg_args, audio_args)
 
         # 結合
         output_file = workspace / "output.mkv"
-        merge_video_with_audio(workspace, input_file, output_file)
+        merge_video_with_audio(workspace, input_file, output_file, audio_args)
 
         # 入力ファイルを削除
         input_file.unlink()
@@ -168,7 +189,8 @@ def run_batch_encoding(
     parallel: int,
     gop_size: int,
     svtav1_args: list[str],
-    ffmpeg_args: list[str] | None = None
+    ffmpeg_args: list[str] | None = None,
+    audio_args: list[str] | None = None
 ) -> int:
     """バッチエンコード処理を実行"""
     logger.info(f"S3バケット: {bucket}")
@@ -226,6 +248,7 @@ def run_batch_encoding(
                 gop_size,
                 svtav1_args,
                 ffmpeg_args,
+                audio_args,
                 download_future
             )
 

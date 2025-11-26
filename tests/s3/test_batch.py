@@ -87,6 +87,58 @@ class TestMergeVideoWithAudio:
             with pytest.raises(Exception, match="結合エラー"):
                 merge_video_with_audio(mock_workspace, input_file, output_file)
 
+    def test_音声引数を指定して結合(self, mock_workspace, tmp_path):
+        """音声引数を指定して動画と音声を結合することをテスト"""
+        # concat.txtを作成
+        concat_file = mock_workspace / "concat.txt"
+        concat_file.write_text("file 'segment_0.ivf'\nfile 'segment_1.ivf'\n")
+
+        input_file = tmp_path / "input.mkv"
+        input_file.touch()
+        output_file = tmp_path / "output.mkv"
+
+        with patch('av1_encoder.s3.batch.subprocess.run') as mock_run:
+            mock_run.return_value = Mock(returncode=0)
+
+            merge_video_with_audio(mock_workspace, input_file, output_file, audio_args=['-c:a', 'aac', '-b:a', '128k'])
+
+            # 正しいコマンドが呼ばれたことを確認
+            mock_run.assert_called_once()
+            cmd = mock_run.call_args[0][0]
+            assert cmd[0] == 'ffmpeg'
+            # 音声引数が追加されていることを確認
+            assert '-c:a' in cmd
+            assert 'aac' in cmd
+            assert '-b:a' in cmd
+            assert '128k' in cmd
+            # copyは含まれない
+            copy_indices = [i for i, x in enumerate(cmd) if x == 'copy']
+            # -c:v copyのcopyのみ存在
+            assert len(copy_indices) == 1
+
+    def test_音声引数なしの場合はcopyを使用(self, mock_workspace, tmp_path):
+        """音声引数がない場合はデフォルトでcopyを使用することをテスト"""
+        # concat.txtを作成
+        concat_file = mock_workspace / "concat.txt"
+        concat_file.write_text("file 'segment_0.ivf'\n")
+
+        input_file = tmp_path / "input.mkv"
+        input_file.touch()
+        output_file = tmp_path / "output.mkv"
+
+        with patch('av1_encoder.s3.batch.subprocess.run') as mock_run:
+            mock_run.return_value = Mock(returncode=0)
+
+            merge_video_with_audio(mock_workspace, input_file, output_file, audio_args=None)
+
+            # 正しいコマンドが呼ばれたことを確認
+            mock_run.assert_called_once()
+            cmd = mock_run.call_args[0][0]
+            assert '-c:a' in cmd
+            # デフォルトでcopyが使用される
+            ca_index = cmd.index('-c:a')
+            assert cmd[ca_index + 1] == 'copy'
+
 
 class TestEncodeVideo:
     """encode_video関数のテスト"""
@@ -133,6 +185,32 @@ class TestEncodeVideo:
             with pytest.raises(RuntimeError, match="エンコードエラー"):
                 encode_video(input_file, workspace, parallel=8, gop_size=240, svtav1_args=['--crf', '30', '--preset', '5'])
 
+    def test_音声引数を含むエンコード処理(self, tmp_path):
+        """音声引数を含むエンコード処理を実行することをテスト"""
+        input_file = tmp_path / "input.mkv"
+        input_file.touch()
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+
+        # encoding.encoderモジュールからインポートされるのでそのパスをパッチ
+        with patch('av1_encoder.encoding.encoder.EncodingOrchestrator') as mock_orchestrator_class:
+            mock_orchestrator = Mock()
+            mock_orchestrator_class.return_value = mock_orchestrator
+
+            encode_video(
+                input_file, workspace, parallel=8, gop_size=240,
+                svtav1_args=['--crf', '30', '--preset', '5'],
+                audio_args=['-c:a', 'aac', '-b:a', '128k']
+            )
+
+            # EncodingOrchestratorが正しく呼ばれたことを確認
+            mock_orchestrator_class.assert_called_once()
+            config = mock_orchestrator_class.call_args[0][0]
+            assert config.audio_args == ['-c:a', 'aac', '-b:a', '128k']
+
+            # runが呼ばれたことを確認
+            mock_orchestrator.run.assert_called_once()
+
 
 class TestProcessSingleFile:
     """process_single_file関数のテスト"""
@@ -149,7 +227,7 @@ class TestProcessSingleFile:
         # ワークスペースを作成して一時ファイルを追加
         workspace = None
 
-        def mock_encode_impl(input_f, ws, parallel, gop_size, svtav1_args, ffmpeg_args=None):
+        def mock_encode_impl(input_f, ws, parallel, gop_size, svtav1_args, ffmpeg_args=None, audio_args=None):
             nonlocal workspace
             workspace = ws
             # 一時ファイルを作成（concat.txt, segment files, logs）
@@ -158,7 +236,7 @@ class TestProcessSingleFile:
             (ws / "segment_0001.ivf").touch()
             (ws / "main.log").touch()
 
-        def mock_merge_impl(ws, input_f, output_f):
+        def mock_merge_impl(ws, input_f, output_f, audio_args=None):
             # output.mkvを作成
             output_f.touch()
 
