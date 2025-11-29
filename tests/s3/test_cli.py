@@ -1,24 +1,25 @@
 """S3 CLI のテスト"""
 
-from unittest.mock import patch, Mock
+import logging
 import os
+from unittest.mock import Mock, patch
+
 import pytest
 
-from av1_encoder.s3.cli import main, setup_logging
+from av1_encoder.core.logging_config import setup_console_logger
+from av1_encoder.s3.cli import main
 
 
-class TestSetupLogging:
-    """setup_logging関数のテスト"""
+class TestSetupConsoleLogger:
+    """setup_console_logger関数のテスト（ログ設定モジュールに移動済み）"""
 
     def test_ロギングが設定される(self):
         """ロギングが正しく設定されることをテスト"""
-        import logging
-
         # ロガーをリセット
         s3_logger = logging.getLogger('av1_encoder.s3')
         s3_logger.handlers.clear()
 
-        setup_logging()
+        setup_console_logger('av1_encoder.s3')
 
         # S3ロガーにハンドラーが追加されたことを確認
         assert len(s3_logger.handlers) == 1
@@ -35,18 +36,16 @@ class TestSetupLogging:
 
     def test_既存ハンドラがある場合はスキップ(self):
         """既存のハンドラがある場合はスキップされることをテスト"""
-        import logging
-
         # ロガーをリセット
         s3_logger = logging.getLogger('av1_encoder.s3')
         s3_logger.handlers.clear()
 
         # 最初の呼び出し
-        setup_logging()
+        setup_console_logger('av1_encoder.s3')
         assert len(s3_logger.handlers) == 1
 
         # 2回目の呼び出し（ハンドラは追加されない）
-        setup_logging()
+        setup_console_logger('av1_encoder.s3')
         assert len(s3_logger.handlers) == 1  # 変わらず1つ
 
 
@@ -280,8 +279,8 @@ class TestMainの実行:
 
             assert result == 1
 
-    def test_setup_loggingが呼ばれる(self, tmp_path):
-        """setup_loggingが呼ばれることをテスト"""
+    def test_setup_console_loggerが呼ばれる(self, tmp_path):
+        """setup_console_loggerが呼ばれることをテスト"""
         # pending filesファイルを作成
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("video1.mkv\n")
@@ -295,13 +294,13 @@ class TestMainの実行:
         ]
 
         with patch('sys.argv', test_args), \
-             patch('av1_encoder.s3.cli.setup_logging') as mock_setup_logging, \
+             patch('av1_encoder.s3.cli.setup_console_logger') as mock_setup_logging, \
              patch('av1_encoder.s3.cli.run_batch_encoding') as mock_run:
             mock_run.return_value = 0
 
             main()
 
-            mock_setup_logging.assert_called_once()
+            mock_setup_logging.assert_called_once_with('av1_encoder.s3')
 
 
 class TestMainの引数型:

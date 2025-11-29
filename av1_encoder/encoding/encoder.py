@@ -1,15 +1,15 @@
-import logging
 import os
 import signal
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from datetime import datetime
 from pathlib import Path
 from typing import List
-from datetime import datetime
 
 from ..core.config import EncodingConfig
-from ..core.workspace import make_workspace_from_path
 from ..core.ffmpeg import FFmpegService, SegmentInfo
+from ..core.logging_config import setup_file_and_console_logger
+from ..core.workspace import make_workspace_from_path
 
 
 def _worker_init():
@@ -26,7 +26,10 @@ class EncodingOrchestrator:
         self.config = config
         self.start_time = datetime.now()
         self.workspace = make_workspace_from_path(config.workspace_dir)
-        self.logger = self._init_logger(self.workspace.log_file)
+        self.logger = setup_file_and_console_logger(
+            "av1_encoder",
+            self.workspace.log_file
+        )
         self.ffmpeg = FFmpegService()
         self._main_pid = os.getpid()  # メインプロセスのPIDを記録
 
@@ -148,32 +151,4 @@ class EncodingOrchestrator:
     def _calc_num_segments(self) -> int:
         duration = self.ffmpeg.get_duration(self.config.input_file)
         return int((duration + self.config.segment_length - 1) // self.config.segment_length)
-
-    def _init_logger(self, log_file: Path) -> logging.Logger:
-        logger = logging.getLogger("av1_encoder")
-        logger.setLevel(logging.INFO)
-
-        # 既存のハンドラをクリア
-        logger.handlers.clear()
-
-        # ファイルハンドラ
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
-        file_handler.setLevel(logging.INFO)
-
-        # コンソールハンドラ
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-
-        # フォーマッター
-        formatter = logging.Formatter(
-            '[%(asctime)s] %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        file_handler.setFormatter(formatter)
-        console_handler.setFormatter(formatter)
-
-        logger.addHandler(file_handler)
-        logger.addHandler(console_handler)
-
-        return logger
 

@@ -1,9 +1,11 @@
-from unittest.mock import Mock, patch
 import logging
+from unittest.mock import Mock, patch
+
 import pytest
 
-from av1_encoder.core.ffmpeg import FFmpegService, SegmentInfo
 from av1_encoder.core.config import EncodingConfig
+from av1_encoder.core.ffmpeg import FFmpegService, SegmentInfo
+from av1_encoder.core.logging_config import setup_segment_logger
 
 
 @pytest.fixture
@@ -493,15 +495,15 @@ class TestFFmpegServiceのbuild_svtav1_command:
         assert '240' not in cmd
 
 
-class TestFFmpegServiceのsetup_segment_logger:
-    """FFmpegServiceの_setup_segment_loggerメソッドのテスト"""
+class TestSetupSegmentLogger:
+    """setup_segment_logger関数のテスト（logging_configモジュールに移動済み）"""
 
-    def test_セグメントロガーを設定(self, ffmpeg_service, tmp_path):
+    def test_セグメントロガーを設定(self, tmp_path):
         """セグメント専用ロガーを作成して設定するテスト"""
         log_file = tmp_path / "segment_0.log"
         segment_idx = 0
 
-        logger = ffmpeg_service._setup_segment_logger(
+        logger = setup_segment_logger(
             segment_idx=segment_idx,
             log_file=log_file
         )
@@ -522,12 +524,12 @@ class TestFFmpegServiceのsetup_segment_logger:
             h.close()
             logger.removeHandler(h)
 
-    def test_セグメントロガーを設定_異なるインデックス(self, ffmpeg_service, tmp_path):
+    def test_セグメントロガーを設定_異なるインデックス(self, tmp_path):
         """異なるセグメントインデックスでロガーを設定するテスト"""
         log_file = tmp_path / "segment_5.log"
         segment_idx = 5
 
-        logger = ffmpeg_service._setup_segment_logger(
+        logger = setup_segment_logger(
             segment_idx=segment_idx,
             log_file=log_file
         )
@@ -540,13 +542,13 @@ class TestFFmpegServiceのsetup_segment_logger:
             h.close()
             logger.removeHandler(h)
 
-    def test_セグメントロガーを設定_ハンドラクリア(self, ffmpeg_service, tmp_path):
+    def test_セグメントロガーを設定_ハンドラクリア(self, tmp_path):
         """既存のハンドラをクリアしてから新しいハンドラを追加することをテスト"""
         log_file = tmp_path / "segment_0.log"
         segment_idx = 0
 
         # 最初のロガーを作成
-        logger1 = ffmpeg_service._setup_segment_logger(
+        logger1 = setup_segment_logger(
             segment_idx=segment_idx,
             log_file=log_file
         )
@@ -554,7 +556,7 @@ class TestFFmpegServiceのsetup_segment_logger:
         first_handler = logger1.handlers[0]
 
         # 同じインデックスで再度作成（既存のハンドラがクリアされる）
-        logger2 = ffmpeg_service._setup_segment_logger(
+        logger2 = setup_segment_logger(
             segment_idx=segment_idx,
             log_file=log_file
         )
@@ -589,8 +591,6 @@ class TestFFmpegServiceのencode_segment:
         mock_svtav1_process.stderr = iter(["Encoding frame 100", "Encoding complete"])
         mock_svtav1_process.wait.return_value = 0
 
-        mock_handler = Mock()
-
         def popen_side_effect(cmd, **kwargs):
             if cmd[0] == 'ffmpeg':
                 return mock_ffmpeg_process
@@ -599,8 +599,8 @@ class TestFFmpegServiceのencode_segment:
             return Mock()
 
         with patch('av1_encoder.core.ffmpeg.subprocess.Popen', side_effect=popen_side_effect) as mock_popen, \
-             patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
-             patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
+             patch('av1_encoder.core.ffmpeg.setup_segment_logger', return_value=mock_logger), \
+             patch('av1_encoder.core.ffmpeg.cleanup_logger'):
 
             result = ffmpeg_service.encode_segment(segment_info, input_file, encoding_config)
 
@@ -661,8 +661,6 @@ class TestFFmpegServiceのencode_segment:
         mock_svtav1_process.stderr = iter([])
         mock_svtav1_process.wait.return_value = 0
 
-        mock_handler = Mock()
-
         def popen_side_effect(cmd, **kwargs):
             if cmd[0] == 'ffmpeg':
                 return mock_ffmpeg_process
@@ -671,8 +669,8 @@ class TestFFmpegServiceのencode_segment:
             return Mock()
 
         with patch('av1_encoder.core.ffmpeg.subprocess.Popen', side_effect=popen_side_effect) as mock_popen, \
-             patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
-             patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
+             patch('av1_encoder.core.ffmpeg.setup_segment_logger', return_value=mock_logger), \
+             patch('av1_encoder.core.ffmpeg.cleanup_logger'):
 
             result = ffmpeg_service.encode_segment(segment_info, input_file, encoding_config)
 
@@ -709,8 +707,6 @@ class TestFFmpegServiceのencode_segment:
         mock_svtav1_process.stderr = iter([])
         mock_svtav1_process.wait.return_value = 0
 
-        mock_handler = Mock()
-
         def popen_side_effect(cmd, **kwargs):
             if cmd[0] == 'ffmpeg':
                 return mock_ffmpeg_process
@@ -719,8 +715,8 @@ class TestFFmpegServiceのencode_segment:
             return Mock()
 
         with patch('av1_encoder.core.ffmpeg.subprocess.Popen', side_effect=popen_side_effect) as mock_popen, \
-             patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
-             patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
+             patch('av1_encoder.core.ffmpeg.setup_segment_logger', return_value=mock_logger), \
+             patch('av1_encoder.core.ffmpeg.cleanup_logger'):
 
             result = ffmpeg_service.encode_segment(segment_info, input_file, config)
 
@@ -766,8 +762,6 @@ class TestFFmpegServiceのencode_segment:
         mock_svtav1_process.stderr = iter([])
         mock_svtav1_process.wait.return_value = 0
 
-        mock_handler = Mock()
-
         def popen_side_effect(cmd, **kwargs):
             if cmd[0] == 'ffmpeg':
                 return mock_ffmpeg_process
@@ -776,8 +770,8 @@ class TestFFmpegServiceのencode_segment:
             return Mock()
 
         with patch('av1_encoder.core.ffmpeg.subprocess.Popen', side_effect=popen_side_effect) as mock_popen, \
-             patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
-             patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
+             patch('av1_encoder.core.ffmpeg.setup_segment_logger', return_value=mock_logger), \
+             patch('av1_encoder.core.ffmpeg.cleanup_logger'):
 
             result = ffmpeg_service.encode_segment(segment_info, input_file, config)
 
@@ -821,8 +815,6 @@ class TestFFmpegServiceのencode_segment:
         mock_svtav1_process.stderr = iter([])
         mock_svtav1_process.wait.return_value = 0
 
-        mock_handler = Mock()
-
         def popen_side_effect(cmd, **kwargs):
             if cmd[0] == 'ffmpeg':
                 return mock_ffmpeg_process
@@ -831,8 +823,8 @@ class TestFFmpegServiceのencode_segment:
             return Mock()
 
         with patch('av1_encoder.core.ffmpeg.subprocess.Popen', side_effect=popen_side_effect) as mock_popen, \
-             patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
-             patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
+             patch('av1_encoder.core.ffmpeg.setup_segment_logger', return_value=mock_logger), \
+             patch('av1_encoder.core.ffmpeg.cleanup_logger'):
 
             result = ffmpeg_service.encode_segment(segment_info, input_file, config)
 
@@ -869,8 +861,6 @@ class TestFFmpegServiceのencode_segment:
         mock_svtav1_process.stderr = iter(["Error message"])
         mock_svtav1_process.wait.return_value = 1  # エラーコード
 
-        mock_handler = Mock()
-
         def popen_side_effect(cmd, **kwargs):
             if cmd[0] == 'ffmpeg':
                 return mock_ffmpeg_process
@@ -879,8 +869,8 @@ class TestFFmpegServiceのencode_segment:
             return Mock()
 
         with patch('av1_encoder.core.ffmpeg.subprocess.Popen', side_effect=popen_side_effect), \
-             patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
-             patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
+             patch('av1_encoder.core.ffmpeg.setup_segment_logger', return_value=mock_logger), \
+             patch('av1_encoder.core.ffmpeg.cleanup_logger'):
 
             result = ffmpeg_service.encode_segment(segment_info, input_file, encoding_config)
 
@@ -903,15 +893,8 @@ class TestFFmpegServiceのencode_segment:
         mock_svtav1_process.stderr = iter([])
         mock_svtav1_process.wait.return_value = 0
 
-        mock_handler = Mock()
         mock_logger = Mock()
-        handlers_list = []
-        mock_logger.handlers = handlers_list
-
-        # addHandlerが呼ばれたときにリストに追加
-        def add_handler(handler):
-            handlers_list.append(handler)
-        mock_logger.addHandler.side_effect = add_handler
+        mock_logger.handlers = []
 
         def popen_side_effect(cmd, **kwargs):
             if cmd[0] == 'ffmpeg':
@@ -921,14 +904,13 @@ class TestFFmpegServiceのencode_segment:
             return Mock()
 
         with patch('av1_encoder.core.ffmpeg.subprocess.Popen', side_effect=popen_side_effect), \
-             patch('av1_encoder.core.ffmpeg.logging.FileHandler', return_value=mock_handler), \
-             patch('av1_encoder.core.ffmpeg.logging.getLogger', return_value=mock_logger):
+             patch('av1_encoder.core.ffmpeg.setup_segment_logger', return_value=mock_logger), \
+             patch('av1_encoder.core.ffmpeg.cleanup_logger') as mock_cleanup:
 
             ffmpeg_service.encode_segment(segment_info, input_file, encoding_config)
 
-            # ハンドラがクローズされ、削除されたことを確認
-            mock_handler.close.assert_called_once()
-            mock_logger.removeHandler.assert_called_once_with(mock_handler)
+            # クリーンアップが呼び出されたことを確認
+            mock_cleanup.assert_called_once_with(mock_logger)
 
 
 
