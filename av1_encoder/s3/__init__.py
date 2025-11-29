@@ -1,6 +1,6 @@
 """S3 storage integration."""
 
-from .batch import run_batch_encoding
+from .batch_orchestrator import run_batch_encoding
 from .pipeline import S3Pipeline
 
 __all__ = [

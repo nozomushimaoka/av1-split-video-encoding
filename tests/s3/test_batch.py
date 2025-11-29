@@ -4,12 +4,9 @@ from pathlib import Path
 from unittest.mock import Mock, patch, call
 import pytest
 
-from av1_encoder.s3.batch import (
-    merge_video_with_audio,
-    encode_video,
-    process_single_file,
-    run_batch_encoding
-)
+from av1_encoder.s3.batch_orchestrator import run_batch_encoding
+from av1_encoder.s3.file_processor import encode_video, process_single_file
+from av1_encoder.s3.video_merger import merge_video_with_audio
 
 
 @pytest.fixture

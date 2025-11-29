@@ -10,7 +10,7 @@ from pathlib import Path
 from av1_encoder.cli_utils import (expand_audio_params, expand_ffmpeg_params,
                                    expand_svtav1_params)
 from av1_encoder.core.logging_config import setup_console_logger
-from av1_encoder.s3.batch import run_batch_encoding
+from av1_encoder.s3.batch_orchestrator import run_batch_encoding
 
 
 def main() -> int:
