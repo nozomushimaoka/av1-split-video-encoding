@@ -49,12 +49,28 @@ class ProgressCallback:
 
 
 class S3Pipeline:
-    """S3との連携を管理するクラス"""
+    """S3との連携を管理するクラス
+
+    コンテキストマネージャとして使用することで、リソースの自動クリーンアップが保証される。
+
+    使用例:
+        with S3Pipeline('my-bucket') as s3:
+            s3.download_file('file.mkv', Path('file.mkv'))
+            s3.upload_file(Path('output.mkv'), 'output.mkv')
+    """
 
     def __init__(self, bucket_name: str):
         self.bucket_name = bucket_name
         self.s3_client = boto3.client('s3')
         self.executor = ThreadPoolExecutor(max_workers=2)
+
+    def __enter__(self) -> 'S3Pipeline':
+        """コンテキストマネージャのエントリ"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """コンテキストマネージャのクリーンアップ"""
+        self.shutdown()
 
     def download_file(
         self,

@@ -40,7 +40,7 @@ class TestMergeVideoWithAudio:
         input_file.touch()
         output_file = tmp_path / "output.mkv"
 
-        with patch('av1_encoder.s3.batch.subprocess.run') as mock_run:
+        with patch('av1_encoder.s3.video_merger.subprocess.run') as mock_run:
             mock_run.return_value = Mock(returncode=0)
 
             merge_video_with_audio(mock_workspace, input_file, output_file)
@@ -81,7 +81,7 @@ class TestMergeVideoWithAudio:
         input_file.touch()
         output_file = tmp_path / "output.mkv"
 
-        with patch('av1_encoder.s3.batch.subprocess.run') as mock_run:
+        with patch('av1_encoder.s3.video_merger.subprocess.run') as mock_run:
             mock_run.side_effect = Exception("結合エラー")
 
             with pytest.raises(Exception, match="結合エラー"):
@@ -97,7 +97,7 @@ class TestMergeVideoWithAudio:
         input_file.touch()
         output_file = tmp_path / "output.mkv"
 
-        with patch('av1_encoder.s3.batch.subprocess.run') as mock_run:
+        with patch('av1_encoder.s3.video_merger.subprocess.run') as mock_run:
             mock_run.return_value = Mock(returncode=0)
 
             merge_video_with_audio(mock_workspace, input_file, output_file, audio_args=['-c:a', 'aac', '-b:a', '128k'])
@@ -126,7 +126,7 @@ class TestMergeVideoWithAudio:
         input_file.touch()
         output_file = tmp_path / "output.mkv"
 
-        with patch('av1_encoder.s3.batch.subprocess.run') as mock_run:
+        with patch('av1_encoder.s3.video_merger.subprocess.run') as mock_run:
             mock_run.return_value = Mock(returncode=0)
 
             merge_video_with_audio(mock_workspace, input_file, output_file, audio_args=None)
@@ -240,8 +240,8 @@ class TestProcessSingleFile:
             # output.mkvを作成
             output_f.touch()
 
-        with patch('av1_encoder.s3.batch.encode_video', side_effect=mock_encode_impl) as mock_encode, \
-             patch('av1_encoder.s3.batch.merge_video_with_audio', side_effect=mock_merge_impl) as mock_merge:
+        with patch('av1_encoder.s3.file_processor.encode_video', side_effect=mock_encode_impl) as mock_encode, \
+             patch('av1_encoder.s3.file_processor.merge_video_with_audio', side_effect=mock_merge_impl) as mock_merge:
 
             mock_future = Mock()
             mock_s3_pipeline.upload_file_async.return_value = mock_future
@@ -299,8 +299,8 @@ class TestProcessSingleFile:
 
         download_future = Mock()
 
-        with patch('av1_encoder.s3.batch.encode_video'), \
-             patch('av1_encoder.s3.batch.merge_video_with_audio'):
+        with patch('av1_encoder.s3.file_processor.encode_video'), \
+             patch('av1_encoder.s3.file_processor.merge_video_with_audio'):
 
             mock_upload_future = Mock()
             mock_s3_pipeline.upload_file_async.return_value = mock_upload_future
@@ -331,8 +331,8 @@ class TestProcessSingleFile:
 
         mock_s3_pipeline.download_file.side_effect = mock_download
 
-        with patch('av1_encoder.s3.batch.encode_video'), \
-             patch('av1_encoder.s3.batch.merge_video_with_audio'):
+        with patch('av1_encoder.s3.file_processor.encode_video'), \
+             patch('av1_encoder.s3.file_processor.merge_video_with_audio'):
 
             mock_upload_future = Mock()
             mock_s3_pipeline.upload_file_async.return_value = mock_upload_future
@@ -360,7 +360,7 @@ class TestProcessSingleFile:
         # カレントディレクトリをtmp_pathに変更
         monkeypatch.chdir(tmp_path)
 
-        with patch('av1_encoder.s3.batch.encode_video') as mock_encode:
+        with patch('av1_encoder.s3.file_processor.encode_video') as mock_encode:
             mock_encode.side_effect = RuntimeError("エンコードエラー")
 
             with pytest.raises(RuntimeError, match="エンコードエラー"):
@@ -381,7 +381,7 @@ class TestProcessSingleFile:
         # カレントディレクトリをtmp_pathに変更
         monkeypatch.chdir(tmp_path)
 
-        with patch('av1_encoder.s3.batch.encode_video') as mock_encode:
+        with patch('av1_encoder.s3.file_processor.encode_video') as mock_encode:
             mock_encode.side_effect = RuntimeError("エンコードエラー")
 
             # ファイルが存在することを確認
@@ -412,7 +412,7 @@ class TestProcessSingleFile:
         # カレントディレクトリをtmp_pathに変更
         monkeypatch.chdir(tmp_path)
 
-        with patch('av1_encoder.s3.batch.encode_video') as mock_encode:
+        with patch('av1_encoder.s3.file_processor.encode_video') as mock_encode:
             mock_encode.side_effect = RuntimeError("エンコードエラー")
 
             # Path.unlinkをパッチして失敗させる
@@ -450,8 +450,8 @@ class TestRunBatchEncoding:
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("video1.mkv\nvideo2.mkv\n")
 
-        with patch('av1_encoder.s3.batch.S3Pipeline', return_value=mock_s3_pipeline) as mock_pipeline_class:
-            with patch('av1_encoder.s3.batch.process_single_file') as mock_process:
+        with patch('av1_encoder.s3.batch_orchestrator.S3Pipeline', return_value=mock_s3_pipeline) as mock_pipeline_class:
+            with patch('av1_encoder.s3.batch_orchestrator.process_single_file') as mock_process:
                 # process_single_fileはNoneを返す（変更後）
                 mock_process.return_value = None
 
@@ -481,7 +481,7 @@ class TestRunBatchEncoding:
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("")
 
-        with patch('av1_encoder.s3.batch.S3Pipeline', return_value=mock_s3_pipeline):
+        with patch('av1_encoder.s3.batch_orchestrator.S3Pipeline', return_value=mock_s3_pipeline):
             result = run_batch_encoding(
                 bucket='test-bucket',
                 pending_files_path=pending_files_path,
@@ -502,7 +502,7 @@ class TestRunBatchEncoding:
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("video1.mkv\n")
 
-        with patch('av1_encoder.s3.batch.S3Pipeline') as mock_pipeline_class:
+        with patch('av1_encoder.s3.batch_orchestrator.S3Pipeline') as mock_pipeline_class:
             mock_pipeline_class.side_effect = Exception("初期化エラー")
 
             result = run_batch_encoding(
@@ -521,7 +521,7 @@ class TestRunBatchEncoding:
         # 存在しないpending filesパスを使用してエラーを発生させる
         pending_files_path = tmp_path / "nonexistent.txt"
 
-        with patch('av1_encoder.s3.batch.S3Pipeline', return_value=mock_s3_pipeline):
+        with patch('av1_encoder.s3.batch_orchestrator.S3Pipeline', return_value=mock_s3_pipeline):
             result = run_batch_encoding(
                 bucket='test-bucket',
                 pending_files_path=pending_files_path,
@@ -550,7 +550,7 @@ class TestRunBatchEncoding:
         (tmp_path / "video2.mkv").touch()
         (tmp_path / "video3.mkv").touch()
 
-        with patch('av1_encoder.s3.batch.S3Pipeline', return_value=mock_s3_pipeline):
+        with patch('av1_encoder.s3.batch_orchestrator.S3Pipeline', return_value=mock_s3_pipeline):
             mock_download_future1 = Mock()
             mock_download_future2 = Mock()
             mock_s3_pipeline.download_file_async.side_effect = [mock_download_future1, mock_download_future2]
@@ -558,8 +558,8 @@ class TestRunBatchEncoding:
             mock_upload_future = Mock()
             mock_s3_pipeline.upload_file_async.return_value = mock_upload_future
 
-            with patch('av1_encoder.s3.batch.encode_video'), \
-                 patch('av1_encoder.s3.batch.merge_video_with_audio'):
+            with patch('av1_encoder.s3.file_processor.encode_video'), \
+                 patch('av1_encoder.s3.file_processor.merge_video_with_audio'):
 
                 result = run_batch_encoding(
                     bucket='test-bucket',

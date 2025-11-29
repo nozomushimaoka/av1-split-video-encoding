@@ -1,11 +1,17 @@
-import json
+"""セグメントエンコードモジュール
+
+FFmpegとSvtAv1EncAppを使用して動画セグメントをエンコードする。
+メタデータ取得はVideoProbe、コマンド構築はCommandBuilderに委譲する。
+"""
 import subprocess
 import threading
 from dataclasses import dataclass
 from pathlib import Path
 
+from .command_builder import CommandBuilder
 from .config import EncodingConfig
 from .logging_config import cleanup_logger, setup_segment_logger
+from .video_probe import VideoProbe
 
 
 @dataclass
@@ -19,42 +25,22 @@ class SegmentInfo:
 
 
 class FFmpegService:
-    def get_duration(self, input_file: Path) -> float:
-        result = subprocess.run(
-            [
-                'ffprobe', '-v', 'quiet', '-print_format', 'json',
-                '-show_format', str(input_file)
-            ],
-            capture_output=True,
-            text=True,
-            check=True
-        )
+    """セグメントエンコードサービス
 
-        data = json.loads(result.stdout)
-        duration = float(data['format']['duration'])
-        return duration
+    動画のメタデータ取得とセグメントエンコードを提供する。
+    """
+
+    def __init__(self) -> None:
+        self._video_probe = VideoProbe()
+        self._command_builder = CommandBuilder()
+
+    def get_duration(self, input_file: Path) -> float:
+        """動画の再生時間（秒）を取得する"""
+        return self._video_probe.get_duration(input_file)
 
     def get_fps(self, input_file: Path) -> float:
         """動画のフレームレートを取得する"""
-        result = subprocess.run(
-            [
-                'ffprobe', '-v', 'quiet', '-print_format', 'json',
-                '-show_streams', '-select_streams', 'v:0', str(input_file)
-            ],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-
-        data = json.loads(result.stdout)
-        fps_str = data['streams'][0]['r_frame_rate']  # 例: "24000/1001"
-
-        # 分数形式をfloatに変換
-        if '/' in fps_str:
-            num, den = map(int, fps_str.split('/'))
-            return num / den
-        else:
-            return float(fps_str)
+        return self._video_probe.get_fps(input_file)
 
     def _build_ffmpeg_command(
         self,
@@ -65,28 +51,13 @@ class FFmpegService:
         config: EncodingConfig
     ) -> list[str]:
         """FFmpegデコードコマンドを構築（Y4M形式でstdoutに出力）"""
-        ffmpeg_cmd = [
-            'ffmpeg',
-            '-ss', str(start_time),
-            '-i', str(input_file)
-        ]
-
-        # 最終セグメント以外は-tオプションで長さを指定
-        if not is_final_segment:
-            ffmpeg_cmd.extend(['-t', str(duration)])
-
-        # 追加のFFmpegパラメータ（既に展開済み）
-        if config.ffmpeg_args:
-            ffmpeg_cmd.extend(config.ffmpeg_args)
-
-        # Y4M形式でパイプ出力
-        ffmpeg_cmd.extend([
-            '-f', 'yuv4mpegpipe',
-            '-strict', '-1',
-            '-'
-        ])
-
-        return ffmpeg_cmd
+        return self._command_builder.build_ffmpeg_decode_command(
+            input_file=input_file,
+            start_time=start_time,
+            duration=duration,
+            is_final_segment=is_final_segment,
+            config=config
+        )
 
     def _build_svtav1_command(
         self,
@@ -94,21 +65,10 @@ class FFmpegService:
         config: EncodingConfig
     ) -> list[str]:
         """SvtAv1EncAppコマンドを構築"""
-        svtav1_cmd = [
-            'SvtAv1EncApp',
-            '-i', 'stdin',
-            '--keyint', str(config.gop_size)
-        ]
-
-        # 追加オプション（SvtAv1EncApp形式、既に展開済み）
-        if config.svtav1_args:
-            svtav1_cmd.extend(config.svtav1_args)
-
-        # 出力ファイル指定
-        svtav1_cmd.extend(['-b', str(output_file)])
-
-        return svtav1_cmd
-
+        return self._command_builder.build_svtav1_encode_command(
+            output_file=output_file,
+            config=config
+        )
 
     def encode_segment(
         self,
@@ -223,4 +183,3 @@ class FFmpegService:
         finally:
             # ハンドラをクリーンアップ
             cleanup_logger(segment_logger)
-

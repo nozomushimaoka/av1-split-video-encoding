@@ -342,3 +342,38 @@ class TestS3Pipelineのshutdown:
         with patch.object(s3_pipeline.executor, 'shutdown') as mock_shutdown:
             s3_pipeline.shutdown()
             mock_shutdown.assert_called_once_with(wait=True)
+
+
+class TestS3Pipelineのコンテキストマネージャ:
+    """コンテキストマネージャとしての動作テスト"""
+
+    def test_コンテキストマネージャでshutdownが呼ばれる(self, mock_s3_client):
+        """withブロック終了時にshutdownが呼ばれることをテスト"""
+        with patch('av1_encoder.s3.pipeline.boto3.client', return_value=mock_s3_client):
+            with patch.object(S3Pipeline, 'shutdown') as mock_shutdown:
+                with S3Pipeline('test-bucket') as pipeline:
+                    assert pipeline.bucket_name == 'test-bucket'
+
+                # withブロック終了後にshutdownが呼ばれたことを確認
+                mock_shutdown.assert_called_once()
+
+    def test_コンテキストマネージャで例外発生時もshutdownが呼ばれる(self, mock_s3_client):
+        """例外発生時もshutdownが呼ばれることをテスト"""
+        with patch('av1_encoder.s3.pipeline.boto3.client', return_value=mock_s3_client):
+            with patch.object(S3Pipeline, 'shutdown') as mock_shutdown:
+                try:
+                    with S3Pipeline('test-bucket') as pipeline:
+                        raise ValueError("テスト例外")
+                except ValueError:
+                    pass
+
+                # 例外発生後もshutdownが呼ばれたことを確認
+                mock_shutdown.assert_called_once()
+
+    def test_コンテキストマネージャが自身を返す(self, mock_s3_client):
+        """__enter__が自身を返すことをテスト"""
+        with patch('av1_encoder.s3.pipeline.boto3.client', return_value=mock_s3_client):
+            pipeline = S3Pipeline('test-bucket')
+            result = pipeline.__enter__()
+            assert result is pipeline
+            pipeline.shutdown()
