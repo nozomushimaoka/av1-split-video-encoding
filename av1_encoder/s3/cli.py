@@ -15,13 +15,14 @@ from av1_encoder.s3.batch_orchestrator import run_batch_encoding
 
 def main() -> int:
     """メイン処理"""
-    # S3モジュール専用のロギング設定
-    setup_console_logger('av1_encoder.s3')
-    logger = logging.getLogger(__name__)
-
     # コマンドライン引数のパース
     parser = argparse.ArgumentParser(
         description='AV1エンコードパイプライン - S3オーケストレーション'
+    )
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='詳細なログを出力（DEBUGレベル）'
     )
     parser.add_argument(
         '--bucket',
@@ -67,6 +68,13 @@ def main() -> int:
     )
 
     args = parser.parse_args()
+
+    # ログレベルの設定
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+
+    # S3モジュール専用のロギング設定
+    setup_console_logger('av1_encoder.s3', level=log_level)
+    logger = logging.getLogger(__name__)
 
     # S3バケット名のチェック
     if not args.bucket:

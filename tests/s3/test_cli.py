@@ -300,7 +300,7 @@ class TestMainの実行:
 
             main()
 
-            mock_setup_logging.assert_called_once_with('av1_encoder.s3')
+            mock_setup_logging.assert_called_once_with('av1_encoder.s3', level=logging.INFO)
 
 
 class TestMainの引数型:

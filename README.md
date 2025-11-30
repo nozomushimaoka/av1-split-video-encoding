@@ -52,6 +52,7 @@ python -m av1_encoder.encoding input.mkv workspace/ \
 | `--gop` | `-g` | GOPサイズ（キーフレーム間隔、必須） |
 | `--svtav1-params` | - | SvtAv1EncAppのパラメータ（カンマ区切り、必須） |
 | `--ffmpeg-params` | - | FFmpegのパラメータ（カンマ区切り、オプション） |
+| `--verbose` | `-v` | 詳細なログを出力（DEBUGレベル） |
 
 #### パラメータの指定方法
 
@@ -88,6 +89,7 @@ python -m av1_encoder.s3 \
 | `--svtav1-params` | - | SvtAv1EncAppのパラメータ（必須） |
 | `--ffmpeg-params` | - | FFmpegのパラメータ（オプション） |
 | `--audio-params` | - | 音声エンコードのパラメータ（オプション） |
+| `--verbose` | `-v` | 詳細なログを出力（DEBUGレベル） |
 
 #### S3バケットの構造
 
@@ -118,10 +120,13 @@ my-bucket/
 S3バケット内で未処理のファイルを一覧表示します。
 
 ```bash
-python -m av1_encoder.list_pending my-bucket
+python -m av1_encoder.list_pending --bucket my-bucket
 
 # ファイルに出力
-python -m av1_encoder.list_pending my-bucket > pending.txt
+python -m av1_encoder.list_pending --bucket my-bucket > pending.txt
+
+# 詳細ログを表示
+python -m av1_encoder.list_pending --bucket my-bucket --verbose
 ```
 
 ## 処理フロー

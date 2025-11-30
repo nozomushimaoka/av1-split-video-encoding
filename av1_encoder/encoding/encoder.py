@@ -1,3 +1,4 @@
+import logging
 import os
 import signal
 import sys
@@ -21,14 +22,16 @@ def _worker_init():
 class EncodingOrchestrator:
     def __init__(
         self,
-        config: EncodingConfig
+        config: EncodingConfig,
+        log_level: int = logging.INFO
     ):
         self.config = config
         self.start_time = datetime.now()
         self.workspace = make_workspace_from_path(config.workspace_dir)
         self.logger = setup_file_and_console_logger(
             "av1_encoder",
-            self.workspace.log_file
+            self.workspace.log_file,
+            level=log_level
         )
         self.ffmpeg = FFmpegService()
         self._main_pid = os.getpid()  # メインプロセスのPIDを記録

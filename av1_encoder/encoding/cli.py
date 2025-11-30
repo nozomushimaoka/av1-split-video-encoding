@@ -1,6 +1,7 @@
 """CLIエントリーポイント"""
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 
@@ -13,6 +14,11 @@ def main() -> int:
     # コマンドライン引数パース
     parser = argparse.ArgumentParser(
         description='AV1並列エンコード'
+    )
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='詳細なログを出力（DEBUGレベル）'
     )
     parser.add_argument(
         'input_file',
@@ -50,6 +56,9 @@ def main() -> int:
 
     args = parser.parse_args()
 
+    # ログレベルの設定
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+
     # svtav1_argsを構築（カンマ区切りを展開）
     svtav1_args = expand_svtav1_params(args.svtav1_params)
 
@@ -69,7 +78,7 @@ def main() -> int:
     )
 
     # オーケストレーター初期化
-    orchestrator = EncodingOrchestrator(config)
+    orchestrator = EncodingOrchestrator(config, log_level=log_level)
 
     try:
         # エンコード処理実行

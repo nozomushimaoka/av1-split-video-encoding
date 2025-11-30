@@ -96,7 +96,9 @@ class TestEncodingOrchestrator初期化:
             assert orchestrator.workspace == mock_workspace
 
             # loggerが初期化されていることを確認
-            mock_setup_logger.assert_called_once_with("av1_encoder", mock_workspace.log_file)
+            mock_setup_logger.assert_called_once_with(
+                "av1_encoder", mock_workspace.log_file, level=logging.INFO
+            )
             assert orchestrator.logger == mock_logger
 
             # FFmpegServiceが作成されていることを確認
