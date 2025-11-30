@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""AV1エンコードパイプライン - S3バッチエンコードCLI"""
+"""AV1エンコードパイプライン - バッチエンコードCLI
+
+S3およびローカルファイルの両方に対応したバッチエンコード。
+"""
 
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -17,7 +19,7 @@ def main() -> int:
     """メイン処理"""
     # コマンドライン引数のパース
     parser = argparse.ArgumentParser(
-        description='AV1エンコードパイプライン - S3オーケストレーション'
+        description='AV1エンコードパイプライン - バッチエンコード（S3/ローカル対応）'
     )
     parser.add_argument(
         '--verbose', '-v',
@@ -25,16 +27,22 @@ def main() -> int:
         help='詳細なログを出力（DEBUGレベル）'
     )
     parser.add_argument(
-        '--bucket',
-        type=str,
-        default=os.environ.get('S3_BUCKET'),
-        help='S3バケット名（環境変数S3_BUCKETからも取得可能）'
-    )
-    parser.add_argument(
         '--pending-files',
         type=Path,
         required=True,
         help='処理対象ファイルのリスト（list_pendingコマンドの出力）'
+    )
+    parser.add_argument(
+        '--output-dir', '-o',
+        type=str,
+        default='.',
+        help='出力先ディレクトリ（ローカルパスまたはS3 URI、デフォルト: カレントディレクトリ）'
+    )
+    parser.add_argument(
+        '--workspace-base', '-b',
+        type=Path,
+        default=Path('.'),
+        help='ワークスペースのベースディレクトリ（デフォルト: カレントディレクトリ）'
     )
     parser.add_argument(
         '--parallel', '-l',
@@ -74,12 +82,6 @@ def main() -> int:
 
     # S3モジュール専用のロギング設定
     setup_console_logger('av1_encoder.s3', level=log_level)
-    logger = logging.getLogger(__name__)
-
-    # S3バケット名のチェック
-    if not args.bucket:
-        logger.error("Error: S3バケット名を指定してください（--bucket または環境変数S3_BUCKET）")
-        return 1
 
     # svtav1_argsを構築（カンマ区切りを展開）
     svtav1_args = expand_svtav1_params(args.svtav1_params)
@@ -96,8 +98,9 @@ def main() -> int:
 
     # バッチエンコード処理を実行
     return run_batch_encoding(
-        bucket=args.bucket,
         pending_files_path=args.pending_files,
+        output_dir=args.output_dir,
+        workspace_base=args.workspace_base,
         parallel=args.parallel,
         gop_size=args.gop,
         svtav1_args=svtav1_args,

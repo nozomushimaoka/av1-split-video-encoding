@@ -54,13 +54,12 @@ class S3Pipeline:
     コンテキストマネージャとして使用することで、リソースの自動クリーンアップが保証される。
 
     使用例:
-        with S3Pipeline('my-bucket') as s3:
-            s3.download_file('file.mkv', Path('file.mkv'))
-            s3.upload_file(Path('output.mkv'), 'output.mkv')
+        with S3Pipeline() as s3:
+            s3.download_file('my-bucket', 'input/file.mkv', Path('file.mkv'))
+            s3.upload_file(Path('output.mkv'), 'my-bucket', 'output/file.mkv')
     """
 
-    def __init__(self, bucket_name: str):
-        self.bucket_name = bucket_name
+    def __init__(self):
         self.s3_client = boto3.client('s3')
         self.executor = ThreadPoolExecutor(max_workers=2)
 
@@ -74,23 +73,32 @@ class S3Pipeline:
 
     def download_file(
         self,
-        filename: str,
+        bucket: str,
+        key: str,
         local_path: Path,
         show_progress: bool = True
     ) -> None:
-        """S3からファイルをダウンロード"""
+        """S3からファイルをダウンロード
+
+        Args:
+            bucket: S3バケット名
+            key: S3オブジェクトキー
+            local_path: ローカル保存先パス
+            show_progress: 進捗表示の有無
+        """
+        filename = Path(key).name
+
         if local_path.exists():
             logger.info(f"[DL] スキップ: {filename} は既に存在します")
             return
 
-        s3_key = f"input/{filename}"
         logger.info(f"[DL] ダウンロード開始: {filename}")
 
         try:
             # ファイルサイズを取得
             response = self.s3_client.head_object(
-                Bucket=self.bucket_name,
-                Key=s3_key
+                Bucket=bucket,
+                Key=key
             )
             file_size = response['ContentLength']
 
@@ -98,16 +106,16 @@ class S3Pipeline:
             if show_progress:
                 callback = ProgressCallback(f"[DL] {filename}", file_size)
                 self.s3_client.download_file(
-                    Bucket=self.bucket_name,
-                    Key=s3_key,
+                    Bucket=bucket,
+                    Key=key,
                     Filename=str(local_path),
                     Callback=callback
                 )
                 callback.flush()  # 残りの進捗をログ出力
             else:
                 self.s3_client.download_file(
-                    Bucket=self.bucket_name,
-                    Key=s3_key,
+                    Bucket=bucket,
+                    Key=key,
                     Filename=str(local_path)
                 )
 
@@ -119,14 +127,26 @@ class S3Pipeline:
 
     def download_file_async(
         self,
-        filename: str,
+        bucket: str,
+        key: str,
         local_path: Path
     ) -> Future[None]:
-        """バックグラウンドでダウンロードを開始"""
+        """バックグラウンドでダウンロードを開始
+
+        Args:
+            bucket: S3バケット名
+            key: S3オブジェクトキー
+            local_path: ローカル保存先パス
+
+        Returns:
+            Future オブジェクト
+        """
+        filename = Path(key).name
         logger.info(f"[DL] 次ファイルのダウンロード開始: {filename}")
         return self.executor.submit(
             self.download_file,
-            filename,
+            bucket,
+            key,
             local_path,
             show_progress=True
         )
@@ -134,50 +154,70 @@ class S3Pipeline:
     def upload_file(
         self,
         local_path: Path,
-        base_name: str,
+        bucket: str,
+        key: str,
         show_progress: bool = True
     ) -> None:
-        """S3へファイルをアップロード"""
-        s3_key = f"output/{base_name}"
-        logger.info(f"アップロード中: {base_name}")
+        """S3へファイルをアップロード
+
+        Args:
+            local_path: ローカルファイルパス
+            bucket: S3バケット名
+            key: S3オブジェクトキー
+            show_progress: 進捗表示の有無
+        """
+        filename = Path(key).name
+        logger.info(f"アップロード中: {filename}")
 
         try:
             file_size = local_path.stat().st_size
 
             # プログレスコールバック付きでアップロード
             if show_progress:
-                callback = ProgressCallback(f"[UP] {base_name}", file_size)
+                callback = ProgressCallback(f"[UP] {filename}", file_size)
                 self.s3_client.upload_file(
                     Filename=str(local_path),
-                    Bucket=self.bucket_name,
-                    Key=s3_key,
+                    Bucket=bucket,
+                    Key=key,
                     Callback=callback
                 )
                 callback.flush()  # 残りの進捗をログ出力
             else:
                 self.s3_client.upload_file(
                     Filename=str(local_path),
-                    Bucket=self.bucket_name,
-                    Key=s3_key
+                    Bucket=bucket,
+                    Key=key
                 )
 
-            logger.info(f"アップロード完了: {base_name}")
+            logger.info(f"アップロード完了: {filename}")
 
         except ClientError as e:
-            logger.error(f"アップロードに失敗: {base_name} - {e}")
+            logger.error(f"アップロードに失敗: {filename} - {e}")
             raise
 
     def upload_file_async(
         self,
         local_path: Path,
-        base_name: str
+        bucket: str,
+        key: str
     ) -> Future[None]:
-        """バックグラウンドでアップロードを開始"""
-        logger.info(f"バックグラウンドアップロード開始: {base_name}")
+        """バックグラウンドでアップロードを開始
+
+        Args:
+            local_path: ローカルファイルパス
+            bucket: S3バケット名
+            key: S3オブジェクトキー
+
+        Returns:
+            Future オブジェクト
+        """
+        filename = Path(key).name
+        logger.info(f"バックグラウンドアップロード開始: {filename}")
         return self.executor.submit(
             self.upload_file,
             local_path,
-            base_name,
+            bucket,
+            key,
             show_progress=True
         )
 
