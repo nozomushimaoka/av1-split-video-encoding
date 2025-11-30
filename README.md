@@ -5,27 +5,27 @@
 ## 特徴
 
 - セグメント分割による並列エンコーディング
-- 音声トラックの自動処理
-- 型ヒント付きPythonコード
-- 詳細なログ出力
-- AWS S3との連携（AWS CLIを使用）
+- FFmpegとSvtAv1EncAppのパイプライン処理
+- S3連携によるバッチ処理
+- 未処理ファイルの自動検出
+- 音声トラックの自動処理（コピーまたは再エンコード）
 
 ## 必要な環境
 
-- Python 3.8以上
+- Python 3.10以上
 - FFmpeg
-- SvtAv1EncApp (PATH に含まれている必要があります)
-- AWS CLI (S3を使用する場合)
+- SvtAv1EncApp（PATHに含まれている必要があります）
+- AWS CLI（S3を使用する場合）
 
 ## セットアップ
 
-### 1. 依存関係のインストール
+### 依存関係のインストール
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. AWS認証情報の設定
+### AWS認証情報の設定（S3を使用する場合）
 
 ```bash
 aws configure
@@ -36,147 +36,146 @@ aws configure
 ### ローカルファイルのエンコード
 
 ```bash
-# 作業ディレクトリを作成
-mkdir workspace
-
-# エンコード実行
-./unified_parallel_encode.py video.mkv --workspace workspace
+python -m av1_encoder.encoding input.mkv workspace/ \
+    --parallel 8 \
+    --gop 240 \
+    --svtav1-params crf=30,preset=6
 ```
 
-### オプション付き実行
+#### オプション
+
+| オプション | 短縮形 | 説明 |
+|------------|--------|------|
+| `input_file` | - | 入力ファイルパス（必須） |
+| `workspace` | - | 作業ディレクトリパス（必須） |
+| `--parallel` | `-l` | 並列ジョブ数（必須） |
+| `--gop` | `-g` | GOPサイズ（キーフレーム間隔、必須） |
+| `--svtav1-params` | - | SvtAv1EncAppのパラメータ（カンマ区切り、必須） |
+| `--ffmpeg-params` | - | FFmpegのパラメータ（カンマ区切り、オプション） |
+
+#### パラメータの指定方法
+
+`--svtav1-params`と`--ffmpeg-params`はカンマ区切りで指定します：
 
 ```bash
-mkdir workspace
-# 個別オプション形式
-./unified_parallel_encode.py video.mkv --workspace workspace --parallel 8 -- --crf 30 --preset 6
+# 例: crf=30, preset=6を指定
+--svtav1-params crf=30,preset=6
 
-# -svtav1-params形式（コロン区切りで複数のパラメータを指定）
-./unified_parallel_encode.py video.mkv --workspace workspace --parallel 8 -- -svtav1-params preset=4:crf=30:enable-qm=1:qm-min=8:scd=1
+# 展開後: --crf 30 --preset 6
 ```
 
-### S3との連携（bin/s3-encode-simple.shを使用）
+### S3バッチエンコード
+
+S3バケットからファイルをダウンロードし、エンコード後にアップロードします。
 
 ```bash
-# 単一動画のエンコード
-./bin/s3-encode-simple.sh my-bucket video.mkv 4
-
-# パイプラインスクリプトで複数動画を並行処理
-./bin/s3-encode-pipeline.sh my-bucket video1.mkv video2.mkv video3.mkv
+python -m av1_encoder.s3 \
+    --bucket my-bucket \
+    --pending-files pending.txt \
+    --parallel 8 \
+    --gop 240 \
+    --svtav1-params crf=30,preset=6
 ```
 
-### 手動でのS3連携
+#### オプション
 
-```bash
-# 作業ディレクトリを作成
-WORKSPACE="encode_video_$(date +%Y%m%d_%H%M%S)"
-mkdir -p "$WORKSPACE"
+| オプション | 短縮形 | 説明 |
+|------------|--------|------|
+| `--bucket` | - | S3バケット名（環境変数`S3_BUCKET`でも指定可） |
+| `--pending-files` | - | 処理対象ファイルリストのパス（必須） |
+| `--parallel` | `-l` | 並列ジョブ数（必須） |
+| `--gop` | `-g` | GOPサイズ（必須） |
+| `--svtav1-params` | - | SvtAv1EncAppのパラメータ（必須） |
+| `--ffmpeg-params` | - | FFmpegのパラメータ（オプション） |
+| `--audio-params` | - | 音声エンコードのパラメータ（オプション） |
 
-# S3からダウンロード
-aws s3 cp s3://my-bucket/input/video.mkv ./video.mkv
+#### S3バケットの構造
 
-# エンコード
-./unified_parallel_encode.py video.mkv --workspace "$WORKSPACE" --parallel 8 -- -crf 30 -preset 6
-
-# S3へアップロード
-aws s3 cp "${WORKSPACE}/output.mkv" s3://my-bucket/output/video.mkv
-
-# クリーンアップ
-rm -f video.mkv
-rm -rf "$WORKSPACE"
+```
+my-bucket/
+├── input/           # 入力ファイル
+│   ├── video1.mkv
+│   └── subdir/video2.mkv
+└── output/          # 出力ファイル
+    ├── video1.mkv
+    └── subdir/video2.mkv
 ```
 
-### コマンドライン引数
+#### 音声パラメータの指定
 
-- `input_file`: 入力ファイルパス（ローカルファイル）
-- `--workspace, -w`: 作業ディレクトリパス（必須）
-  - エンコード前に作成しておく必要があります
-  - 出力ファイルは `<workspace>/output.mkv` に保存されます
-- `--parallel, -l`: 並列ジョブ数（デフォルト: 4）
-- `--gop, -g`: GOP サイズ（キーフレーム間隔、必須）
-- `svtav1_args`: `--` の後に追加のSvtAv1EncAppオプション
-  - 個別オプション形式: `--crf 30 --preset 6`
-  - `-svtav1-params`形式: `-svtav1-params preset=4:crf=30:enable-qm=1:qm-min=8:scd=1`
-    - コロン区切りで複数のパラメータを指定可能
-    - `key=value`形式で指定したパラメータは自動的に`--key value`に展開されます
-
-### ヘルプの表示
+音声を再エンコードする場合は`--audio-params`を指定します：
 
 ```bash
-./unified_parallel_encode.py --help
+--audio-params c:a=aac,b:a=128k
+
+# 展開後: -c:a aac -b:a 128k
+```
+
+指定しない場合、音声はコピーされます。
+
+### 未処理ファイルの一覧取得
+
+S3バケット内で未処理のファイルを一覧表示します。
+
+```bash
+python -m av1_encoder.list_pending my-bucket
+
+# ファイルに出力
+python -m av1_encoder.list_pending my-bucket > pending.txt
 ```
 
 ## 処理フロー
 
-1. **セグメント分割**: 動画を60秒ごとに分割
-2. **並列エンコード**: 各セグメントをFFmpegでデコードし、SvtAv1EncAppでAV1エンコード（IVF形式）
-3. **セグメント結合**: エンコード済みセグメントをFFmpegで結合
-4. **音声処理**: 元動画から音声を抽出し、エンコード済み動画と多重化（MKV形式）
+1. **セグメント分割**: 動画を60秒ごとに分割（GOP境界に整列）
+2. **並列エンコード**: 各セグメントをFFmpegでデコード → SvtAv1EncAppでAV1エンコード
+3. **セグメント結合**: FFmpegでエンコード済みセグメントを結合
+4. **音声処理**: 元動画から音声を抽出し、エンコード済み動画と多重化
 
 ## 出力
 
-処理結果は指定した作業ディレクトリに保存されます（フラット構造）：
+処理結果は作業ディレクトリに保存されます：
 
 ```
-<workspace>/
-├── output.mkv           # 最終出力ファイル（MKV形式）
+workspace/
+├── output.mkv           # 最終出力ファイル
 ├── main.log             # 全体のログ
-├── segment_0000.ivf     # エンコード済みセグメント（IVF形式、処理後に削除）
-├── segment_0001.ivf
-├── segment_0002.ivf
-├── ...
+├── concat.txt           # セグメント結合用リスト
 ├── segment_0000.log     # 各セグメントのエンコードログ
 ├── segment_0001.log
-├── segment_0002.log
-├── ...
-└── concat.txt           # セグメント結合用リスト
+└── ...
 ```
+
+セグメントファイル（`.ivf`）は処理完了後に削除されます。
 
 ## プロジェクト構造
 
 ```
 av1-split-video-encoding/
-├── av1_encoder/              # メインパッケージ
-│   ├── __init__.py           # パッケージ初期化
-│   ├── config.py             # データクラス（設定、セグメント情報）
-│   ├── workspace.py          # ワークスペース管理
-│   ├── ffmpeg.py             # FFmpeg操作サービス
-│   ├── encoder.py            # エンコード処理オーケストレーター
-│   └── cli.py                # CLIエントリーポイント
+├── av1_encoder/
+│   ├── core/                 # コア機能
+│   │   ├── config.py         # 設定データクラス
+│   │   ├── workspace.py      # ワークスペース管理
+│   │   ├── logging_config.py # ログ設定
+│   │   ├── video_probe.py    # 動画情報取得
+│   │   ├── command_builder.py # コマンド構築
+│   │   └── ffmpeg.py         # FFmpegサービス
+│   ├── encoding/             # ローカルエンコード
+│   │   ├── cli.py            # CLIエントリーポイント
+│   │   └── encoder.py        # エンコードオーケストレーター
+│   ├── s3/                   # S3連携
+│   │   ├── cli.py            # CLIエントリーポイント
+│   │   ├── pipeline.py       # S3パイプライン
+│   │   ├── batch_orchestrator.py # バッチ処理
+│   │   ├── file_processor.py # ファイル処理
+│   │   └── video_merger.py   # 動画結合
+│   ├── list_pending/         # 未処理ファイル検出
+│   │   ├── cli.py            # CLIエントリーポイント
+│   │   └── pending.py        # 未処理ファイル計算
+│   └── cli_utils.py          # CLI共通ユーティリティ
 ├── tests/                    # テストスイート
-│   ├── test_cli.py
-│   ├── test_encoder.py
-│   ├── test_ffmpeg.py
-│   └── test_workspace.py
-├── unified_parallel_encode.py # 実行スクリプト
 ├── requirements.txt          # 依存関係
-└── README.md                 # このファイル
+└── README.md
 ```
-
-### モジュールの責務
-
-- **config.py**: データモデルの定義（`EncodingConfig`, `SegmentInfo`）
-- **workspace.py**: 作業ディレクトリとログの管理
-- **ffmpeg.py**: FFmpegとSvtAv1EncAppの実行（動画情報取得、パイプライン処理、結合、音声処理）
-  - `expand_svtav1_params()`: `-svtav1-params`形式のパラメータ展開
-- **encoder.py**: 処理全体のオーケストレーション（並列実行管理、フロー制御）
-- **cli.py**: コマンドライン引数処理とmain関数
-
-## 設計の特徴
-
-### UNIX哲学
-
-- **単一責任**: エンコーダーはエンコードのみに集中
-- **組み合わせ可能**: AWS CLIと組み合わせてS3連携
-- **パイプライン化**: シェルスクリプトでワークフロー構築可能
-
-### 改善点
-
-- **型安全性**: 型ヒントによる安全性向上
-- **エラーハンドリング**: Pythonの例外処理による堅牢性向上
-- **可読性**: クラスと関数による構造化
-- **保守性**: モジュール分割とテストの容易性
-- **ログ管理**: Python loggingモジュールによる統一的なログ管理
-- **責務分離**: 各モジュールが明確な責務を持つオブジェクト指向設計
 
 ## トラブルシューティング
 
@@ -186,7 +185,7 @@ av1-split-video-encoding/
 which SvtAv1EncApp
 ```
 
-SvtAv1EncAppがPATHに含まれていることを確認してください。SVT-AV1をソースからビルドし、インストールする必要があります。
+PATHに含まれていることを確認してください。SVT-AV1をソースからビルドし、インストールする必要があります。
 
 ### S3アクセスエラー
 
@@ -201,13 +200,9 @@ aws s3 ls s3://my-bucket/
 並列数を減らしてください：
 
 ```bash
-mkdir workspace
-./unified_parallel_encode.py video.mkv --workspace workspace --parallel 2
+python -m av1_encoder.encoding input.mkv workspace/ \
+    --parallel 2 --gop 240 --svtav1-params crf=30
 ```
-
-### ディスク容量不足
-
-複数動画の並行処理時は、動画ごとにクリーンアップすることで、一度に必要なディスク容量を削減できます。
 
 ## ライセンス
 
