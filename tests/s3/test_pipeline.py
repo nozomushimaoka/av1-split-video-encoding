@@ -18,7 +18,7 @@ def mock_s3_client():
 def s3_pipeline(mock_s3_client):
     """S3Pipelineのフィクスチャ"""
     with patch('av1_encoder.s3.pipeline.boto3.client', return_value=mock_s3_client):
-        pipeline = S3Pipeline('test-bucket')
+        pipeline = S3Pipeline()
         return pipeline
 
 
@@ -213,16 +213,10 @@ class TestProgressCallback:
 class TestS3Pipeline初期化:
     """S3Pipelineの初期化のテスト"""
 
-    def test_バケット名が設定される(self):
-        """バケット名が正しく設定されることをテスト"""
-        with patch('av1_encoder.s3.pipeline.boto3.client'):
-            pipeline = S3Pipeline('my-bucket')
-            assert pipeline.bucket_name == 'my-bucket'
-
     def test_s3クライアントが初期化される(self):
         """S3クライアントが初期化されることをテスト"""
         with patch('av1_encoder.s3.pipeline.boto3.client') as mock_boto_client:
-            pipeline = S3Pipeline('test-bucket')
+            pipeline = S3Pipeline()
             mock_boto_client.assert_called_once_with('s3')
             assert pipeline.s3_client is not None
 
@@ -236,7 +230,7 @@ class TestS3Pipelineのdownload_file:
 
         mock_s3_client.head_object.return_value = {'ContentLength': 1024}
 
-        s3_pipeline.download_file('test.mkv', local_path, show_progress=False)
+        s3_pipeline.download_file('test-bucket', 'input/test.mkv', local_path, show_progress=False)
 
         mock_s3_client.download_file.assert_called_once_with(
             Bucket='test-bucket',
@@ -249,7 +243,7 @@ class TestS3Pipelineのdownload_file:
         local_path = tmp_path / "test.mkv"
         local_path.touch()  # ファイルを作成
 
-        s3_pipeline.download_file('test.mkv', local_path)
+        s3_pipeline.download_file('test-bucket', 'input/test.mkv', local_path)
 
         mock_s3_client.download_file.assert_not_called()
 
@@ -264,7 +258,7 @@ class TestS3Pipelineのdownload_file:
         )
 
         with pytest.raises(ClientError):
-            s3_pipeline.download_file('test.mkv', local_path, show_progress=False)
+            s3_pipeline.download_file('test-bucket', 'input/test.mkv', local_path, show_progress=False)
 
 
 class TestS3Pipelineのdownload_file_async:
@@ -275,14 +269,14 @@ class TestS3Pipelineのdownload_file_async:
         local_path = tmp_path / "test.mkv"
 
         with patch.object(s3_pipeline, 'download_file') as mock_download:
-            future = s3_pipeline.download_file_async('test.mkv', local_path)
+            future = s3_pipeline.download_file_async('test-bucket', 'input/test.mkv', local_path)
 
             # Futureオブジェクトが返されることを確認
             assert future is not None
 
             # Futureの結果を待つとdownload_fileが呼ばれることを確認
             future.result()
-            mock_download.assert_called_once_with('test.mkv', local_path, show_progress=True)
+            mock_download.assert_called_once_with('test-bucket', 'input/test.mkv', local_path, show_progress=True)
 
 
 class TestS3Pipelineのupload_file:
@@ -293,12 +287,12 @@ class TestS3Pipelineのupload_file:
         local_path = tmp_path / "output.mkv"
         local_path.write_text("test content")
 
-        s3_pipeline.upload_file(local_path, 'video1', show_progress=False)
+        s3_pipeline.upload_file(local_path, 'test-bucket', 'output/video1.mkv', show_progress=False)
 
         mock_s3_client.upload_file.assert_called_once_with(
             Filename=str(local_path),
             Bucket='test-bucket',
-            Key='output/video1'
+            Key='output/video1.mkv'
         )
 
     def test_アップロード失敗時に例外を発生(self, s3_pipeline, mock_s3_client, tmp_path):
@@ -312,7 +306,7 @@ class TestS3Pipelineのupload_file:
         )
 
         with pytest.raises(ClientError):
-            s3_pipeline.upload_file(local_path, 'video1', show_progress=False)
+            s3_pipeline.upload_file(local_path, 'test-bucket', 'output/video1.mkv', show_progress=False)
 
 
 class TestS3Pipelineのupload_file_async:
@@ -324,14 +318,14 @@ class TestS3Pipelineのupload_file_async:
         local_path.write_text("test content")
 
         with patch.object(s3_pipeline, 'upload_file') as mock_upload:
-            future = s3_pipeline.upload_file_async(local_path, 'video1')
+            future = s3_pipeline.upload_file_async(local_path, 'test-bucket', 'output/video1.mkv')
 
             # Futureオブジェクトが返されることを確認
             assert future is not None
 
             # Futureの結果を待つとupload_fileが呼ばれることを確認
             future.result()
-            mock_upload.assert_called_once_with(local_path, 'video1', show_progress=True)
+            mock_upload.assert_called_once_with(local_path, 'test-bucket', 'output/video1.mkv', show_progress=True)
 
 
 class TestS3Pipelineのshutdown:
@@ -351,8 +345,8 @@ class TestS3Pipelineのコンテキストマネージャ:
         """withブロック終了時にshutdownが呼ばれることをテスト"""
         with patch('av1_encoder.s3.pipeline.boto3.client', return_value=mock_s3_client):
             with patch.object(S3Pipeline, 'shutdown') as mock_shutdown:
-                with S3Pipeline('test-bucket') as pipeline:
-                    assert pipeline.bucket_name == 'test-bucket'
+                with S3Pipeline() as pipeline:
+                    assert pipeline.s3_client is not None
 
                 # withブロック終了後にshutdownが呼ばれたことを確認
                 mock_shutdown.assert_called_once()
@@ -362,7 +356,7 @@ class TestS3Pipelineのコンテキストマネージャ:
         with patch('av1_encoder.s3.pipeline.boto3.client', return_value=mock_s3_client):
             with patch.object(S3Pipeline, 'shutdown') as mock_shutdown:
                 try:
-                    with S3Pipeline('test-bucket') as pipeline:
+                    with S3Pipeline() as pipeline:
                         raise ValueError("テスト例外")
                 except ValueError:
                     pass
@@ -373,7 +367,7 @@ class TestS3Pipelineのコンテキストマネージャ:
     def test_コンテキストマネージャが自身を返す(self, mock_s3_client):
         """__enter__が自身を返すことをテスト"""
         with patch('av1_encoder.s3.pipeline.boto3.client', return_value=mock_s3_client):
-            pipeline = S3Pipeline('test-bucket')
+            pipeline = S3Pipeline()
             result = pipeline.__enter__()
             assert result is pipeline
             pipeline.shutdown()

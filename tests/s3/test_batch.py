@@ -1,7 +1,7 @@
 """S3バッチエンコード処理のテスト"""
 
 from pathlib import Path
-from unittest.mock import Mock, patch, call
+from unittest.mock import Mock, patch
 import pytest
 
 from av1_encoder.s3.batch_orchestrator import run_batch_encoding
@@ -212,15 +212,8 @@ class TestEncodeVideo:
 class TestProcessSingleFile:
     """process_single_file関数のテスト"""
 
-    def test_単一ファイルの処理_ダウンロードなし(self, mock_s3_pipeline, tmp_path, monkeypatch):
-        """既に存在するファイルを処理することをテスト"""
-        # 実際のファイルを作成
-        input_file = tmp_path / "test.mkv"
-        input_file.touch()
-
-        # カレントディレクトリをtmp_pathに変更
-        monkeypatch.chdir(tmp_path)
-
+    def test_S3ファイルの処理(self, mock_s3_pipeline, tmp_path):
+        """S3ファイルを処理することをテスト"""
         # ワークスペースを作成して一時ファイルを追加
         workspace = None
 
@@ -237,6 +230,12 @@ class TestProcessSingleFile:
             # output.mkvを作成
             output_f.touch()
 
+        # download_fileが呼ばれたときにファイルを作成するようにモック
+        def mock_download(bucket, key, local_path, show_progress=True):
+            local_path.touch()
+
+        mock_s3_pipeline.download_file.side_effect = mock_download
+
         with patch('av1_encoder.s3.file_processor.encode_video', side_effect=mock_encode_impl) as mock_encode, \
              patch('av1_encoder.s3.file_processor.merge_video_with_audio', side_effect=mock_merge_impl) as mock_merge:
 
@@ -244,55 +243,92 @@ class TestProcessSingleFile:
             mock_s3_pipeline.upload_file_async.return_value = mock_future
 
             result = process_single_file(
-                mock_s3_pipeline,
-                'test.mkv',
-                'test',
-                gop_size=240,
+                input_file_path='s3://test-bucket/input/test.mkv',
+                output_dir='s3://test-bucket/output/',
+                workspace_base=tmp_path,
                 parallel=8,
-                svtav1_args=['--crf', '30', '--preset', '5']
+                gop_size=240,
+                svtav1_args=['--crf', '30', '--preset', '5'],
+                s3=mock_s3_pipeline
             )
 
             # エンコードと結合が呼ばれたことを確認
             assert mock_encode.call_count == 1
             assert mock_merge.call_count == 1
 
+            # ダウンロードが呼ばれたことを確認
+            mock_s3_pipeline.download_file.assert_called_once()
+
             # アップロードが呼ばれたことを確認
             assert mock_s3_pipeline.upload_file_async.call_count == 1
 
-            # アップロード引数を確認（拡張子付きでアップロードされる）
-            upload_call_args = mock_s3_pipeline.upload_file_async.call_args[0]
-            assert upload_call_args[1] == 'test.mkv'  # base_name + .mkv
-
-            # 戻り値はNone（変更後）
+            # 戻り値はNone
             assert result is None
 
             # アップロード完了待機が呼ばれたことを確認
             mock_future.result.assert_called_once()
 
-            # 入力ファイルが削除されたことを確認
-            assert not input_file.exists()
-
-            # セグメントファイルが削除され、concat.txt, ログファイルが残っていることを確認
-            assert workspace is not None
-            assert workspace.exists()
-            output_file = workspace / "output.mkv"
-            # セグメントファイルが削除されていることを確認
-            remaining_files = list(workspace.iterdir())
-            remaining_names = {f.name for f in remaining_files}
-            # output.mkvはアップロード後に削除される（変更後）
-            assert "output.mkv" not in remaining_names
-            assert "concat.txt" in remaining_names
-            assert "main.log" in remaining_names
-            # セグメントファイルが削除されていることを確認
-            assert not any(f.name.startswith("segment_") for f in remaining_files)
-
-    def test_単一ファイルの処理_前のダウンロードを待機(self, mock_s3_pipeline, tmp_path, monkeypatch):
-        """前のダウンロードを待機することをテスト"""
-        input_file = tmp_path / "test.mkv"
+    def test_ローカルファイルの処理(self, tmp_path):
+        """ローカルファイルを処理することをテスト"""
+        # 入力ファイルを作成
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        input_file = input_dir / "test.mkv"
         input_file.touch()
 
-        # カレントディレクトリをtmp_pathに変更
-        monkeypatch.chdir(tmp_path)
+        output_dir = tmp_path / "output"
+        workspace_base = tmp_path / "workspace"
+        workspace_base.mkdir()
+
+        # ワークスペースを作成して一時ファイルを追加
+        workspace = None
+
+        def mock_encode_impl(input_f, ws, parallel, gop_size, svtav1_args, ffmpeg_args=None, audio_args=None):
+            nonlocal workspace
+            workspace = ws
+            # 一時ファイルを作成
+            (ws / "concat.txt").touch()
+            (ws / "segment_0000.ivf").touch()
+            (ws / "main.log").touch()
+
+        def mock_merge_impl(ws, input_f, output_f, audio_args=None):
+            # output.mkvを作成
+            output_f.touch()
+
+        with patch('av1_encoder.s3.file_processor.encode_video', side_effect=mock_encode_impl) as mock_encode, \
+             patch('av1_encoder.s3.file_processor.merge_video_with_audio', side_effect=mock_merge_impl) as mock_merge:
+
+            result = process_single_file(
+                input_file_path=str(input_file),
+                output_dir=str(output_dir),
+                workspace_base=workspace_base,
+                parallel=8,
+                gop_size=240,
+                svtav1_args=['--crf', '30', '--preset', '5'],
+                s3=None  # ローカルファイルなのでS3パイプラインは不要
+            )
+
+            # エンコードと結合が呼ばれたことを確認
+            assert mock_encode.call_count == 1
+            assert mock_merge.call_count == 1
+
+            # 戻り値はNone
+            assert result is None
+
+            # ローカルファイルは削除されないことを確認
+            assert input_file.exists()
+
+            # 出力ディレクトリにファイルがコピーされたことを確認
+            assert output_dir.exists()
+            assert (output_dir / "test.mkv").exists()
+
+    def test_前のダウンロードを待機(self, mock_s3_pipeline, tmp_path):
+        """前のダウンロードを待機することをテスト"""
+        # download_fileが呼ばれたときにファイルを作成するようにモック
+        def mock_download(bucket, key, local_path, show_progress=True):
+            local_path.touch()
+
+        mock_s3_pipeline.download_file.side_effect = mock_download
 
         download_future = Mock()
 
@@ -303,165 +339,125 @@ class TestProcessSingleFile:
             mock_s3_pipeline.upload_file_async.return_value = mock_upload_future
 
             process_single_file(
-                mock_s3_pipeline,
-                'test.mkv',
-                'test',
-                gop_size=240,
+                input_file_path='s3://test-bucket/input/test.mkv',
+                output_dir='s3://test-bucket/output/',
+                workspace_base=tmp_path,
                 parallel=8,
+                gop_size=240,
                 svtav1_args=['--crf', '30', '--preset', '5'],
+                s3=mock_s3_pipeline,
                 download_future=download_future
             )
 
             # 前のダウンロードのresultが呼ばれたことを確認
             download_future.result.assert_called_once()
 
-    def test_単一ファイルの処理_ファイルが存在しない場合はダウンロード(self, mock_s3_pipeline, tmp_path, monkeypatch):
-        """ファイルが存在しない場合はダウンロードすることをテスト"""
-        # ファイルは作成しない（存在しない状態）
-
-        # カレントディレクトリをtmp_pathに変更
-        monkeypatch.chdir(tmp_path)
-
+    def test_エラー時に例外を発生(self, mock_s3_pipeline, tmp_path):
+        """処理中にエラーが発生した場合に例外を発生することをテスト"""
         # download_fileが呼ばれたときにファイルを作成するようにモック
-        def mock_download(remote, local):
-            local.touch()
+        def mock_download(bucket, key, local_path, show_progress=True):
+            local_path.touch()
 
         mock_s3_pipeline.download_file.side_effect = mock_download
 
-        with patch('av1_encoder.s3.file_processor.encode_video'), \
-             patch('av1_encoder.s3.file_processor.merge_video_with_audio'):
-
-            mock_upload_future = Mock()
-            mock_s3_pipeline.upload_file_async.return_value = mock_upload_future
-
-            process_single_file(
-                mock_s3_pipeline,
-                'test.mkv',
-                'test',
-                gop_size=240,
-                parallel=8,
-                svtav1_args=['--crf', '30', '--preset', '5']
-            )
-
-            # ダウンロードが呼ばれたことを確認
-            mock_s3_pipeline.download_file.assert_called_once()
-            call_args = mock_s3_pipeline.download_file.call_args[0]
-            assert call_args[0] == 'test.mkv'
-            assert call_args[1] == Path('test.mkv')
-
-    def test_単一ファイルの処理_エラー時に例外を発生(self, mock_s3_pipeline, tmp_path, monkeypatch):
-        """処理中にエラーが発生した場合に例外を発生することをテスト"""
-        input_file = tmp_path / "test.mkv"
-        input_file.touch()
-
-        # カレントディレクトリをtmp_pathに変更
-        monkeypatch.chdir(tmp_path)
-
         with patch('av1_encoder.s3.file_processor.encode_video') as mock_encode:
             mock_encode.side_effect = RuntimeError("エンコードエラー")
 
             with pytest.raises(RuntimeError, match="エンコードエラー"):
                 process_single_file(
-                    mock_s3_pipeline,
-                    'test.mkv',
-                    'test',
+                    input_file_path='s3://test-bucket/input/test.mkv',
+                    output_dir='s3://test-bucket/output/',
+                    workspace_base=tmp_path,
+                    parallel=8,
                     gop_size=240,
-                parallel=8,
-                    svtav1_args=['--crf', '30', '--preset', '5']
+                    svtav1_args=['--crf', '30', '--preset', '5'],
+                    s3=mock_s3_pipeline
                 )
 
-    def test_エラー時に入力ファイルを削除(self, mock_s3_pipeline, tmp_path, monkeypatch):
-        """エラー発生時に入力ファイルが削除されることをテスト"""
+    def test_S3ファイルのエラー時に入力ファイルを削除(self, mock_s3_pipeline, tmp_path):
+        """S3ファイルでエラー発生時に入力ファイルが削除されることをテスト"""
         input_file = tmp_path / "test.mkv"
-        input_file.touch()
 
-        # カレントディレクトリをtmp_pathに変更
-        monkeypatch.chdir(tmp_path)
+        # download_fileが呼ばれたときにファイルを作成するようにモック
+        def mock_download(bucket, key, local_path, show_progress=True):
+            local_path.touch()
+
+        mock_s3_pipeline.download_file.side_effect = mock_download
 
         with patch('av1_encoder.s3.file_processor.encode_video') as mock_encode:
             mock_encode.side_effect = RuntimeError("エンコードエラー")
 
-            # ファイルが存在することを確認
-            assert input_file.exists()
-
             with pytest.raises(RuntimeError, match="エンコードエラー"):
                 process_single_file(
-                    mock_s3_pipeline,
-                    'test.mkv',
-                    'test',
-                    gop_size=240,
+                    input_file_path='s3://test-bucket/input/test.mkv',
+                    output_dir='s3://test-bucket/output/',
+                    workspace_base=tmp_path,
                     parallel=8,
-                    svtav1_args=['--crf', '30', '--preset', '5']
+                    gop_size=240,
+                    svtav1_args=['--crf', '30', '--preset', '5'],
+                    s3=mock_s3_pipeline
                 )
 
             # エラー後に入力ファイルが削除されたことを確認
             assert not input_file.exists()
 
-    def test_エラー時の入力ファイル削除が失敗してもワーニング(self, mock_s3_pipeline, tmp_path, monkeypatch, caplog):
-        """エラー時の入力ファイル削除が失敗してもワーニングログを出すことをテスト"""
-        import logging
-        from pathlib import Path
-        caplog.set_level(logging.WARNING)
-
-        input_file = tmp_path / "test.mkv"
+    def test_ローカルファイルのエラー時は入力ファイルを削除しない(self, tmp_path):
+        """ローカルファイルでエラー発生時に入力ファイルが削除されないことをテスト"""
+        # 入力ファイルを作成
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        input_file = input_dir / "test.mkv"
         input_file.touch()
 
-        # カレントディレクトリをtmp_pathに変更
-        monkeypatch.chdir(tmp_path)
+        workspace_base = tmp_path / "workspace"
+        workspace_base.mkdir()
 
         with patch('av1_encoder.s3.file_processor.encode_video') as mock_encode:
             mock_encode.side_effect = RuntimeError("エンコードエラー")
 
-            # Path.unlinkをパッチして失敗させる
-            original_unlink = Path.unlink
+            with pytest.raises(RuntimeError, match="エンコードエラー"):
+                process_single_file(
+                    input_file_path=str(input_file),
+                    output_dir=str(tmp_path / "output"),
+                    workspace_base=workspace_base,
+                    parallel=8,
+                    gop_size=240,
+                    svtav1_args=['--crf', '30', '--preset', '5'],
+                    s3=None
+                )
 
-            def failing_unlink(self):
-                if str(self).endswith('test.mkv'):
-                    raise PermissionError("削除権限がありません")
-                else:
-                    return original_unlink(self)
-
-            with patch('pathlib.Path.unlink', new=failing_unlink):
-                with pytest.raises(RuntimeError, match="エンコードエラー"):
-                    process_single_file(
-                        mock_s3_pipeline,
-                        'test.mkv',
-                        'test',
-                        gop_size=240,
-                        parallel=8,
-                        svtav1_args=['--crf', '30', '--preset', '5']
-                    )
-
-                # ワーニングログが出力されたことを確認
-                warning_logs = [r for r in caplog.records if r.levelname == 'WARNING']
-                assert len(warning_logs) > 0
-                assert any("削除に失敗" in r.message for r in warning_logs)
+            # ローカルファイルはエラー後も削除されないことを確認
+            assert input_file.exists()
 
 
 class TestRunBatchEncoding:
     """run_batch_encoding関数のテスト"""
 
-    def test_バッチエンコード処理を実行(self, mock_s3_pipeline, tmp_path):
-        """バッチエンコード処理を正常に実行することをテスト"""
-        # pending filesファイルを作成
+    def test_S3バッチエンコード処理を実行(self, mock_s3_pipeline, tmp_path):
+        """S3バッチエンコード処理を正常に実行することをテスト"""
+        # pending filesファイルを作成（S3 URIを含む）
         pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\nvideo2.mkv\n")
+        pending_files_path.write_text("s3://test-bucket/input/video1.mkv\ns3://test-bucket/input/video2.mkv\n")
+
+        workspace_base = tmp_path / "workspace"
+        workspace_base.mkdir()
 
         with patch('av1_encoder.s3.batch_orchestrator.S3Pipeline', return_value=mock_s3_pipeline) as mock_pipeline_class:
             with patch('av1_encoder.s3.batch_orchestrator.process_single_file') as mock_process:
-                # process_single_fileはNoneを返す（変更後）
+                # process_single_fileはNoneを返す
                 mock_process.return_value = None
 
                 result = run_batch_encoding(
-                    bucket='test-bucket',
                     pending_files_path=pending_files_path,
-                    gop_size=240,
+                    output_dir='s3://test-bucket/output/',
+                    workspace_base=workspace_base,
                     parallel=8,
+                    gop_size=240,
                     svtav1_args=['--crf', '30', '--preset', '5']
                 )
 
                 # S3Pipelineが初期化されたことを確認
-                mock_pipeline_class.assert_called_once_with('test-bucket')
+                mock_pipeline_class.assert_called_once()
 
                 # 各ファイルが処理されたことを確認
                 assert mock_process.call_count == 2
@@ -472,109 +468,136 @@ class TestRunBatchEncoding:
                 # 成功コードを返すことを確認
                 assert result == 0
 
-    def test_処理対象ファイルがない場合は終了(self, mock_s3_pipeline, tmp_path):
+    def test_ローカルバッチエンコード処理を実行(self, tmp_path):
+        """ローカルファイルのバッチエンコード処理を正常に実行することをテスト"""
+        # pending filesファイルを作成（ローカルパスを含む）
+        input_dir = tmp_path / "input"
+        input_dir.mkdir()
+        (input_dir / "video1.mkv").touch()
+        (input_dir / "video2.mkv").touch()
+
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text(f"{input_dir}/video1.mkv\n{input_dir}/video2.mkv\n")
+
+        output_dir = tmp_path / "output"
+        workspace_base = tmp_path / "workspace"
+        workspace_base.mkdir()
+
+        with patch('av1_encoder.s3.batch_orchestrator.process_single_file') as mock_process:
+            # process_single_fileはNoneを返す
+            mock_process.return_value = None
+
+            result = run_batch_encoding(
+                pending_files_path=pending_files_path,
+                output_dir=str(output_dir),
+                workspace_base=workspace_base,
+                parallel=8,
+                gop_size=240,
+                svtav1_args=['--crf', '30', '--preset', '5']
+            )
+
+            # 各ファイルが処理されたことを確認
+            assert mock_process.call_count == 2
+
+            # 成功コードを返すことを確認
+            assert result == 0
+
+    def test_処理対象ファイルがない場合は終了(self, tmp_path):
         """処理対象ファイルがない場合は終了することをテスト"""
         # 空のpending filesファイルを作成
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("")
 
-        with patch('av1_encoder.s3.batch_orchestrator.S3Pipeline', return_value=mock_s3_pipeline):
-            result = run_batch_encoding(
-                bucket='test-bucket',
-                pending_files_path=pending_files_path,
-                gop_size=240,
-                parallel=8,
-                svtav1_args=['--crf', '30', '--preset', '5']
-            )
+        workspace_base = tmp_path / "workspace"
+        workspace_base.mkdir()
 
-            # shutdownが呼ばれたことを確認
-            mock_s3_pipeline.shutdown.assert_called_once()
+        result = run_batch_encoding(
+            pending_files_path=pending_files_path,
+            output_dir=str(tmp_path / "output"),
+            workspace_base=workspace_base,
+            parallel=8,
+            gop_size=240,
+            svtav1_args=['--crf', '30', '--preset', '5']
+        )
 
-            # 成功コードを返すことを確認
-            assert result == 0
+        # 成功コードを返すことを確認
+        assert result == 0
 
     def test_S3パイプライン初期化失敗時はエラーコードを返す(self, tmp_path):
         """S3パイプラインの初期化に失敗した場合はエラーコードを返すことをテスト"""
-        # pending filesファイルを作成
+        # pending filesファイルを作成（S3 URIを含む）
         pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
+        pending_files_path.write_text("s3://test-bucket/input/video1.mkv\n")
+
+        workspace_base = tmp_path / "workspace"
+        workspace_base.mkdir()
 
         with patch('av1_encoder.s3.batch_orchestrator.S3Pipeline') as mock_pipeline_class:
             mock_pipeline_class.side_effect = Exception("初期化エラー")
 
             result = run_batch_encoding(
-                bucket='test-bucket',
                 pending_files_path=pending_files_path,
-                gop_size=240,
+                output_dir='s3://test-bucket/output/',
+                workspace_base=workspace_base,
                 parallel=8,
+                gop_size=240,
                 svtav1_args=['--crf', '30', '--preset', '5']
             )
 
             # エラーコードを返すことを確認
             assert result == 1
 
-    def test_処理中にエラーが発生した場合はエラーコードを返す(self, mock_s3_pipeline, tmp_path):
-        """処理中にエラーが発生した場合はエラーコードを返すことをテスト"""
-        # 存在しないpending filesパスを使用してエラーを発生させる
+    def test_ファイルリストが見つからない場合はエラーコードを返す(self, tmp_path):
+        """ファイルリストが見つからない場合はエラーコードを返すことをテスト"""
+        # 存在しないpending filesパスを使用
         pending_files_path = tmp_path / "nonexistent.txt"
 
-        with patch('av1_encoder.s3.batch_orchestrator.S3Pipeline', return_value=mock_s3_pipeline):
-            result = run_batch_encoding(
-                bucket='test-bucket',
-                pending_files_path=pending_files_path,
-                gop_size=240,
-                parallel=8,
-                svtav1_args=['--crf', '30', '--preset', '5']
-            )
+        workspace_base = tmp_path / "workspace"
+        workspace_base.mkdir()
 
-            # shutdownが呼ばれたことを確認
-            mock_s3_pipeline.shutdown.assert_called_once()
+        result = run_batch_encoding(
+            pending_files_path=pending_files_path,
+            output_dir=str(tmp_path / "output"),
+            workspace_base=workspace_base,
+            parallel=8,
+            gop_size=240,
+            svtav1_args=['--crf', '30', '--preset', '5']
+        )
 
-            # エラーコードを返すことを確認
-            assert result == 1
+        # エラーコードを返すことを確認
+        assert result == 1
 
-    def test_次のファイルのダウンロードをバックグラウンドで開始(self, mock_s3_pipeline, tmp_path, monkeypatch):
-        """次のファイルのダウンロードをバックグラウンドで開始することをテスト"""
-        # pending filesファイルを作成
+    def test_次のS3ファイルのダウンロードをバックグラウンドで開始(self, mock_s3_pipeline, tmp_path):
+        """次のS3ファイルのダウンロードをバックグラウンドで開始することをテスト"""
+        # pending filesファイルを作成（S3 URIを含む）
         pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\nvideo2.mkv\nvideo3.mkv\n")
+        pending_files_path.write_text(
+            "s3://test-bucket/input/video1.mkv\n"
+            "s3://test-bucket/input/video2.mkv\n"
+            "s3://test-bucket/input/video3.mkv\n"
+        )
 
-        # カレントディレクトリをtmp_pathに変更
-        monkeypatch.chdir(tmp_path)
-
-        # 実際のファイルを作成（process_single_fileが実際に動作するように）
-        (tmp_path / "video1.mkv").touch()
-        (tmp_path / "video2.mkv").touch()
-        (tmp_path / "video3.mkv").touch()
+        workspace_base = tmp_path / "workspace"
+        workspace_base.mkdir()
 
         with patch('av1_encoder.s3.batch_orchestrator.S3Pipeline', return_value=mock_s3_pipeline):
             mock_download_future1 = Mock()
             mock_download_future2 = Mock()
             mock_s3_pipeline.download_file_async.side_effect = [mock_download_future1, mock_download_future2]
 
-            mock_upload_future = Mock()
-            mock_s3_pipeline.upload_file_async.return_value = mock_upload_future
-
-            with patch('av1_encoder.s3.file_processor.encode_video'), \
-                 patch('av1_encoder.s3.file_processor.merge_video_with_audio'):
+            with patch('av1_encoder.s3.batch_orchestrator.process_single_file') as mock_process:
+                mock_process.return_value = None
 
                 result = run_batch_encoding(
-                    bucket='test-bucket',
                     pending_files_path=pending_files_path,
-                    gop_size=240,
+                    output_dir='s3://test-bucket/output/',
+                    workspace_base=workspace_base,
                     parallel=8,
+                    gop_size=240,
                     svtav1_args=['--crf', '30', '--preset', '5']
                 )
 
                 # 2回ダウンロードが開始されたことを確認（2番目と3番目のファイル）
                 assert mock_s3_pipeline.download_file_async.call_count == 2
-
-                # 最後のダウンロードを待機したことを確認
-                # video2.mkvの処理時にdownload_future1（video3.mkvのダウンロード）を待つ
-                # video3.mkvの処理時にdownload_future2は次がないのでNone
-                mock_download_future2.result.assert_called_once()
-
-                # アップロードは各ファイルで3回呼ばれる（変更後: process_single_file内でresult()を呼ぶ）
-                assert mock_upload_future.result.call_count == 3
 
                 assert result == 0

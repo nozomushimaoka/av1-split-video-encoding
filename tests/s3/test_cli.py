@@ -1,8 +1,8 @@
 """S3 CLI のテスト"""
 
 import logging
-import os
-from unittest.mock import Mock, patch
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -56,12 +56,16 @@ class TestMainのコマンドライン引数:
         """すべての引数を指定した場合のテスト"""
         # pending filesファイルを作成
         pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
+        pending_files_path.write_text("s3://my-bucket/input/video1.mkv\n")
+
+        workspace_base = tmp_path / "workspace"
+        workspace_base.mkdir()
 
         test_args = [
             'prog',
-            '--bucket', 'my-bucket',
             '--pending-files', str(pending_files_path),
+            '--output-dir', 's3://my-bucket/output/',
+            '--workspace-base', str(workspace_base),
             '--parallel', '8', '--gop', '240',
             '--svtav1-params', 'crf=30,preset=5'
         ]
@@ -74,8 +78,9 @@ class TestMainのコマンドライン引数:
 
             # run_batch_encodingが正しい引数で呼ばれたことを確認
             mock_run.assert_called_once_with(
-                bucket='my-bucket',
                 pending_files_path=pending_files_path,
+                output_dir='s3://my-bucket/output/',
+                workspace_base=workspace_base,
                 parallel=8,
                 gop_size=240,
                 # CLI側で展開されるので、展開後の形式になる
@@ -89,12 +94,16 @@ class TestMainのコマンドライン引数:
         """音声パラメータを指定した場合のテスト"""
         # pending filesファイルを作成
         pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
+        pending_files_path.write_text("s3://my-bucket/input/video1.mkv\n")
+
+        workspace_base = tmp_path / "workspace"
+        workspace_base.mkdir()
 
         test_args = [
             'prog',
-            '--bucket', 'my-bucket',
             '--pending-files', str(pending_files_path),
+            '--output-dir', 's3://my-bucket/output/',
+            '--workspace-base', str(workspace_base),
             '--parallel', '8', '--gop', '240',
             '--svtav1-params', 'crf=30,preset=5',
             '--audio-params', 'c:a=aac,b:a=128k'
@@ -108,8 +117,9 @@ class TestMainのコマンドライン引数:
 
             # audio_argsが展開されたことを確認
             mock_run.assert_called_once_with(
-                bucket='my-bucket',
                 pending_files_path=pending_files_path,
+                output_dir='s3://my-bucket/output/',
+                workspace_base=workspace_base,
                 parallel=8,
                 gop_size=240,
                 svtav1_args=['--crf', '30', '--preset', '5'],
@@ -118,15 +128,17 @@ class TestMainのコマンドライン引数:
             )
             assert result == 0
 
-    def test_並列数のみ指定(self, tmp_path):
-        """並列数のみを指定した場合のテスト"""
+    def test_デフォルト値を使用(self, tmp_path, monkeypatch):
+        """デフォルト値を使用した場合のテスト"""
         # pending filesファイルを作成
         pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
+        pending_files_path.write_text("/path/to/video1.mkv\n")
+
+        # カレントディレクトリをtmp_pathに変更
+        monkeypatch.chdir(tmp_path)
 
         test_args = [
             'prog',
-            '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '10', '--gop', '240',
             '--svtav1-params', 'crf=30'
@@ -138,94 +150,74 @@ class TestMainのコマンドライン引数:
 
             result = main()
 
-            # svtav1_argsが展開されたことを確認
-            mock_run.assert_called_once_with(
-                bucket='test-bucket',
-                pending_files_path=pending_files_path,
-                parallel=10,
-                gop_size=240,
-                svtav1_args=['--crf', '30'],
-                ffmpeg_args=[],
-                audio_args=[]
-            )
+            # デフォルト値が使用されたことを確認
+            mock_run.assert_called_once()
+            call_kwargs = mock_run.call_args[1]
+            assert call_kwargs['output_dir'] == '.'
+            assert call_kwargs['workspace_base'] == Path('.')
             assert result == 0
 
-    def test_環境変数からバケット名を取得(self, tmp_path):
-        """環境変数S3_BUCKETからバケット名を取得することをテスト"""
+    def test_ショートオプション(self, tmp_path):
+        """ショートオプションが使用できることをテスト"""
         # pending filesファイルを作成
         pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
+        pending_files_path.write_text("/path/to/video1.mkv\n")
+
+        workspace_base = tmp_path / "workspace"
+        workspace_base.mkdir()
 
         test_args = [
             'prog',
             '--pending-files', str(pending_files_path),
-            '--parallel', '5', '--gop', '240',
+            '-o', '/output/dir',
+            '-b', str(workspace_base),
+            '-l', '8',
+            '-g', '240',
             '--svtav1-params', 'crf=30'
         ]
 
         with patch('sys.argv', test_args), \
-             patch.dict(os.environ, {'S3_BUCKET': 'env-bucket'}), \
              patch('av1_encoder.s3.cli.run_batch_encoding') as mock_run:
             mock_run.return_value = 0
 
             result = main()
 
-            # 環境変数のバケット名が使用されたことを確認
+            # ショートオプションが正しく処理されたことを確認
             mock_run.assert_called_once()
             call_kwargs = mock_run.call_args[1]
-            assert call_kwargs['bucket'] == 'env-bucket'
+            assert call_kwargs['output_dir'] == '/output/dir'
+            assert call_kwargs['workspace_base'] == workspace_base
+            assert call_kwargs['parallel'] == 8
+            assert call_kwargs['gop_size'] == 240
             assert result == 0
 
-    def test_コマンドライン引数が環境変数より優先される(self, tmp_path):
-        """コマンドライン引数が環境変数より優先されることをテスト"""
-        # pending filesファイルを作成
-        pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
-
-        test_args = [
-            'prog',
-            '--bucket', 'cli-bucket',
-            '--pending-files', str(pending_files_path),
-            '--parallel', '5', '--gop', '240',
-            '--svtav1-params', 'crf=30'
-        ]
-
-        with patch('sys.argv', test_args), \
-             patch.dict(os.environ, {'S3_BUCKET': 'env-bucket'}), \
-             patch('av1_encoder.s3.cli.run_batch_encoding') as mock_run:
-            mock_run.return_value = 0
-
-            result = main()
-
-            # コマンドライン引数のバケット名が使用されたことを確認
-            mock_run.assert_called_once()
-            call_kwargs = mock_run.call_args[1]
-            assert call_kwargs['bucket'] == 'cli-bucket'
-            assert result == 0
-
-    def test_バケット名が指定されていない場合はエラー(self, tmp_path):
-        """バケット名が指定されていない場合はエラーを返すことをテスト"""
-        # pending filesファイルを作成
-        pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
-
-        test_args = [
-            'prog',
-            '--pending-files', str(pending_files_path),
-            '--parallel', '5', '--gop', '240',
-            '--svtav1-params', 'crf=30'
-        ]
-
-        with patch('sys.argv', test_args), \
-             patch.dict(os.environ, {}, clear=True):
-            result = main()
-
-            # エラーコードを返すことを確認
-            assert result == 1
-
-    def test_並列数が指定されていない場合はエラー(self):
+    def test_並列数が指定されていない場合はエラー(self, tmp_path):
         """並列数が指定されていない場合はSystemExitが発生することをテスト"""
-        test_args = ['prog', '--bucket', 'test-bucket']
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
+        test_args = [
+            'prog',
+            '--pending-files', str(pending_files_path),
+            '--gop', '240',
+            '--svtav1-params', 'crf=30'
+        ]
+
+        with patch('sys.argv', test_args):
+            with pytest.raises(SystemExit):
+                main()
+
+    def test_svtav1_paramsが指定されていない場合はエラー(self, tmp_path):
+        """svtav1_paramsが指定されていない場合はSystemExitが発生することをテスト"""
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
+        test_args = [
+            'prog',
+            '--pending-files', str(pending_files_path),
+            '--parallel', '8',
+            '--gop', '240'
+        ]
 
         with patch('sys.argv', test_args):
             with pytest.raises(SystemExit):
@@ -235,15 +227,16 @@ class TestMainのコマンドライン引数:
 class TestMainの実行:
     """main関数の実行のテスト"""
 
-    def test_処理成功時に0を返す(self, tmp_path):
+    def test_処理成功時に0を返す(self, tmp_path, monkeypatch):
         """処理が成功した場合に0を返すことをテスト"""
         # pending filesファイルを作成
         pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
+        pending_files_path.write_text("/path/to/video1.mkv\n")
+
+        monkeypatch.chdir(tmp_path)
 
         test_args = [
             'prog',
-            '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
             '--svtav1-params', 'crf=30'
@@ -257,15 +250,16 @@ class TestMainの実行:
 
             assert result == 0
 
-    def test_処理失敗時に1を返す(self, tmp_path):
+    def test_処理失敗時に1を返す(self, tmp_path, monkeypatch):
         """処理が失敗した場合に1を返すことをテスト"""
         # pending filesファイルを作成
         pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
+        pending_files_path.write_text("/path/to/video1.mkv\n")
+
+        monkeypatch.chdir(tmp_path)
 
         test_args = [
             'prog',
-            '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
             '--svtav1-params', 'crf=30'
@@ -279,15 +273,16 @@ class TestMainの実行:
 
             assert result == 1
 
-    def test_setup_console_loggerが呼ばれる(self, tmp_path):
+    def test_setup_console_loggerが呼ばれる(self, tmp_path, monkeypatch):
         """setup_console_loggerが呼ばれることをテスト"""
         # pending filesファイルを作成
         pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
+        pending_files_path.write_text("/path/to/video1.mkv\n")
+
+        monkeypatch.chdir(tmp_path)
 
         test_args = [
             'prog',
-            '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
             '--svtav1-params', 'crf=30'
@@ -306,15 +301,16 @@ class TestMainの実行:
 class TestMainの引数型:
     """main関数の引数の型のテスト"""
 
-    def test_整数引数が正しく変換される(self, tmp_path):
+    def test_整数引数が正しく変換される(self, tmp_path, monkeypatch):
         """整数引数が正しく変換されることをテスト"""
         # pending filesファイルを作成
         pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
+        pending_files_path.write_text("/path/to/video1.mkv\n")
+
+        monkeypatch.chdir(tmp_path)
 
         test_args = [
             'prog',
-            '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '12', '--gop', '240',
             '--svtav1-params', 'crf=30'
@@ -331,27 +327,32 @@ class TestMainの引数型:
             assert isinstance(call_kwargs['parallel'], int)
             assert call_kwargs['parallel'] == 12
 
-    def test_不正な整数値でSystemExit(self):
+    def test_不正な整数値でSystemExit(self, tmp_path):
         """不正な整数値を指定した場合にSystemExitが発生することをテスト"""
+        pending_files_path = tmp_path / "pending.txt"
+        pending_files_path.write_text("video1.mkv\n")
+
         test_args = [
             'prog',
-            '--bucket', 'test-bucket',
-            '--parallel', 'invalid', '--gop', '240'
+            '--pending-files', str(pending_files_path),
+            '--parallel', 'invalid', '--gop', '240',
+            '--svtav1-params', 'crf=30'
         ]
 
         with patch('sys.argv', test_args):
             with pytest.raises(SystemExit):
                 main()
 
-    def test_svtav1_argsが正しくリストとして渡される(self, tmp_path):
+    def test_svtav1_argsが正しくリストとして渡される(self, tmp_path, monkeypatch):
         """svtav1_argsが正しくリストとして渡されることをテスト"""
         # pending filesファイルを作成
         pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
+        pending_files_path.write_text("/path/to/video1.mkv\n")
+
+        monkeypatch.chdir(tmp_path)
 
         test_args = [
             'prog',
-            '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '5', '--gop', '240',
             '--svtav1-params', 'crf=30,preset=6'
@@ -373,15 +374,16 @@ class TestMainの引数型:
 class TestMainのエッジケース:
     """main関数のエッジケースのテスト"""
 
-    def test_負の値を持つ引数(self, tmp_path):
+    def test_負の値を持つ引数(self, tmp_path, monkeypatch):
         """負の値を持つ引数が正しく処理されることをテスト"""
         # pending filesファイルを作成
         pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
+        pending_files_path.write_text("/path/to/video1.mkv\n")
+
+        monkeypatch.chdir(tmp_path)
 
         test_args = [
             'prog',
-            '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '-1', '--gop', '240',
             '--svtav1-params', 'crf=30'
@@ -397,15 +399,16 @@ class TestMainのエッジケース:
             call_kwargs = mock_run.call_args[1]
             assert call_kwargs['parallel'] == -1
 
-    def test_非常に大きな値を持つ引数(self, tmp_path):
+    def test_非常に大きな値を持つ引数(self, tmp_path, monkeypatch):
         """非常に大きな値を持つ引数が正しく処理されることをテスト"""
         # pending filesファイルを作成
         pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
+        pending_files_path.write_text("/path/to/video1.mkv\n")
+
+        monkeypatch.chdir(tmp_path)
 
         test_args = [
             'prog',
-            '--bucket', 'test-bucket',
             '--pending-files', str(pending_files_path),
             '--parallel', '1000000', '--gop', '240',
             '--svtav1-params', 'crf=30'
@@ -420,55 +423,6 @@ class TestMainのエッジケース:
             # 大きな値が渡されたことを確認
             call_kwargs = mock_run.call_args[1]
             assert call_kwargs['parallel'] == 1000000
-
-    def test_特殊文字を含むバケット名(self, tmp_path):
-        """特殊文字を含むバケット名が正しく処理されることをテスト"""
-        # pending filesファイルを作成
-        pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
-
-        test_args = [
-            'prog',
-            '--bucket', 'test-bucket-123_456',
-            '--pending-files', str(pending_files_path),
-            '--parallel', '5', '--gop', '240',
-            '--svtav1-params', 'crf=30'
-        ]
-
-        with patch('sys.argv', test_args), \
-             patch('av1_encoder.s3.cli.run_batch_encoding') as mock_run:
-            mock_run.return_value = 0
-
-            main()
-
-            # 特殊文字を含むバケット名が渡されたことを確認
-            call_kwargs = mock_run.call_args[1]
-            assert call_kwargs['bucket'] == 'test-bucket-123_456'
-
-    def test_ショートオプションlが使用できる(self, tmp_path):
-        """ショートオプション-lが使用できることをテスト"""
-        # pending filesファイルを作成
-        pending_files_path = tmp_path / "pending.txt"
-        pending_files_path.write_text("video1.mkv\n")
-
-        test_args = [
-            'prog',
-            '--bucket', 'test-bucket',
-            '--pending-files', str(pending_files_path),
-            '-l', '8',
-            '--gop', '240',
-            '--svtav1-params', 'crf=30'
-        ]
-
-        with patch('sys.argv', test_args), \
-             patch('av1_encoder.s3.cli.run_batch_encoding') as mock_run:
-            mock_run.return_value = 0
-
-            main()
-
-            # ショートオプションが正しく処理されたことを確認
-            call_kwargs = mock_run.call_args[1]
-            assert call_kwargs['parallel'] == 8
 
 
 class TestMainのargparse動作:
@@ -489,7 +443,6 @@ class TestMainのargparse動作:
         """不明なオプションでSystemExitが発生することをテスト"""
         test_args = [
             'prog',
-            '--bucket', 'test-bucket',
             '--unknown-option', 'value'
         ]
 
