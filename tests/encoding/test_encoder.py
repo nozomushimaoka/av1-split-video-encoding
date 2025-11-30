@@ -378,11 +378,17 @@ class TestEncodingOrchestratorのencode_segments:
         """_encode_segmentsがセグメントを並列にエンコードすることをテスト"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
+             patch('av1_encoder.encoding.encoder.VideoProbe') as mock_probe_class, \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
             orchestrator.logger = Mock()
             orchestrator.ffmpeg = Mock()
+
+            # video_probeのモック設定
+            mock_probe = mock_probe_class.return_value
+            mock_probe.get_total_frames.return_value = 7200  # 2分 × 60fps
+            mock_probe.get_fps.return_value = 60.0
 
             # 3つのセグメントを返すようにモック
             segments = [
@@ -427,11 +433,17 @@ class TestEncodingOrchestratorのencode_segments:
         """エンコードが失敗した場合にRuntimeErrorが発生することをテスト"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
+             patch('av1_encoder.encoding.encoder.VideoProbe') as mock_probe_class, \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
             orchestrator.logger = Mock()
             orchestrator.ffmpeg = Mock()
+
+            # video_probeのモック設定
+            mock_probe = mock_probe_class.return_value
+            mock_probe.get_total_frames.return_value = 7200
+            mock_probe.get_fps.return_value = 60.0
 
             segments = [
                 SegmentInfo(0, 0, 60, False, Path("seg0.ivf"), Path("seg0.log")),

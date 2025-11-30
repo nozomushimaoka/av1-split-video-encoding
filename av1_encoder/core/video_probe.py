@@ -69,3 +69,16 @@ class VideoProbe:
             return num / den
         else:
             return float(fps_str)
+
+    def get_total_frames(self, input_file: Path) -> int:
+        """動画の総フレーム数を取得する
+
+        Args:
+            input_file: 動画ファイルのパス
+
+        Returns:
+            総フレーム数
+        """
+        duration = self.get_duration(input_file)
+        fps = self.get_fps(input_file)
+        return int(duration * fps)
