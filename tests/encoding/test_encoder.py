@@ -371,8 +371,158 @@ class TestEncodingOrchestratorのcalc_num_segments:
             assert num_segments == 2
 
 
+class TestEncodingOrchestratorのcompleted_segments:
+    """EncodingOrchestratorの完了セグメント管理のテスト"""
+
+    def test_completed_txtが存在しない場合は空セットを返す(self, encoding_config, mock_workspace):
+        """completed.txtが存在しない場合は空のセットを返すことをテスト"""
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
+             patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
+
+            orchestrator = EncodingOrchestrator(encoding_config)
+            result = orchestrator._load_completed_segments()
+            assert result == set()
+
+    def test_completed_txtからセグメント番号を読み込む(self, encoding_config, mock_workspace):
+        """completed.txtからセグメント番号を読み込むことをテスト"""
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
+             patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
+
+            orchestrator = EncodingOrchestrator(encoding_config)
+
+            # completed.txtを作成
+            completed_file = mock_workspace.work_dir / "completed.txt"
+            completed_file.write_text("0\n2\n5\n")
+
+            result = orchestrator._load_completed_segments()
+            assert result == {0, 2, 5}
+
+    def test_completed_txtに空行がある場合も正しく読み込む(self, encoding_config, mock_workspace):
+        """completed.txtに空行がある場合も正しく読み込むことをテスト"""
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
+             patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
+
+            orchestrator = EncodingOrchestrator(encoding_config)
+
+            # 空行を含むcompleted.txtを作成
+            completed_file = mock_workspace.work_dir / "completed.txt"
+            completed_file.write_text("0\n\n2\n\n")
+
+            result = orchestrator._load_completed_segments()
+            assert result == {0, 2}
+
+    def test_セグメント完了をマーク(self, encoding_config, mock_workspace):
+        """_mark_segment_completedがセグメント番号を追記することをテスト"""
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
+             patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
+
+            orchestrator = EncodingOrchestrator(encoding_config)
+
+            completed_file = mock_workspace.work_dir / "completed.txt"
+
+            # セグメント0を完了としてマーク
+            orchestrator._mark_segment_completed(0)
+            assert completed_file.read_text() == "0\n"
+
+            # セグメント2を追加でマーク
+            orchestrator._mark_segment_completed(2)
+            assert completed_file.read_text() == "0\n2\n"
+
+            # セグメント1を追加でマーク
+            orchestrator._mark_segment_completed(1)
+            assert completed_file.read_text() == "0\n2\n1\n"
+
+
 class TestEncodingOrchestratorのencode_segments:
     """EncodingOrchestratorの_encode_segmentsメソッドのテスト"""
+
+    def test_completed_txtに記録されたセグメントをスキップ(self, encoding_config, mock_workspace, tmp_path):
+        """completed.txtに記録されたセグメントをスキップすることをテスト"""
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
+             patch('av1_encoder.encoding.encoder.VideoProbe') as mock_probe_class, \
+             patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
+
+            orchestrator = EncodingOrchestrator(encoding_config)
+            orchestrator.logger = Mock()
+            orchestrator.ffmpeg = Mock()
+
+            # video_probeのモック設定
+            mock_probe = mock_probe_class.return_value
+            mock_probe.get_total_frames.return_value = 7200
+            mock_probe.get_fps.return_value = 60.0
+
+            # セグメント0と1はcompleted.txtに記録済み
+            completed_file = mock_workspace.work_dir / "completed.txt"
+            completed_file.write_text("0\n1\n")
+
+            segments = [
+                SegmentInfo(0, 0, 60, False, mock_workspace.work_dir / "segment_0000.ivf", Path("seg0.log")),
+                SegmentInfo(1, 60, 60, False, mock_workspace.work_dir / "segment_0001.ivf", Path("seg1.log")),
+                SegmentInfo(2, 120, 60, True, mock_workspace.work_dir / "segment_0002.ivf", Path("seg2.log"))
+            ]
+
+            with patch.object(orchestrator, '_list_segments', return_value=segments), \
+                 patch('av1_encoder.encoding.encoder.ProcessPoolExecutor') as mock_executor_class:
+
+                # セグメント2のみエンコード
+                mock_future = Mock()
+                mock_future.result.return_value = True
+
+                mock_executor = MagicMock()
+                mock_executor.submit.return_value = mock_future
+                mock_executor.__enter__.return_value = mock_executor
+                mock_executor.__exit__.return_value = False
+                mock_executor_class.return_value = mock_executor
+
+                def mock_as_completed(future_dict):
+                    return list(future_dict.keys())
+
+                with patch('av1_encoder.encoding.encoder.as_completed', side_effect=mock_as_completed):
+                    orchestrator._encode_segments()
+
+                # セグメント2のみがsubmitされたことを確認
+                assert mock_executor.submit.call_count == 1
+                submitted_segment = mock_executor.submit.call_args[0][1]
+                assert submitted_segment.index == 2
+
+                # スキップログが出力されたことを確認
+                info_calls = [call[0][0] for call in orchestrator.logger.info.call_args_list]
+                assert any("スキップ" in call and "2セグメント" in call for call in info_calls)
+
+    def test_全セグメント完了済みの場合はスキップ(self, encoding_config, mock_workspace, tmp_path):
+        """全セグメントがcompleted.txtに記録済みの場合はエンコードをスキップすることをテスト"""
+        with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
+             patch('av1_encoder.encoding.encoder.FFmpegService'), \
+             patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
+
+            orchestrator = EncodingOrchestrator(encoding_config)
+            orchestrator.logger = Mock()
+
+            # 全セグメントがcompleted.txtに記録済み
+            completed_file = mock_workspace.work_dir / "completed.txt"
+            completed_file.write_text("0\n1\n")
+
+            segments = [
+                SegmentInfo(0, 0, 60, False, mock_workspace.work_dir / "segment_0000.ivf", Path("seg0.log")),
+                SegmentInfo(1, 60, 60, True, mock_workspace.work_dir / "segment_0001.ivf", Path("seg1.log"))
+            ]
+
+            with patch.object(orchestrator, '_list_segments', return_value=segments), \
+                 patch('av1_encoder.encoding.encoder.ProcessPoolExecutor') as mock_executor_class:
+
+                orchestrator._encode_segments()
+
+                # ProcessPoolExecutorが呼ばれなかったことを確認
+                mock_executor_class.assert_not_called()
+
+                # 完了メッセージが出力されたことを確認
+                info_calls = [call[0][0] for call in orchestrator.logger.info.call_args_list]
+                assert any("すべてのセグメントが処理済み" in call for call in info_calls)
 
     def test_セグメントを並列エンコード(self, encoding_config, mock_workspace):
         """_encode_segmentsがセグメントを並列にエンコードすることをテスト"""

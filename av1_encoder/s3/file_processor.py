@@ -5,7 +5,6 @@
 import logging
 import shutil
 from concurrent.futures import Future
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -162,8 +161,7 @@ def process_single_file(
     base_name = input_file.stem
 
     # ワークスペース作成
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    workspace = workspace_base / f"encode_{base_name}_{timestamp}"
+    workspace = workspace_base / f"encode_{base_name}"
     workspace.mkdir(parents=True, exist_ok=True)
 
     output_file = None
