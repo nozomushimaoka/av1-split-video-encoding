@@ -108,11 +108,12 @@ class FFmpegService:
             segment_logger.debug(f"SvtAv1EncAppコマンド: {' '.join(svtav1_cmd)}")
 
             # FFmpegプロセスを起動（stdoutをパイプ出力）
+            # Windows requires larger buffer for binary pipe to avoid deadlock
             ffmpeg_process = subprocess.Popen(
                 ffmpeg_cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                bufsize=0
+                bufsize=65536  # 64KB buffer for cross-platform reliability
             )
 
             # SvtAv1EncAppプロセスを起動（stdinをFFmpegから受け取り）
@@ -122,7 +123,7 @@ class FFmpegService:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                bufsize=1
+                bufsize=1  # Line buffering is acceptable for text mode
             )
 
             # FFmpegのstdoutを閉じる（SvtAv1EncAppが完全に制御するため）

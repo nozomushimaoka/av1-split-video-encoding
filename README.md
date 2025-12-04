@@ -25,6 +25,29 @@
 pip install -r requirements.txt
 ```
 
+### Windows環境でのセットアップ
+
+#### FFmpegのインストール
+
+1. [FFmpeg公式サイト](https://ffmpeg.org/download.html)からWindows用ビルドをダウンロード
+2. 任意のフォルダに解凍（例: `C:\ffmpeg`）
+3. 環境変数PATHに`C:\ffmpeg\bin`を追加
+
+#### SvtAv1EncAppのインストール
+
+1. [SVT-AV1 Releases](https://gitlab.com/AOMediaCodec/SVT-AV1/-/releases)からWindows用バイナリをダウンロード、または[ソースからビルド](https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/README.md)
+2. `SvtAv1EncApp.exe`を環境変数PATHに追加
+
+#### 動作確認
+
+```bash
+# FFmpegの確認
+ffmpeg -version
+
+# SvtAv1EncAppの確認
+SvtAv1EncApp --help
+```
+
 ### AWS認証情報の設定（S3を使用する場合）
 
 ```bash
@@ -186,11 +209,35 @@ av1-split-video-encoding/
 
 ### SvtAv1EncAppが見つからない
 
+**Linux/macOS**:
 ```bash
 which SvtAv1EncApp
 ```
 
+**Windows**:
+```bash
+where SvtAv1EncApp
+```
+
 PATHに含まれていることを確認してください。SVT-AV1をソースからビルドし、インストールする必要があります。
+
+### Windows固有の問題
+
+#### シグナル処理について
+
+Windowsでは`Ctrl+C`のみがサポートされます（Unix系の`SIGTERM`は利用不可）。エンコード中に中断する場合は`Ctrl+C`を押してください。
+
+#### パスの問題
+
+作業ディレクトリパスにスペースや日本語が含まれる場合、引用符で囲んでください：
+
+```bash
+python -m av1_encoder.encoding input.mkv "C:\My Videos\workspace" --parallel 4 --gop 240 --svtav1-params crf=30,preset=6
+```
+
+#### パフォーマンス
+
+Windowsでは`spawn`モードでワーカープロセスが起動するため、Linux/macOSの`fork`より若干起動が遅くなります。これは正常な動作です。
 
 ### S3アクセスエラー
 

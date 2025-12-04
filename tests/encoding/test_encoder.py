@@ -53,19 +53,39 @@ class TestWorkerInit:
     """_worker_init関数のテスト"""
 
     def test_シグナルハンドラをデフォルトに戻す(self):
-        """_worker_initがシグナルハンドラをデフォルトに戻すことをテスト"""
+        """_worker_initがシグナルハンドラをデフォルトに戻すことをテスト (Unix)"""
         import signal
 
-        with patch('signal.signal') as mock_signal:
+        with patch('av1_encoder.encoding.encoder.get_available_signals') as mock_get_signals, \
+             patch('signal.signal') as mock_signal:
+
+            # Unix環境をシミュレート
+            mock_get_signals.return_value = {
+                'SIGINT': signal.SIGINT,
+                'SIGTERM': signal.SIGTERM
+            }
+
             _worker_init()
 
             # signal.signalが2回呼ばれたことを確認（SIGINT, SIGTERM）
             assert mock_signal.call_count == 2
 
-            # SIGINT, SIGTERMに対してSIG_DFLが設定されたことを確認
-            calls = mock_signal.call_args_list
-            assert calls[0][0] == (signal.SIGINT, signal.SIG_DFL)
-            assert calls[1][0] == (signal.SIGTERM, signal.SIG_DFL)
+    def test_シグナルハンドラをデフォルトに戻す_Windows(self):
+        """_worker_initがWindows環境で正しく動作することをテスト"""
+        import signal
+
+        with patch('av1_encoder.encoding.encoder.get_available_signals') as mock_get_signals, \
+             patch('signal.signal') as mock_signal:
+
+            # Windows環境をシミュレート（SIGINTのみ）
+            mock_get_signals.return_value = {'SIGINT': signal.SIGINT}
+
+            _worker_init()
+
+            # signal.signalが1回だけ呼ばれたことを確認
+            assert mock_signal.call_count == 1
+            # SIGINTに対してSIG_DFLが設定されたことを確認
+            assert mock_signal.call_args[0] == (signal.SIGINT, signal.SIG_DFL)
 
 
 class TestEncodingOrchestrator初期化:
@@ -172,8 +192,8 @@ class TestEncodingOrchestratorのrun:
                 with pytest.raises(SystemExit) as exc_info:
                     orchestrator.run()
 
-                # 終了コード130で終了することを確認
-                assert exc_info.value.code == 130
+                # クロスプラットフォーム対応のため終了コード1で終了することを確認
+                assert exc_info.value.code == 1
 
                 # エラーログが出力されたことを確認
                 orchestrator.logger.error.assert_called_once_with("処理が中断されました")

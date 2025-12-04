@@ -11,14 +11,20 @@ from typing import List
 from ..core.config import EncodingConfig
 from ..core.ffmpeg import FFmpegService, SegmentInfo
 from ..core.logging_config import setup_file_and_console_logger
+from ..core.platform_utils import get_available_signals
 from ..core.video_probe import VideoProbe
 from ..core.workspace import make_workspace_from_path
 
 
 def _worker_init():
-    """ワーカープロセスの初期化: シグナルハンドラをデフォルトに戻す"""
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
-    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    """ワーカープロセスの初期化: シグナルハンドラをデフォルトに戻す
+
+    Windows では SIGTERM が利用できないため、プラットフォームに応じて
+    利用可能なシグナルのみをリセットする。
+    """
+    available_signals = get_available_signals()
+    for sig in available_signals.values():
+        signal.signal(sig, signal.SIG_DFL)
 
 
 def _format_time(seconds: float) -> str:
@@ -50,8 +56,11 @@ class EncodingOrchestrator:
 
     def run(self) -> None:
         # シグナルハンドラを設定
-        signal.signal(signal.SIGINT, self._signal_handler)
-        signal.signal(signal.SIGTERM, self._signal_handler)
+        # Windows では SIGTERM が利用できないため、プラットフォームに応じて
+        # 利用可能なシグナルのみを登録する。
+        available_signals = get_available_signals()
+        for sig in available_signals.values():
+            signal.signal(sig, self._signal_handler)
 
         try:
             self._encode_segments()
@@ -59,7 +68,7 @@ class EncodingOrchestrator:
             self._print_completion()
         except KeyboardInterrupt:
             self.logger.error("処理が中断されました")
-            sys.exit(130)  # SIGINT の標準終了コード
+            sys.exit(1)  # Cross-platform error exit code
         except Exception:
             self.logger.exception("エラー")
             raise
