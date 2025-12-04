@@ -63,7 +63,10 @@ def main() -> int:
 
         logger.debug(f"未処理ファイル数: {len(pending_files)}")
 
-        # 標準出力に出力
+        # 標準出力に出力 (Windows対応: UTF-8に明示的に設定)
+        if hasattr(sys.stdout, 'reconfigure') and sys.stdout.encoding != 'utf-8':
+            sys.stdout.reconfigure(encoding='utf-8')  # type: ignore[attr-defined]
+
         for filename in pending_files:
             print(filename)
 
