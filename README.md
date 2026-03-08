@@ -57,9 +57,60 @@ python -m av1_encoder.encoding input.mkv workspace/ \
 | `--gop` | `-g` | yes | GOP size (keyframe interval) |
 | `--svtav1-params` | | yes | SvtAv1EncApp parameters (comma-separated, e.g. `crf=30,preset=6`) |
 | `--ffmpeg-params` | | no | FFmpeg parameters (comma-separated, e.g. `vf=scale=1920:1080,r=30`) |
+| `--hardware-decode` | | no | Hardware decode type[:device] (e.g. `cuda`, `vaapi:/dev/dri/renderD128`, `qsv`) |
 | `--verbose` | `-v` | no | Enable DEBUG logging |
 
 `--svtav1-params crf=30,preset=6` expands to `--crf 30 --preset 6` when passed to SvtAv1EncApp. `--ffmpeg-params` works the same way for FFmpeg.
+
+### Hardware-accelerated decoding
+
+Use `--hardware-decode` to offload video decoding to the GPU. This can significantly speed up the decode stage of the pipeline. Because SvtAv1EncApp is a CPU encoder, decoded frames must be transferred back from GPU to system memory — you **must** supply the appropriate `-vf` filter chain via `--ffmpeg-params` to do this.
+
+The `--hardware-decode` flag sets both `-hwaccel` and `-hwaccel_output_format` to the given value, so frames remain in GPU memory after decoding. Without a `hwdownload` filter, FFmpeg cannot pipe them to SvtAv1EncApp and encoding will fail.
+
+#### CUDA (NVIDIA)
+
+```bash
+python -m av1_encoder.encoding input.mkv workspace/ \
+    --parallel 8 \
+    --gop 240 \
+    --svtav1-params crf=30,preset=6 \
+    --hardware-decode cuda \
+    --ffmpeg-params 'vf=scale_cuda=format=yuv420p10le\,hwdownload\,format=yuv420p10le'
+```
+
+The filter chain `scale_cuda=format=yuv420p10le,hwdownload,format=yuv420p10le`:
+1. `scale_cuda=format=yuv420p10le` — converts pixel format on the GPU (use `yuv420p` for 8-bit sources)
+2. `hwdownload` — transfers frames from GPU to system memory
+3. `format=yuv420p10le` — tags the output so FFmpeg knows the CPU-side format
+
+> **Note:** commas inside a filter chain must be escaped as `\,` so that `--ffmpeg-params` does not split them into separate arguments.
+
+#### VAAPI (Intel/AMD on Linux)
+
+```bash
+python -m av1_encoder.encoding input.mkv workspace/ \
+    --parallel 8 \
+    --gop 240 \
+    --svtav1-params crf=30,preset=6 \
+    --hardware-decode vaapi:/dev/dri/renderD128 \
+    --ffmpeg-params 'vf=hwdownload\,format=nv12'
+```
+
+#### QSV (Intel Quick Sync)
+
+```bash
+python -m av1_encoder.encoding input.mkv workspace/ \
+    --parallel 8 \
+    --gop 240 \
+    --svtav1-params crf=30,preset=6 \
+    --hardware-decode qsv \
+    --ffmpeg-params 'vf=hwdownload\,format=nv12'
+```
+
+| Argument | Format | Description |
+|----------|--------|-------------|
+| `--hardware-decode` | `TYPE` or `TYPE:DEVICE` | Hardware decoder to use (`cuda`, `vaapi`, `qsv`). Append `:DEVICE` for VAAPI/QSV (e.g. `vaapi:/dev/dri/renderD128`) |
 
 ### Find pending files
 
@@ -112,6 +163,7 @@ python -m av1_encoder.s3 \
 | `--svtav1-params` | | yes | SvtAv1EncApp parameters (comma-separated) |
 | `--ffmpeg-params` | | no | FFmpeg parameters (comma-separated) |
 | `--audio-params` | | no | Audio parameters (comma-separated, e.g. `c:a=aac,b:a=128k`) |
+| `--hardware-decode` | | no | Hardware decode type[:device] (e.g. `cuda`, `vaapi:/dev/dri/renderD128`, `qsv`) |
 | `--verbose` | `-v` | no | Enable DEBUG logging |
 
 When `--audio-params` is omitted, audio is copied as-is. `c:a=aac,b:a=128k` expands to `-c:a aac -b:a 128k`.
