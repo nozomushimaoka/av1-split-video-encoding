@@ -1,6 +1,6 @@
-"""動画メタデータ取得モジュール
+"""Video metadata retrieval module
 
-ffprobeを使用して動画ファイルのメタデータ（再生時間、フレームレートなど）を取得する。
+Uses ffprobe to retrieve video file metadata (duration, frame rate, etc.).
 """
 import json
 import subprocess
@@ -8,20 +8,20 @@ from pathlib import Path
 
 
 class VideoProbe:
-    """動画ファイルのメタデータを取得するクラス"""
+    """Class for retrieving video file metadata"""
 
     def get_duration(self, input_file: Path) -> float:
-        """動画の再生時間（秒）を取得する
+        """Get video duration in seconds
 
         Args:
-            input_file: 動画ファイルのパス
+            input_file: Path to the video file
 
         Returns:
-            再生時間（秒）
+            Duration in seconds
 
         Raises:
-            subprocess.CalledProcessError: ffprobeの実行に失敗した場合
-            KeyError: メタデータに再生時間が含まれていない場合
+            subprocess.CalledProcessError: If ffprobe execution fails
+            KeyError: If metadata does not contain duration
         """
         result = subprocess.run(
             [
@@ -38,17 +38,17 @@ class VideoProbe:
         return duration
 
     def get_fps(self, input_file: Path) -> float:
-        """動画のフレームレートを取得する
+        """Get video frame rate
 
         Args:
-            input_file: 動画ファイルのパス
+            input_file: Path to the video file
 
         Returns:
-            フレームレート（fps）
+            Frame rate (fps)
 
         Raises:
-            subprocess.CalledProcessError: ffprobeの実行に失敗した場合
-            KeyError: メタデータにフレームレートが含まれていない場合
+            subprocess.CalledProcessError: If ffprobe execution fails
+            KeyError: If metadata does not contain frame rate
         """
         result = subprocess.run(
             [
@@ -61,9 +61,9 @@ class VideoProbe:
         )
 
         data = json.loads(result.stdout)
-        fps_str = data['streams'][0]['r_frame_rate']  # 例: "24000/1001"
+        fps_str = data['streams'][0]['r_frame_rate']  # e.g. "24000/1001"
 
-        # 分数形式をfloatに変換
+        # Convert fraction format to float
         if '/' in fps_str:
             num, den = map(int, fps_str.split('/'))
             return num / den
@@ -71,13 +71,13 @@ class VideoProbe:
             return float(fps_str)
 
     def get_total_frames(self, input_file: Path) -> int:
-        """動画の総フレーム数を取得する
+        """Get total number of frames in the video
 
         Args:
-            input_file: 動画ファイルのパス
+            input_file: Path to the video file
 
         Returns:
-            総フレーム数
+            Total frame count
         """
         duration = self.get_duration(input_file)
         fps = self.get_fps(input_file)

@@ -1,7 +1,7 @@
-"""セグメントエンコードモジュール
+"""Segment encoding module
 
-FFmpegとSvtAv1EncAppを使用して動画セグメントをエンコードする。
-メタデータ取得はVideoProbe、コマンド構築はCommandBuilderに委譲する。
+Encodes video segments using FFmpeg and SvtAv1EncApp.
+Delegates metadata retrieval to VideoProbe and command building to CommandBuilder.
 """
 import subprocess
 import threading
@@ -25,9 +25,9 @@ class SegmentInfo:
 
 
 class FFmpegService:
-    """セグメントエンコードサービス
+    """Segment encoding service
 
-    動画のメタデータ取得とセグメントエンコードを提供する。
+    Provides video metadata retrieval and segment encoding.
     """
 
     def __init__(self) -> None:
@@ -35,11 +35,11 @@ class FFmpegService:
         self._command_builder = CommandBuilder()
 
     def get_duration(self, input_file: Path) -> float:
-        """動画の再生時間（秒）を取得する"""
+        """Get video duration in seconds"""
         return self._video_probe.get_duration(input_file)
 
     def get_fps(self, input_file: Path) -> float:
-        """動画のフレームレートを取得する"""
+        """Get video frame rate"""
         return self._video_probe.get_fps(input_file)
 
     def _build_ffmpeg_command(
@@ -50,7 +50,7 @@ class FFmpegService:
         is_final_segment: bool,
         config: EncodingConfig
     ) -> list[str]:
-        """FFmpegデコードコマンドを構築（Y4M形式でstdoutに出力）"""
+        """Build FFmpeg decode command (outputs Y4M format to stdout)"""
         return self._command_builder.build_ffmpeg_decode_command(
             input_file=input_file,
             start_time=start_time,
@@ -64,7 +64,7 @@ class FFmpegService:
         output_file: Path,
         config: EncodingConfig
     ) -> list[str]:
-        """SvtAv1EncAppコマンドを構築"""
+        """Build SvtAv1EncApp command"""
         return self._command_builder.build_svtav1_encode_command(
             output_file=output_file,
             config=config
@@ -81,7 +81,7 @@ class FFmpegService:
         duration = segment_info.duration
         is_final_segment = segment_info.is_final
 
-        # FFmpegデコードコマンド構築（Y4M形式でstdoutに出力）
+        # Build FFmpeg decode command (outputs Y4M format to stdout)
         ffmpeg_cmd = self._build_ffmpeg_command(
             input_file=input_file,
             start_time=start_time,
@@ -90,24 +90,24 @@ class FFmpegService:
             config=config
         )
 
-        # SvtAv1EncAppコマンド構築
+        # Build SvtAv1EncApp command
         svtav1_cmd = self._build_svtav1_command(
             output_file=segment_info.file,
             config=config
         )
 
-        # セグメント専用ロガーを作成
+        # Create segment-specific logger
         segment_logger = setup_segment_logger(
             segment_idx=segment_idx,
             log_file=segment_info.log_file
         )
 
-        # 実行
+        # Execute
         try:
-            segment_logger.debug(f"FFmpegコマンド: {' '.join(ffmpeg_cmd)}")
-            segment_logger.debug(f"SvtAv1EncAppコマンド: {' '.join(svtav1_cmd)}")
+            segment_logger.debug(f"FFmpeg command: {' '.join(ffmpeg_cmd)}")
+            segment_logger.debug(f"SvtAv1EncApp command: {' '.join(svtav1_cmd)}")
 
-            # FFmpegプロセスを起動（stdoutをパイプ出力）
+            # Start FFmpeg process (pipe stdout)
             # Windows requires larger buffer for binary pipe to avoid deadlock
             ffmpeg_process = subprocess.Popen(
                 ffmpeg_cmd,
@@ -116,7 +116,7 @@ class FFmpegService:
                 bufsize=65536  # 64KB buffer for cross-platform reliability
             )
 
-            # SvtAv1EncAppプロセスを起動（stdinをFFmpegから受け取り）
+            # Start SvtAv1EncApp process (receives stdin from FFmpeg)
             svtav1_process = subprocess.Popen(
                 svtav1_cmd,
                 stdin=ffmpeg_process.stdout,
@@ -126,24 +126,24 @@ class FFmpegService:
                 bufsize=1  # Line buffering is acceptable for text mode
             )
 
-            # FFmpegのstdoutを閉じる（SvtAv1EncAppが完全に制御するため）
+            # Close FFmpeg stdout (SvtAv1EncApp takes full control)
             if ffmpeg_process.stdout:
                 ffmpeg_process.stdout.close()
 
-            # FFmpegのstderrを別スレッドで読み取る
+            # Read FFmpeg stderr in a separate thread
             def read_ffmpeg_stderr():
                 if ffmpeg_process.stderr:
                     for line in ffmpeg_process.stderr:
                         decoded_line = line.decode('utf-8', errors='replace').rstrip()
                         segment_logger.debug(f"[FFmpeg] {decoded_line}")
 
-            # SvtAv1EncAppのstdoutを別スレッドで読み取る（バッファ詰まり防止）
+            # Read SvtAv1EncApp stdout in a separate thread (prevent buffer blocking)
             def read_svtav1_stdout():
                 if svtav1_process.stdout:
                     for line in svtav1_process.stdout:
                         segment_logger.debug(f"[SvtAv1EncApp stdout] {line.rstrip()}")
 
-            # SvtAv1EncAppのstderrを別スレッドで読み取る（バッファ詰まり防止）
+            # Read SvtAv1EncApp stderr in a separate thread (prevent buffer blocking)
             def read_svtav1_stderr():
                 if svtav1_process.stderr:
                     for line in svtav1_process.stderr:
@@ -158,29 +158,29 @@ class FFmpegService:
             svtav1_stderr_thread = threading.Thread(target=read_svtav1_stderr)
             svtav1_stderr_thread.start()
 
-            # SvtAv1EncAppの終了を待つ
+            # Wait for SvtAv1EncApp to finish
             svtav1_return_code = svtav1_process.wait()
 
-            # FFmpegの終了を待つ
+            # Wait for FFmpeg to finish
             ffmpeg_return_code = ffmpeg_process.wait()
 
-            # 全スレッドの終了を待つ
+            # Wait for all threads to finish
             ffmpeg_thread.join(timeout=5)
             svtav1_stdout_thread.join(timeout=5)
             svtav1_stderr_thread.join(timeout=5)
 
-            # どちらかのプロセスが失敗した場合
+            # If either process failed
             if ffmpeg_return_code != 0:
-                segment_logger.error(f"FFmpegエラー (終了コード: {ffmpeg_return_code})")
+                segment_logger.error(f"FFmpeg error (exit code: {ffmpeg_return_code})")
                 return False
 
             if svtav1_return_code != 0:
-                segment_logger.error(f"SvtAv1EncAppエラー (終了コード: {svtav1_return_code})")
+                segment_logger.error(f"SvtAv1EncApp error (exit code: {svtav1_return_code})")
                 return False
 
-            segment_logger.info(f"セグメント {segment_idx} 完了")
+            segment_logger.info(f"Segment {segment_idx} completed")
             return True
 
         finally:
-            # ハンドラをクリーンアップ
+            # Clean up handlers
             cleanup_logger(segment_logger)

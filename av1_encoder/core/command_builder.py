@@ -1,6 +1,6 @@
-"""エンコードコマンド構築モジュール
+"""Encode command builder module
 
-FFmpegおよびSvtAv1EncAppのコマンドライン引数を構築する。
+Builds command-line arguments for FFmpeg and SvtAv1EncApp.
 """
 from pathlib import Path
 
@@ -8,7 +8,7 @@ from .config import EncodingConfig
 
 
 class CommandBuilder:
-    """エンコードコマンドを構築するクラス"""
+    """Class for building encode commands"""
 
     def build_ffmpeg_decode_command(
         self,
@@ -18,17 +18,17 @@ class CommandBuilder:
         is_final_segment: bool,
         config: EncodingConfig
     ) -> list[str]:
-        """FFmpegデコードコマンドを構築（Y4M形式でstdoutに出力）
+        """Build FFmpeg decode command (outputs Y4M format to stdout)
 
         Args:
-            input_file: 入力動画ファイルのパス
-            start_time: 開始時間（秒）
-            duration: セグメントの長さ（秒）
-            is_final_segment: 最終セグメントかどうか
-            config: エンコード設定
+            input_file: Path to the input video file
+            start_time: Start time in seconds
+            duration: Segment length in seconds
+            is_final_segment: Whether this is the final segment
+            config: Encoding configuration
 
         Returns:
-            FFmpegコマンドの引数リスト
+            List of FFmpeg command arguments
         """
         ffmpeg_cmd = ['ffmpeg']
         if config.hardware_decode:
@@ -38,15 +38,15 @@ class CommandBuilder:
                 ffmpeg_cmd.extend(['-hwaccel_device', config.hardware_decode_device])
         ffmpeg_cmd.extend(['-ss', str(start_time), '-i', str(input_file)])
 
-        # 最終セグメント以外は-tオプションで長さを指定
+        # Specify duration with -t option for all segments except the final one
         if not is_final_segment:
             ffmpeg_cmd.extend(['-t', str(duration)])
 
-        # 追加のFFmpegパラメータ（既に展開済み）
+        # Additional FFmpeg parameters (already expanded)
         if config.ffmpeg_args:
             ffmpeg_cmd.extend(config.ffmpeg_args)
 
-        # Y4M形式でパイプ出力
+        # Pipe output in Y4M format
         ffmpeg_cmd.extend([
             '-f', 'yuv4mpegpipe',
             '-strict', '-1',
@@ -60,14 +60,14 @@ class CommandBuilder:
         output_file: Path,
         config: EncodingConfig
     ) -> list[str]:
-        """SvtAv1EncAppコマンドを構築
+        """Build SvtAv1EncApp command
 
         Args:
-            output_file: 出力ファイルのパス
-            config: エンコード設定
+            output_file: Path to the output file
+            config: Encoding configuration
 
         Returns:
-            SvtAv1EncAppコマンドの引数リスト
+            List of SvtAv1EncApp command arguments
         """
         svtav1_cmd = [
             'SvtAv1EncApp',
@@ -75,11 +75,11 @@ class CommandBuilder:
             '--keyint', str(config.gop_size)
         ]
 
-        # 追加オプション（SvtAv1EncApp形式、既に展開済み）
+        # Additional options (SvtAv1EncApp format, already expanded)
         if config.svtav1_args:
             svtav1_cmd.extend(config.svtav1_args)
 
-        # 出力ファイル指定
+        # Specify output file
         svtav1_cmd.extend(['-b', str(output_file)])
 
         return svtav1_cmd

@@ -1,17 +1,17 @@
-"""パスユーティリティモジュール
+"""Path utility module
 
-S3 URIとローカルパスを扱うためのヘルパー関数を提供する。
+Provides helper functions for handling S3 URIs and local paths.
 """
 
 
 def is_s3_path(path: str) -> bool:
-    """S3 URIかどうかを判定
+    """Determine whether the path is an S3 URI
 
     Args:
-        path: 判定するパス文字列
+        path: Path string to check
 
     Returns:
-        S3 URIの場合True
+        True if it is an S3 URI
 
     Examples:
         >>> is_s3_path('s3://bucket/key')
@@ -23,16 +23,16 @@ def is_s3_path(path: str) -> bool:
 
 
 def parse_s3_uri(uri: str) -> tuple[str, str]:
-    """S3 URIをバケットとキーに分解
+    """Parse an S3 URI into bucket and key
 
     Args:
-        uri: S3 URI（例: 's3://bucket/path/to/file.mkv'）
+        uri: S3 URI (e.g. 's3://bucket/path/to/file.mkv')
 
     Returns:
-        (バケット名, キー) のタプル
+        Tuple of (bucket_name, key)
 
     Raises:
-        ValueError: S3 URIの形式が不正な場合
+        ValueError: If the S3 URI format is invalid
 
     Examples:
         >>> parse_s3_uri('s3://my-bucket/input/video.mkv')
@@ -41,13 +41,13 @@ def parse_s3_uri(uri: str) -> tuple[str, str]:
         ('bucket', 'file.mkv')
     """
     if not is_s3_path(uri):
-        raise ValueError(f"S3 URIではありません: {uri}")
+        raise ValueError(f"Not an S3 URI: {uri}")
 
-    # 's3://' を除去
+    # Remove 's3://'
     path = uri[5:]
     bucket, _, key = path.partition('/')
 
     if not bucket:
-        raise ValueError(f"バケット名が空です: {uri}")
+        raise ValueError(f"Bucket name is empty: {uri}")
 
     return bucket, key

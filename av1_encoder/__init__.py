@@ -1,4 +1,4 @@
-"""AV1並列エンコーディングパッケージ"""
+"""AV1 parallel encoding package"""
 
 from .encoding.cli import main
 from .core.config import EncodingConfig
