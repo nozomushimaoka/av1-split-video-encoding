@@ -1,17 +1,17 @@
-"""CLIユーティリティ関数"""
+"""CLI utility functions"""
 
 
 def expand_svtav1_params(params_string: str) -> list[str]:
     """
-    カンマ区切りのSvtAv1EncAppパラメータを展開
+    Expand a comma-separated SvtAv1EncApp parameter string
 
     Args:
-        params_string: カンマ区切りのパラメータ文字列
-                      例: "preset=4,crf=30,enable-qm=1"
+        params_string: Comma-separated parameter string
+                      e.g. "preset=4,crf=30,enable-qm=1"
 
     Returns:
-        展開されたパラメータのリスト
-        例: ['--preset', '4', '--crf', '30', '--enable-qm', '1']
+        Expanded list of arguments
+        e.g. ['--preset', '4', '--crf', '30', '--enable-qm', '1']
 
     Examples:
         >>> expand_svtav1_params("preset=4,crf=30")
@@ -33,16 +33,16 @@ def expand_svtav1_params(params_string: str) -> list[str]:
 
 def expand_ffmpeg_params(params_string: str) -> list[str]:
     r"""
-    カンマ区切りのFFmpegパラメータを展開（\,でエスケープ可能）
+    Expand a comma-separated FFmpeg parameter string (\, to escape a literal comma)
 
     Args:
-        params_string: カンマ区切りのパラメータ文字列
-                      例: "vf=scale=1920:1080,c:v=libx264"
-                      エスケープ例: "vf=scale=1920:1080\,fps=30,pix_fmt=yuv420p10le"
+        params_string: Comma-separated parameter string
+                      e.g. "vf=scale=1920:1080,c:v=libx264"
+                      escaped: "vf=scale=1920:1080\,fps=30,pix_fmt=yuv420p10le"
 
     Returns:
-        展開されたパラメータのリスト
-        例: ['-vf', 'scale=1920:1080', '-c:v', 'libx264']
+        Expanded list of arguments
+        e.g. ['-vf', 'scale=1920:1080', '-c:v', 'libx264']
 
     Examples:
         >>> expand_ffmpeg_params("vf=scale=1920:1080")
@@ -58,12 +58,12 @@ def expand_ffmpeg_params(params_string: str) -> list[str]:
         []
     """
     result = []
-    # エスケープされたカンマを一時的に置換
+    # Temporarily replace escaped commas
     temp_placeholder = '\x00'
     escaped_string = params_string.replace('\\,', temp_placeholder)
 
     for param in escaped_string.split(','):
-        # プレースホルダーを元のカンマに戻す
+        # Restore placeholder back to comma
         param = param.replace(temp_placeholder, ',')
         if '=' in param:
             key, value = param.split('=', 1)
@@ -73,16 +73,16 @@ def expand_ffmpeg_params(params_string: str) -> list[str]:
 
 def expand_audio_params(params_string: str) -> list[str]:
     r"""
-    カンマ区切りの音声パラメータを展開（\,でエスケープ可能）
+    Expand a comma-separated audio parameter string (\, to escape a literal comma)
 
     Args:
-        params_string: カンマ区切りのパラメータ文字列
-                      例: "c:a=aac,b:a=128k"
-                      エスケープ例: "c:a=aac,af=volume=0.5\,aformat=s16,b:a=128k"
+        params_string: Comma-separated parameter string
+                      e.g. "c:a=aac,b:a=128k"
+                      escaped: "c:a=aac,af=volume=0.5\,aformat=s16,b:a=128k"
 
     Returns:
-        展開されたパラメータのリスト
-        例: ['-c:a', 'aac', '-b:a', '128k']
+        Expanded list of arguments
+        e.g. ['-c:a', 'aac', '-b:a', '128k']
 
     Examples:
         >>> expand_audio_params("c:a=aac,b:a=128k")
@@ -98,12 +98,12 @@ def expand_audio_params(params_string: str) -> list[str]:
         []
     """
     result = []
-    # エスケープされたカンマを一時的に置換
+    # Temporarily replace escaped commas
     temp_placeholder = '\x00'
     escaped_string = params_string.replace('\\,', temp_placeholder)
 
     for param in escaped_string.split(','):
-        # プレースホルダーを元のカンマに戻す
+        # Restore placeholder back to comma
         param = param.replace(temp_placeholder, ',')
         if '=' in param:
             key, value = param.split('=', 1)
