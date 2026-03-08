@@ -1,4 +1,4 @@
-"""python -m av1_encoder.list_pendingのエントリーポイント"""
+"""Entry point for python -m av1_encoder.list_pending"""
 
 from .cli import main
 

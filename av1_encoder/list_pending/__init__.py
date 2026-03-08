@@ -1,4 +1,4 @@
-"""S3未処理ファイル一覧モジュール"""
+"""Pending files listing module"""
 
 from .cli import main
 
