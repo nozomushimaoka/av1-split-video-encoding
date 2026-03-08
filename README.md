@@ -1,62 +1,46 @@
-# AV1 並列動画エンコーディング
+# AV1 Split Video Encoding
 
-動画を複数のセグメントに分割し、並列でAV1エンコードを行うツールです。
+Splits a video into segments and encodes them in parallel using AV1 (SVT-AV1), then reassembles the result. Supports local files and S3.
 
-## 特徴
+## Features
 
-- セグメント分割による並列エンコーディング
-- FFmpegとSvtAv1EncAppのパイプライン処理
-- S3連携によるバッチ処理
-- 未処理ファイルの自動検出
-- 音声トラックの自動処理（コピーまたは再エンコード）
+- Parallel segment encoding via FFmpeg + SvtAv1EncApp pipeline
+- Batch processing from S3 or local directories
+- Automatic detection of unprocessed files
+- Audio track handling (copy or re-encode)
+- Windows and Linux/macOS support
 
-## 必要な環境
+## Requirements
 
-- Python 3.10以上
-- FFmpeg
-- SvtAv1EncApp（PATHに含まれている必要があります）
-- AWS CLI（S3を使用する場合）
+- Python 3.10+
+- [FFmpeg](https://ffmpeg.org/download.html) (on PATH)
+- [SvtAv1EncApp](https://gitlab.com/AOMediaCodec/SVT-AV1/-/releases) (on PATH)
+- AWS credentials (only for S3 features)
 
-## セットアップ
-
-### 依存関係のインストール
+## Installation
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### Windows環境でのセットアップ
-
-#### FFmpegのインストール
-
-1. [FFmpeg公式サイト](https://ffmpeg.org/download.html)からWindows用ビルドをダウンロード
-2. 任意のフォルダに解凍（例: `C:\ffmpeg`）
-3. 環境変数PATHに`C:\ffmpeg\bin`を追加
-
-#### SvtAv1EncAppのインストール
-
-1. [SVT-AV1 Releases](https://gitlab.com/AOMediaCodec/SVT-AV1/-/releases)からWindows用バイナリをダウンロード、または[ソースからビルド](https://gitlab.com/AOMediaCodec/SVT-AV1/-/blob/master/README.md)
-2. `SvtAv1EncApp.exe`を環境変数PATHに追加
-
-#### 動作確認
+### Verifying dependencies
 
 ```bash
-# FFmpegの確認
 ffmpeg -version
-
-# SvtAv1EncAppの確認
 SvtAv1EncApp --help
 ```
 
-### AWS認証情報の設定（S3を使用する場合）
+### AWS credentials (S3 only)
 
 ```bash
 aws configure
 ```
 
-## 使い方
+## Usage
 
-### ローカルファイルのエンコード
+### Local encoding
+
+Encode a single video file using parallel segment processing:
 
 ```bash
 python -m av1_encoder.encoding input.mkv workspace/ \
@@ -65,197 +49,182 @@ python -m av1_encoder.encoding input.mkv workspace/ \
     --svtav1-params crf=30,preset=6
 ```
 
-#### オプション
+| Argument | Short | Required | Description |
+|----------|-------|----------|-------------|
+| `input_file` | | yes | Input video file path |
+| `workspace` | | yes | Working directory (must already exist) |
+| `--parallel` | `-l` | yes | Number of parallel encoding jobs |
+| `--gop` | `-g` | yes | GOP size (keyframe interval) |
+| `--svtav1-params` | | yes | SvtAv1EncApp parameters (comma-separated, e.g. `crf=30,preset=6`) |
+| `--ffmpeg-params` | | no | FFmpeg parameters (comma-separated, e.g. `vf=scale=1920:1080,r=30`) |
+| `--verbose` | `-v` | no | Enable DEBUG logging |
 
-| オプション | 短縮形 | 説明 |
-|------------|--------|------|
-| `input_file` | - | 入力ファイルパス（必須） |
-| `workspace` | - | 作業ディレクトリパス（必須） |
-| `--parallel` | `-l` | 並列ジョブ数（必須） |
-| `--gop` | `-g` | GOPサイズ（キーフレーム間隔、必須） |
-| `--svtav1-params` | - | SvtAv1EncAppのパラメータ（カンマ区切り、必須） |
-| `--ffmpeg-params` | - | FFmpegのパラメータ（カンマ区切り、オプション） |
-| `--verbose` | `-v` | 詳細なログを出力（DEBUGレベル） |
+`--svtav1-params crf=30,preset=6` expands to `--crf 30 --preset 6` when passed to SvtAv1EncApp. `--ffmpeg-params` works the same way for FFmpeg.
 
-#### パラメータの指定方法
+### Find pending files
 
-`--svtav1-params`と`--ffmpeg-params`はカンマ区切りで指定します：
+List input files that don't yet have a corresponding output file. Works with local directories and S3:
 
 ```bash
-# 例: crf=30, preset=6を指定
---svtav1-params crf=30,preset=6
+# Local
+python -m av1_encoder.list_pending \
+    --input-dir /path/to/input \
+    --output-dir /path/to/output
 
-# 展開後: --crf 30 --preset 6
+# S3
+python -m av1_encoder.list_pending \
+    --input-dir s3://my-bucket/input/ \
+    --output-dir s3://my-bucket/output/
+
+# Save to file for batch encoding
+python -m av1_encoder.list_pending \
+    --input-dir s3://my-bucket/input/ \
+    --output-dir s3://my-bucket/output/ \
+    > pending.txt
 ```
 
-### S3バッチエンコード
+| Argument | Short | Required | Description |
+|----------|-------|----------|-------------|
+| `--input-dir` | `-i` | yes | Input directory (local path or S3 URI) |
+| `--output-dir` | `-o` | yes | Output directory (local path or S3 URI) |
+| `--verbose` | `-v` | no | Enable DEBUG logging |
 
-S3バケットからファイルをダウンロードし、エンコード後にアップロードします。
+### Batch encoding
+
+Encode all files listed in a pending file. Input and output can be local paths or S3 URIs:
 
 ```bash
 python -m av1_encoder.s3 \
-    --bucket my-bucket \
     --pending-files pending.txt \
+    --output-dir s3://my-bucket/output/ \
     --parallel 8 \
     --gop 240 \
     --svtav1-params crf=30,preset=6
 ```
 
-#### オプション
+| Argument | Short | Required | Description |
+|----------|-------|----------|-------------|
+| `--pending-files` | | yes | Path to file listing inputs (output of `list_pending`) |
+| `--output-dir` | `-o` | no | Output directory — local path or S3 URI (default: `.`) |
+| `--workspace-base` | `-b` | no | Base directory for per-file workspaces (default: `.`) |
+| `--parallel` | `-l` | yes | Number of parallel encoding jobs |
+| `--gop` | `-g` | yes | GOP size (keyframe interval) |
+| `--svtav1-params` | | yes | SvtAv1EncApp parameters (comma-separated) |
+| `--ffmpeg-params` | | no | FFmpeg parameters (comma-separated) |
+| `--audio-params` | | no | Audio parameters (comma-separated, e.g. `c:a=aac,b:a=128k`) |
+| `--verbose` | `-v` | no | Enable DEBUG logging |
 
-| オプション | 短縮形 | 説明 |
-|------------|--------|------|
-| `--bucket` | - | S3バケット名（環境変数`S3_BUCKET`でも指定可） |
-| `--pending-files` | - | 処理対象ファイルリストのパス（必須） |
-| `--parallel` | `-l` | 並列ジョブ数（必須） |
-| `--gop` | `-g` | GOPサイズ（必須） |
-| `--svtav1-params` | - | SvtAv1EncAppのパラメータ（必須） |
-| `--ffmpeg-params` | - | FFmpegのパラメータ（オプション） |
-| `--audio-params` | - | 音声エンコードのパラメータ（オプション） |
-| `--verbose` | `-v` | 詳細なログを出力（DEBUGレベル） |
+When `--audio-params` is omitted, audio is copied as-is. `c:a=aac,b:a=128k` expands to `-c:a aac -b:a 128k`.
 
-#### S3バケットの構造
-
-```
-my-bucket/
-├── input/           # 入力ファイル
-│   ├── video1.mkv
-│   └── subdir/video2.mkv
-└── output/          # 出力ファイル
-    ├── video1.mkv
-    └── subdir/video2.mkv
-```
-
-#### 音声パラメータの指定
-
-音声を再エンコードする場合は`--audio-params`を指定します：
+### Typical S3 workflow
 
 ```bash
---audio-params c:a=aac,b:a=128k
+# 1. Find files that need encoding
+python -m av1_encoder.list_pending \
+    --input-dir s3://my-bucket/input/ \
+    --output-dir s3://my-bucket/output/ \
+    > pending.txt
 
-# 展開後: -c:a aac -b:a 128k
+# 2. Encode and upload results
+python -m av1_encoder.s3 \
+    --pending-files pending.txt \
+    --output-dir s3://my-bucket/output/ \
+    --parallel 8 \
+    --gop 240 \
+    --svtav1-params crf=30,preset=6
 ```
 
-指定しない場合、音声はコピーされます。
+## Processing pipeline
 
-### 未処理ファイルの一覧取得
+1. **Segment split** — video is split into 60-second segments aligned to GOP boundaries
+2. **Parallel encode** — each segment is decoded by FFmpeg and encoded by SvtAv1EncApp
+3. **Merge** — encoded segments are concatenated with FFmpeg
+4. **Audio mux** — audio is extracted from the source and muxed into the final output
 
-S3バケット内で未処理のファイルを一覧表示します。
-
-```bash
-python -m av1_encoder.list_pending --bucket my-bucket
-
-# ファイルに出力
-python -m av1_encoder.list_pending --bucket my-bucket > pending.txt
-
-# 詳細ログを表示
-python -m av1_encoder.list_pending --bucket my-bucket --verbose
-```
-
-## 処理フロー
-
-1. **セグメント分割**: 動画を60秒ごとに分割（GOP境界に整列）
-2. **並列エンコード**: 各セグメントをFFmpegでデコード → SvtAv1EncAppでAV1エンコード
-3. **セグメント結合**: FFmpegでエンコード済みセグメントを結合
-4. **音声処理**: 元動画から音声を抽出し、エンコード済み動画と多重化
-
-## 出力
-
-処理結果は作業ディレクトリに保存されます：
+## Output layout
 
 ```
 workspace/
-├── output.mkv           # 最終出力ファイル
-├── main.log             # 全体のログ
-├── concat.txt           # セグメント結合用リスト
-├── segment_0000.log     # 各セグメントのエンコードログ
+├── output.mkv       # final output
+├── main.log         # overall log
+├── concat.txt       # segment list for FFmpeg concat
+├── segment_0000.log # per-segment encode log
 ├── segment_0001.log
 └── ...
 ```
 
-セグメントファイル（`.ivf`）は処理完了後に削除されます。
+Intermediate `.ivf` segment files are deleted after a successful encode.
 
-## プロジェクト構造
+## Project structure
 
 ```
 av1-split-video-encoding/
 ├── av1_encoder/
-│   ├── core/                 # コア機能
-│   │   ├── config.py         # 設定データクラス
-│   │   ├── workspace.py      # ワークスペース管理
-│   │   ├── logging_config.py # ログ設定
-│   │   ├── video_probe.py    # 動画情報取得
-│   │   ├── command_builder.py # コマンド構築
-│   │   └── ffmpeg.py         # FFmpegサービス
-│   ├── encoding/             # ローカルエンコード
-│   │   ├── cli.py            # CLIエントリーポイント
-│   │   └── encoder.py        # エンコードオーケストレーター
-│   ├── s3/                   # S3連携
-│   │   ├── cli.py            # CLIエントリーポイント
-│   │   ├── pipeline.py       # S3パイプライン
-│   │   ├── batch_orchestrator.py # バッチ処理
-│   │   ├── file_processor.py # ファイル処理
-│   │   └── video_merger.py   # 動画結合
-│   ├── list_pending/         # 未処理ファイル検出
-│   │   ├── cli.py            # CLIエントリーポイント
-│   │   └── pending.py        # 未処理ファイル計算
-│   └── cli_utils.py          # CLI共通ユーティリティ
-├── tests/                    # テストスイート
-├── requirements.txt          # 依存関係
-└── README.md
+│   ├── core/                  # shared utilities
+│   │   ├── config.py          # EncodingConfig dataclass
+│   │   ├── workspace.py       # workspace management
+│   │   ├── logging_config.py  # logging setup
+│   │   ├── video_probe.py     # ffprobe helpers
+│   │   ├── command_builder.py # command construction
+│   │   ├── path_utils.py      # local/S3 path helpers
+│   │   ├── platform_utils.py  # platform detection
+│   │   └── ffmpeg.py          # FFmpeg service
+│   ├── encoding/              # local encoding CLI
+│   │   ├── cli.py
+│   │   └── encoder.py
+│   ├── s3/                    # batch encoding CLI
+│   │   ├── cli.py
+│   │   ├── pipeline.py        # S3 download/upload
+│   │   ├── batch_orchestrator.py
+│   │   ├── file_processor.py
+│   │   └── video_merger.py
+│   ├── list_pending/          # pending file detection CLI
+│   │   ├── cli.py
+│   │   └── pending.py
+│   └── cli_utils.py           # shared CLI param expansion
+├── scripts/                   # helper scripts
+├── tests/                     # test suite
+├── Dockerfile                 # containerised dev environment
+├── jump_in.sh                 # start dev container (Podman)
+└── requirements.txt
 ```
 
-## トラブルシューティング
+## Development environment
 
-### SvtAv1EncAppが見つからない
+A Podman-based dev container is provided with Claude Code pre-installed.
 
-**Linux/macOS**:
 ```bash
-which SvtAv1EncApp
+# Start container (builds image on first run)
+./jump_in.sh
+
+# Allow writing to ~/.claude config from inside the container
+CLAUDE_CONFIG_WRITABLE=1 ./jump_in.sh
 ```
 
-**Windows**:
+The script mounts the current directory as `/workspace`, and forwards `~/.claude`, `~/.ssh`, `~/.gnupg`, and the host gpg-agent socket for passphrase-free signing.
+
+## Troubleshooting
+
+**`SvtAv1EncApp` not found** — ensure the binary is on your PATH:
 ```bash
-where SvtAv1EncApp
+which SvtAv1EncApp   # Linux/macOS
+where SvtAv1EncApp   # Windows
 ```
 
-PATHに含まれていることを確認してください。SVT-AV1をソースからビルドし、インストールする必要があります。
+**Out of memory** — reduce `--parallel`:
+```bash
+--parallel 2
+```
 
-### Windows固有の問題
+**Windows: Ctrl+C only** — `SIGTERM` is not available on Windows; use `Ctrl+C` to interrupt encoding.
 
-#### シグナル処理について
-
-Windowsでは`Ctrl+C`のみがサポートされます（Unix系の`SIGTERM`は利用不可）。エンコード中に中断する場合は`Ctrl+C`を押してください。
-
-#### パスの問題
-
-作業ディレクトリパスにスペースや日本語が含まれる場合、引用符で囲んでください：
-
+**Windows: paths with spaces** — quote the workspace path:
 ```bash
 python -m av1_encoder.encoding input.mkv "C:\My Videos\workspace" --parallel 4 --gop 240 --svtav1-params crf=30,preset=6
 ```
 
-#### パフォーマンス
-
-Windowsでは`spawn`モードでワーカープロセスが起動するため、Linux/macOSの`fork`より若干起動が遅くなります。これは正常な動作です。
-
-### S3アクセスエラー
-
-AWS認証情報とS3バケットへのアクセス権限を確認してください。
-
+**S3 access error** — check credentials and bucket permissions:
 ```bash
 aws s3 ls s3://my-bucket/
 ```
 
-### メモリ不足
-
-並列数を減らしてください：
-
-```bash
-python -m av1_encoder.encoding input.mkv workspace/ \
-    --parallel 2 --gop 240 --svtav1-params crf=30
-```
-
-## ライセンス
-
-MIT License
