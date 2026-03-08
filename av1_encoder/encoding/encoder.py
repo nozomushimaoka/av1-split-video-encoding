@@ -134,7 +134,7 @@ class EncodingOrchestrator:
         # Frames per segment
         frames_per_segment = total_frames / total_count
 
-        count = completed_count  # 完了済みセグメント数から開始
+        count = completed_count  # Start from the number of already-completed segments
         encode_start_time = time.time()
 
         executor = ProcessPoolExecutor(

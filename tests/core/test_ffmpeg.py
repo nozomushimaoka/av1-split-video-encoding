@@ -10,13 +10,13 @@ from av1_encoder.core.logging_config import setup_segment_logger
 
 @pytest.fixture
 def ffmpeg_service():
-    """FFmpegServiceインスタンスを作成するフィクスチャ"""
+    """Fixture to create an FFmpegService instance"""
     return FFmpegService()
 
 
 @pytest.fixture
 def segment_info(tmp_path):
-    """テスト用のSegmentInfoを作成するフィクスチャ"""
+    """Fixture to create a SegmentInfo for testing"""
     return SegmentInfo(
         index=0,
         start_time=0,
@@ -29,7 +29,7 @@ def segment_info(tmp_path):
 
 @pytest.fixture
 def encoding_config(tmp_path):
-    """テスト用のEncodingConfigを作成するフィクスチャ"""
+    """Fixture to create an EncodingConfig for testing"""
     input_file = tmp_path / "input.mkv"
     input_file.touch()
     workspace_dir = tmp_path / "workspace"
@@ -46,17 +46,17 @@ def encoding_config(tmp_path):
 
 @pytest.fixture
 def mock_logger():
-    """ロガーのモックを作成するフィクスチャ"""
+    """Fixture to create a mock logger"""
     mock_logger = Mock()
     mock_logger.handlers = []
     return mock_logger
 
 
 class TestSegmentInfo:
-    """SegmentInfoデータクラスのテスト"""
+    """Tests for the SegmentInfo dataclass"""
 
-    def test_segment_infoを作成(self, tmp_path):
-        """SegmentInfoが正しく作成されることをテスト"""
+    def test_create_segment_info(self, tmp_path):
+        """Test that SegmentInfo is created correctly"""
         segment_info = SegmentInfo(
             index=1,
             start_time=60,
@@ -74,14 +74,14 @@ class TestSegmentInfo:
         assert segment_info.log_file == tmp_path / "segment_1.log"
 
 
-class TestFFmpegServiceのget_duration:
-    """FFmpegServiceのget_durationメソッドのテスト"""
+class TestFFmpegServiceGetDuration:
+    """Tests for the get_duration method of FFmpegService"""
 
-    def test_動画の長さを取得(self, ffmpeg_service, tmp_path):
-        """ffprobeを使用して動画の長さを取得するテスト"""
+    def test_get_video_duration(self, ffmpeg_service, tmp_path):
+        """Test getting video duration using ffprobe"""
         input_file = tmp_path / "input.mkv"
 
-        # ffprobeの出力をモック
+        # Mock ffprobe output
         mock_result = Mock()
         mock_result.stdout = '''{
     "format": {
@@ -105,7 +105,7 @@ class TestFFmpegServiceのget_duration:
         with patch('av1_encoder.core.ffmpeg.subprocess.run', return_value=mock_result) as mock_run:
             duration = ffmpeg_service.get_duration(input_file)
 
-            # 正しいコマンドで呼び出されたか確認
+            # Verify the correct command was used
             mock_run.assert_called_once_with(
                 [
                     'ffprobe', '-v', 'quiet', '-print_format', 'json',
@@ -116,11 +116,11 @@ class TestFFmpegServiceのget_duration:
                 check=True
             )
 
-            # 正しい長さが返されたか確認
+            # Verify the correct duration is returned
             assert duration == 2112.857
 
-    def test_動画の長さを取得_整数値(self, ffmpeg_service, tmp_path):
-        """整数値の動画の長さを取得するテスト"""
+    def test_get_video_duration_integer_value(self, ffmpeg_service, tmp_path):
+        """Test getting video duration with an integer value"""
         input_file = tmp_path / "input.mkv"
 
         mock_result = Mock()
@@ -148,11 +148,11 @@ class TestFFmpegServiceのget_duration:
             assert duration == 2112.0
 
 
-class TestFFmpegServiceのget_fps:
-    """FFmpegServiceのget_fpsメソッドのテスト"""
+class TestFFmpegServiceGetFps:
+    """Tests for the get_fps method of FFmpegService"""
 
-    def test_フレームレートを取得_分数形式(self, ffmpeg_service, tmp_path):
-        """分数形式のフレームレート(24000/1001)を取得するテスト"""
+    def test_get_frame_rate_fractional_format(self, ffmpeg_service, tmp_path):
+        """Test getting frame rate in fractional format (24000/1001)"""
         input_file = tmp_path / "input.mkv"
 
         mock_result = Mock()
@@ -171,7 +171,7 @@ class TestFFmpegServiceのget_fps:
         with patch('av1_encoder.core.ffmpeg.subprocess.run', return_value=mock_result) as mock_run:
             fps = ffmpeg_service.get_fps(input_file)
 
-            # 正しいコマンドで呼び出されたか確認
+            # Verify the correct command was used
             mock_run.assert_called_once_with(
                 [
                     'ffprobe', '-v', 'quiet', '-print_format', 'json',
@@ -182,11 +182,11 @@ class TestFFmpegServiceのget_fps:
                 check=True
             )
 
-            # 正しいフレームレートが返されたか確認 (23.976...)
+            # Verify the correct frame rate is returned (23.976...)
             assert abs(fps - 23.976023976023978) < 0.0001
 
-    def test_フレームレートを取得_整数形式(self, ffmpeg_service, tmp_path):
-        """整数形式のフレームレート(30)を取得するテスト"""
+    def test_get_frame_rate_integer_format(self, ffmpeg_service, tmp_path):
+        """Test getting frame rate in integer format (30)"""
         input_file = tmp_path / "input.mkv"
 
         mock_result = Mock()
@@ -206,8 +206,8 @@ class TestFFmpegServiceのget_fps:
             fps = ffmpeg_service.get_fps(input_file)
             assert fps == 30.0
 
-    def test_フレームレートを取得_60fps(self, ffmpeg_service, tmp_path):
-        """60fpsのフレームレートを取得するテスト"""
+    def test_get_frame_rate_60fps(self, ffmpeg_service, tmp_path):
+        """Test getting 60fps frame rate"""
         input_file = tmp_path / "input.mkv"
 
         mock_result = Mock()
@@ -228,11 +228,11 @@ class TestFFmpegServiceのget_fps:
             assert fps == 60.0
 
 
-class TestFFmpegServiceのbuild_ffmpeg_command:
-    """FFmpegServiceの_build_ffmpeg_commandメソッドのテスト"""
+class TestFFmpegServiceBuildFfmpegCommand:
+    """Tests for the _build_ffmpeg_command method of FFmpegService"""
 
-    def test_FFmpegコマンドを構築_通常セグメント(self, ffmpeg_service, tmp_path):
-        """通常セグメント（最終でない）のFFmpegコマンドを構築するテスト"""
+    def test_build_ffmpeg_command_normal_segment(self, ffmpeg_service, tmp_path):
+        """Test building an FFmpeg command for a normal (non-final) segment"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -253,13 +253,13 @@ class TestFFmpegServiceのbuild_ffmpeg_command:
             config=config
         )
 
-        # コマンド構造の確認
+        # Verify command structure
         assert cmd[0] == 'ffmpeg'
         assert '-ss' in cmd
         assert '120.0' in cmd
         assert '-i' in cmd
         assert str(input_file) in cmd
-        assert '-t' in cmd  # 最終セグメントではないので-tオプションがある
+        assert '-t' in cmd  # -t option present because not final segment
         assert '60.0' in cmd
         assert '-f' in cmd
         assert 'yuv4mpegpipe' in cmd
@@ -267,8 +267,8 @@ class TestFFmpegServiceのbuild_ffmpeg_command:
         assert '-1' in cmd
         assert cmd[-1] == '-'
 
-    def test_FFmpegコマンドを構築_最終セグメント(self, ffmpeg_service, tmp_path):
-        """最終セグメントのFFmpegコマンドを構築するテスト（-tオプションなし）"""
+    def test_build_ffmpeg_command_final_segment(self, ffmpeg_service, tmp_path):
+        """Test building an FFmpeg command for the final segment (no -t option)"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -289,18 +289,18 @@ class TestFFmpegServiceのbuild_ffmpeg_command:
             config=config
         )
 
-        # -tオプションがないことを確認
+        # Verify -t option is not present
         assert '-t' not in cmd
         assert '60.0' not in cmd
-        # 他の基本構造は同じ
+        # Other basic structure is the same
         assert cmd[0] == 'ffmpeg'
         assert '-ss' in cmd
         assert '300.0' in cmd
         assert '-f' in cmd
         assert 'yuv4mpegpipe' in cmd
 
-    def test_FFmpegコマンドを構築_追加パラメータあり(self, ffmpeg_service, tmp_path):
-        """追加のFFmpegパラメータを含むコマンドを構築するテスト"""
+    def test_build_ffmpeg_command_with_extra_params(self, ffmpeg_service, tmp_path):
+        """Test building an FFmpeg command with additional parameters"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -322,18 +322,18 @@ class TestFFmpegServiceのbuild_ffmpeg_command:
             config=config
         )
 
-        # 追加パラメータが含まれていることを確認
+        # Verify additional parameters are included
         assert '-vf' in cmd
         assert 'scale=1920:1080' in cmd
         assert '-r' in cmd
         assert '24' in cmd
-        # Y4M形式の出力オプションは最後にある
+        # Y4M format output options are at the end
         assert '-f' in cmd
         assert 'yuv4mpegpipe' in cmd
         assert cmd[-3:] == ['-strict', '-1', '-']
 
-    def test_FFmpegコマンドを構築_追加パラメータなし(self, ffmpeg_service, tmp_path):
-        """追加パラメータなしでコマンドを構築するテスト"""
+    def test_build_ffmpeg_command_without_extra_params(self, ffmpeg_service, tmp_path):
+        """Test building an FFmpeg command without extra parameters"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -354,7 +354,7 @@ class TestFFmpegServiceのbuild_ffmpeg_command:
             config=config
         )
 
-        # 基本構造のみであることを確認
+        # Verify only the basic structure is present
         assert cmd[0] == 'ffmpeg'
         assert '-ss' in cmd
         assert '-i' in cmd
@@ -364,7 +364,7 @@ class TestFFmpegServiceのbuild_ffmpeg_command:
 
 
     def test_hardware_decode_cuda(self, ffmpeg_service, tmp_path):
-        """hardware_decode='cuda'のとき-hwaccel cuda -hwaccel_output_format cudaが-iの前に含まれる"""
+        """Test that -hwaccel cuda -hwaccel_output_format cuda appears before -i when hardware_decode='cuda'"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -394,7 +394,7 @@ class TestFFmpegServiceのbuild_ffmpeg_command:
         assert cmd.index('-hwaccel') < cmd.index('-i')
 
     def test_hardware_decode_vaapi_with_device(self, ffmpeg_service, tmp_path):
-        """hardware_decode='vaapi'とdeviceのとき-hwaccel_deviceも含まれる"""
+        """Test that -hwaccel_device is included when hardware_decode='vaapi' and device is set"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -425,7 +425,7 @@ class TestFFmpegServiceのbuild_ffmpeg_command:
         assert cmd.index('-hwaccel') < cmd.index('-i')
 
     def test_hardware_decode_none(self, ffmpeg_service, tmp_path):
-        """hardware_decodeがNoneのとき-hwaccelは含まれない"""
+        """Test that -hwaccel is not included when hardware_decode is None"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -450,11 +450,11 @@ class TestFFmpegServiceのbuild_ffmpeg_command:
         assert '-hwaccel_output_format' not in cmd
         assert '-hwaccel_device' not in cmd
 
-class TestFFmpegServiceのbuild_svtav1_command:
-    """FFmpegServiceの_build_svtav1_commandメソッドのテスト"""
+class TestFFmpegServiceBuildSvtav1Command:
+    """Tests for the _build_svtav1_command method of FFmpegService"""
 
-    def test_SvtAv1EncAppコマンドを構築_基本(self, ffmpeg_service, tmp_path):
-        """基本的なSvtAv1EncAppコマンドを構築するテスト"""
+    def test_build_svtav1_command_basic(self, ffmpeg_service, tmp_path):
+        """Test building a basic SvtAv1EncApp command"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -473,7 +473,7 @@ class TestFFmpegServiceのbuild_svtav1_command:
             config=config
         )
 
-        # コマンド構造の確認
+        # Verify command structure
         assert cmd[0] == 'SvtAv1EncApp'
         assert '-i' in cmd
         assert 'stdin' in cmd
@@ -482,8 +482,8 @@ class TestFFmpegServiceのbuild_svtav1_command:
         assert '-b' in cmd
         assert str(output_file) in cmd
 
-    def test_SvtAv1EncAppコマンドを構築_追加オプションあり(self, ffmpeg_service, tmp_path):
-        """追加オプションを含むSvtAv1EncAppコマンドを構築するテスト"""
+    def test_build_svtav1_command_with_extra_options(self, ffmpeg_service, tmp_path):
+        """Test building a SvtAv1EncApp command with additional options"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -503,23 +503,23 @@ class TestFFmpegServiceのbuild_svtav1_command:
             config=config
         )
 
-        # 基本構造の確認
+        # Verify basic structure
         assert cmd[0] == 'SvtAv1EncApp'
         assert '-i' in cmd
         assert 'stdin' in cmd
         assert '--keyint' in cmd
         assert '240' in cmd
-        # 追加オプションの確認
+        # Verify additional options
         assert '--crf' in cmd
         assert '30' in cmd
         assert '--preset' in cmd
         assert '6' in cmd
-        # 出力ファイルは最後
+        # Output file is last
         assert '-b' in cmd
         assert str(output_file) in cmd
 
-    def test_SvtAv1EncAppコマンドを構築_複雑な追加オプション(self, ffmpeg_service, tmp_path):
-        """複雑な追加オプションを含むSvtAv1EncAppコマンドを構築するテスト"""
+    def test_build_svtav1_command_with_complex_options(self, ffmpeg_service, tmp_path):
+        """Test building a SvtAv1EncApp command with complex additional options"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -545,7 +545,7 @@ class TestFFmpegServiceのbuild_svtav1_command:
             config=config
         )
 
-        # 複雑な追加オプションの確認
+        # Verify complex additional options
         assert '--preset' in cmd
         assert '4' in cmd
         assert '--crf' in cmd
@@ -556,8 +556,8 @@ class TestFFmpegServiceのbuild_svtav1_command:
         assert '8' in cmd
         assert '--scd' in cmd
 
-    def test_SvtAv1EncAppコマンドを構築_異なるGOPサイズ(self, ffmpeg_service, tmp_path):
-        """異なるGOPサイズでSvtAv1EncAppコマンドを構築するテスト"""
+    def test_build_svtav1_command_with_different_gop_size(self, ffmpeg_service, tmp_path):
+        """Test building a SvtAv1EncApp command with a different GOP size"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -567,7 +567,7 @@ class TestFFmpegServiceのbuild_svtav1_command:
             input_file=input_file,
             workspace_dir=workspace_dir,
             parallel_jobs=4,
-            gop_size=120,  # 異なるGOPサイズ
+            gop_size=120,  # Different GOP size
             segment_length=60
         )
 
@@ -576,17 +576,17 @@ class TestFFmpegServiceのbuild_svtav1_command:
             config=config
         )
 
-        # GOPサイズの確認
+        # Verify GOP size
         assert '--keyint' in cmd
         assert '120' in cmd
         assert '240' not in cmd
 
 
 class TestSetupSegmentLogger:
-    """setup_segment_logger関数のテスト（logging_configモジュールに移動済み）"""
+    """Tests for the setup_segment_logger function (moved to logging_config module)"""
 
-    def test_セグメントロガーを設定(self, tmp_path):
-        """セグメント専用ロガーを作成して設定するテスト"""
+    def test_setup_segment_logger(self, tmp_path):
+        """Test creating and configuring a segment-specific logger"""
         log_file = tmp_path / "segment_0.log"
         segment_idx = 0
 
@@ -595,24 +595,24 @@ class TestSetupSegmentLogger:
             log_file=log_file
         )
 
-        # ロガーの基本設定を確認
+        # Verify basic logger configuration
         assert logger.name == "av1_encoder.segment_0"
         assert logger.level == logging.DEBUG
         assert logger.propagate is False
         assert len(logger.handlers) == 1
 
-        # ハンドラの設定を確認
+        # Verify handler configuration
         handler = logger.handlers[0]
         assert isinstance(handler, logging.FileHandler)
         assert handler.level == logging.DEBUG
 
-        # クリーンアップ
+        # Cleanup
         for h in logger.handlers[:]:
             h.close()
             logger.removeHandler(h)
 
-    def test_セグメントロガーを設定_異なるインデックス(self, tmp_path):
-        """異なるセグメントインデックスでロガーを設定するテスト"""
+    def test_setup_segment_logger_different_index(self, tmp_path):
+        """Test configuring a logger with a different segment index"""
         log_file = tmp_path / "segment_5.log"
         segment_idx = 5
 
@@ -621,20 +621,20 @@ class TestSetupSegmentLogger:
             log_file=log_file
         )
 
-        # ロガー名に正しいインデックスが含まれることを確認
+        # Verify the correct index is in the logger name
         assert logger.name == "av1_encoder.segment_5"
 
-        # クリーンアップ
+        # Cleanup
         for h in logger.handlers[:]:
             h.close()
             logger.removeHandler(h)
 
-    def test_セグメントロガーを設定_ハンドラクリア(self, tmp_path):
-        """既存のハンドラをクリアしてから新しいハンドラを追加することをテスト"""
+    def test_setup_segment_logger_clears_handlers(self, tmp_path):
+        """Test that existing handlers are cleared before adding a new one"""
         log_file = tmp_path / "segment_0.log"
         segment_idx = 0
 
-        # 最初のロガーを作成
+        # Create the first logger
         logger1 = setup_segment_logger(
             segment_idx=segment_idx,
             log_file=log_file
@@ -642,37 +642,37 @@ class TestSetupSegmentLogger:
         assert len(logger1.handlers) == 1
         first_handler = logger1.handlers[0]
 
-        # 同じインデックスで再度作成（既存のハンドラがクリアされる）
+        # Create again with the same index (existing handlers should be cleared)
         logger2 = setup_segment_logger(
             segment_idx=segment_idx,
             log_file=log_file
         )
 
-        # 新しいハンドラが1つだけ存在することを確認
+        # Verify only one new handler exists
         assert len(logger2.handlers) == 1
-        # 同じロガーインスタンスが返されることを確認
+        # Verify the same logger instance is returned
         assert logger1 is logger2
 
-        # クリーンアップ
+        # Cleanup
         for h in logger2.handlers[:]:
             h.close()
             logger2.removeHandler(h)
 
 
-class TestFFmpegServiceのencode_segment:
-    """FFmpegServiceのencode_segmentメソッドのテスト"""
+class TestFFmpegServiceEncodeSegment:
+    """Tests for the encode_segment method of FFmpegService"""
 
-    def test_セグメントをエンコード_成功(self, ffmpeg_service, segment_info, encoding_config, tmp_path, mock_logger):
-        """セグメントを正常にエンコードするテスト"""
+    def test_encode_segment_success(self, ffmpeg_service, segment_info, encoding_config, tmp_path, mock_logger):
+        """Test successfully encoding a segment"""
         input_file = tmp_path / "input.mkv"
 
-        # FFmpegプロセスのモック
+        # Mock FFmpeg process
         mock_ffmpeg_process = Mock()
         mock_ffmpeg_process.stdout = Mock()
         mock_ffmpeg_process.stderr = iter([])
         mock_ffmpeg_process.wait.return_value = 0
 
-        # SvtAv1EncAppプロセスのモック
+        # Mock SvtAv1EncApp process
         mock_svtav1_process = Mock()
         mock_svtav1_process.stdout = iter([])
         mock_svtav1_process.stderr = iter(["Encoding frame 100", "Encoding complete"])
@@ -691,13 +691,13 @@ class TestFFmpegServiceのencode_segment:
 
             result = ffmpeg_service.encode_segment(segment_info, input_file, encoding_config)
 
-            # 成功を返すことを確認
+            # Verify success is returned
             assert result is True
 
-            # Popenが2回呼び出されたことを確認（FFmpeg + SvtAv1EncApp）
+            # Verify Popen was called twice (FFmpeg + SvtAv1EncApp)
             assert mock_popen.call_count == 2
 
-            # FFmpegコマンドの確認
+            # Verify FFmpeg command
             ffmpeg_call = mock_popen.call_args_list[0]
             ffmpeg_cmd = ffmpeg_call[0][0]
             assert ffmpeg_cmd[0] == 'ffmpeg'
@@ -705,12 +705,12 @@ class TestFFmpegServiceのencode_segment:
             assert '0' in ffmpeg_cmd  # start_time
             assert '-i' in ffmpeg_cmd
             assert str(input_file) in ffmpeg_cmd
-            assert '-t' in ffmpeg_cmd  # is_finalがFalseなので-tオプションがある
+            assert '-t' in ffmpeg_cmd  # -t option present because is_final is False
             assert '60' in ffmpeg_cmd  # duration
             assert '-f' in ffmpeg_cmd
             assert 'yuv4mpegpipe' in ffmpeg_cmd
 
-            # SvtAv1EncAppコマンドの確認
+            # Verify SvtAv1EncApp command
             svtav1_call = mock_popen.call_args_list[1]
             svtav1_cmd = svtav1_call[0][0]
             assert svtav1_cmd[0] == 'SvtAv1EncApp'
@@ -724,25 +724,25 @@ class TestFFmpegServiceのencode_segment:
             assert '6' in svtav1_cmd
             assert '-b' in svtav1_cmd
 
-    def test_セグメントをエンコード_最終セグメント(self, ffmpeg_service, tmp_path, encoding_config, mock_logger):
-        """最終セグメントをエンコードするテスト（-tオプションなし）"""
+    def test_encode_final_segment(self, ffmpeg_service, tmp_path, encoding_config, mock_logger):
+        """Test encoding the final segment (no -t option)"""
         segment_info = SegmentInfo(
             index=5,
             start_time=300,
             duration=60,
-            is_final=True,  # 最終セグメント
+            is_final=True,  # Final segment
             file=tmp_path / "segment_5.ivf",
             log_file=tmp_path / "segment_5.log"
         )
         input_file = tmp_path / "input.mkv"
 
-        # FFmpegプロセスのモック
+        # Mock FFmpeg process
         mock_ffmpeg_process = Mock()
         mock_ffmpeg_process.stdout = Mock()
         mock_ffmpeg_process.stderr = iter([])
         mock_ffmpeg_process.wait.return_value = 0
 
-        # SvtAv1EncAppプロセスのモック
+        # Mock SvtAv1EncApp process
         mock_svtav1_process = Mock()
         mock_svtav1_process.stdout = iter([])
         mock_svtav1_process.stderr = iter([])
@@ -763,13 +763,13 @@ class TestFFmpegServiceのencode_segment:
 
             assert result is True
 
-            # -tオプションがないことを確認（FFmpegコマンド）
+            # Verify -t option is not present (FFmpeg command)
             ffmpeg_call = mock_popen.call_args_list[0]
             ffmpeg_cmd = ffmpeg_call[0][0]
             assert '-t' not in ffmpeg_cmd
 
-    def test_セグメントをエンコード_extra_argsなし(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
-        """extra_argsなしでセグメントをエンコードするテスト"""
+    def test_encode_segment_without_extra_args(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
+        """Test encoding a segment without extra_args"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -782,13 +782,13 @@ class TestFFmpegServiceのencode_segment:
             segment_length=60
         )
 
-        # FFmpegプロセスのモック
+        # Mock FFmpeg process
         mock_ffmpeg_process = Mock()
         mock_ffmpeg_process.stdout = Mock()
         mock_ffmpeg_process.stderr = iter([])
         mock_ffmpeg_process.wait.return_value = 0
 
-        # SvtAv1EncAppプロセスのモック
+        # Mock SvtAv1EncApp process
         mock_svtav1_process = Mock()
         mock_svtav1_process.stdout = iter([])
         mock_svtav1_process.stderr = iter([])
@@ -809,17 +809,17 @@ class TestFFmpegServiceのencode_segment:
 
             assert result is True
 
-            # extra_argsがないので追加オプションが含まれていないことを確認（SvtAv1EncAppコマンド）
+            # Verify no extra options are included (SvtAv1EncApp command)
             svtav1_call = mock_popen.call_args_list[1]
             svtav1_cmd = svtav1_call[0][0]
             assert '--crf' not in svtav1_cmd
             assert '--preset' not in svtav1_cmd
-            # --keyint は自動的に追加されるため含まれる
+            # --keyint is automatically added, so it should be present
             assert '--keyint' in svtav1_cmd
             assert '240' in svtav1_cmd
 
-    def test_セグメントをエンコード_カスタムsvtav1_args(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
-        """カスタムsvtav1_argsでセグメントをエンコードするテスト"""
+    def test_encode_segment_with_custom_svtav1_args(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
+        """Test encoding a segment with custom svtav1_args"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -837,13 +837,13 @@ class TestFFmpegServiceのencode_segment:
             ]
         )
 
-        # FFmpegプロセスのモック
+        # Mock FFmpeg process
         mock_ffmpeg_process = Mock()
         mock_ffmpeg_process.stdout = Mock()
         mock_ffmpeg_process.stderr = iter([])
         mock_ffmpeg_process.wait.return_value = 0
 
-        # SvtAv1EncAppプロセスのモック
+        # Mock SvtAv1EncApp process
         mock_svtav1_process = Mock()
         mock_svtav1_process.stdout = iter([])
         mock_svtav1_process.stderr = iter([])
@@ -864,7 +864,7 @@ class TestFFmpegServiceのencode_segment:
 
             assert result is True
 
-            # カスタムオプションが含まれていることを確認（SvtAv1EncAppコマンド）
+            # Verify custom options are included (SvtAv1EncApp command)
             svtav1_call = mock_popen.call_args_list[1]
             svtav1_cmd = svtav1_call[0][0]
             assert '--pix_fmt' in svtav1_cmd
@@ -874,8 +874,8 @@ class TestFFmpegServiceのencode_segment:
             assert '--crf' in svtav1_cmd
             assert '25' in svtav1_cmd
 
-    def test_セグメントをエンコード_展開済みパラメータ(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
-        """展開済みパラメータでセグメントをエンコードするテスト"""
+    def test_encode_segment_with_pre_expanded_params(self, ffmpeg_service, segment_info, tmp_path, mock_logger):
+        """Test encoding a segment with pre-expanded parameters"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -886,17 +886,17 @@ class TestFFmpegServiceのencode_segment:
             parallel_jobs=4,
             gop_size=240,
             segment_length=60,
-            # CLI側で展開済みの形式
+            # Pre-expanded form from CLI
             svtav1_args=['--preset', '4', '--crf', '30', '--enable-qm', '1', '--qm-min', '8', '--scd', '1']
         )
 
-        # FFmpegプロセスのモック
+        # Mock FFmpeg process
         mock_ffmpeg_process = Mock()
         mock_ffmpeg_process.stdout = Mock()
         mock_ffmpeg_process.stderr = iter([])
         mock_ffmpeg_process.wait.return_value = 0
 
-        # SvtAv1EncAppプロセスのモック
+        # Mock SvtAv1EncApp process
         mock_svtav1_process = Mock()
         mock_svtav1_process.stdout = iter([])
         mock_svtav1_process.stderr = iter([])
@@ -917,7 +917,7 @@ class TestFFmpegServiceのencode_segment:
 
             assert result is True
 
-            # -svtav1-paramsが展開されていることを確認（SvtAv1EncAppコマンド）
+            # Verify -svtav1-params is expanded (SvtAv1EncApp command)
             svtav1_call = mock_popen.call_args_list[1]
             svtav1_cmd = svtav1_call[0][0]
             assert '--preset' in svtav1_cmd
@@ -929,24 +929,24 @@ class TestFFmpegServiceのencode_segment:
             assert '--qm-min' in svtav1_cmd
             assert '8' in svtav1_cmd
             assert '--scd' in svtav1_cmd
-            # 展開されているので、-svtav1-paramsそのものは含まれない
+            # Since it's expanded, -svtav1-params itself should not be present
             assert '-svtav1-params' not in svtav1_cmd
 
-    def test_セグメントをエンコード_失敗(self, ffmpeg_service, segment_info, encoding_config, tmp_path, mock_logger):
-        """セグメントのエンコードが失敗するテスト"""
+    def test_encode_segment_failure(self, ffmpeg_service, segment_info, encoding_config, tmp_path, mock_logger):
+        """Test that encoding a segment fails"""
         input_file = tmp_path / "input.mkv"
 
-        # FFmpegプロセスのモック（成功）
+        # Mock FFmpeg process (success)
         mock_ffmpeg_process = Mock()
         mock_ffmpeg_process.stdout = Mock()
         mock_ffmpeg_process.stderr = iter([])
         mock_ffmpeg_process.wait.return_value = 0
 
-        # SvtAv1EncAppプロセスのモック（失敗）
+        # Mock SvtAv1EncApp process (failure)
         mock_svtav1_process = Mock()
         mock_svtav1_process.stdout = iter([])
         mock_svtav1_process.stderr = iter(["Error message"])
-        mock_svtav1_process.wait.return_value = 1  # エラーコード
+        mock_svtav1_process.wait.return_value = 1  # Error code
 
         def popen_side_effect(cmd, **kwargs):
             if cmd[0] == 'ffmpeg':
@@ -961,20 +961,20 @@ class TestFFmpegServiceのencode_segment:
 
             result = ffmpeg_service.encode_segment(segment_info, input_file, encoding_config)
 
-            # 失敗を返すことを確認
+            # Verify failure is returned
             assert result is False
 
-    def test_セグメントをエンコード_ロガーのクリーンアップ(self, ffmpeg_service, segment_info, encoding_config, tmp_path):
-        """エンコード後にロガーのハンドラがクリーンアップされることをテスト"""
+    def test_encode_segment_logger_cleanup(self, ffmpeg_service, segment_info, encoding_config, tmp_path):
+        """Test that logger handlers are cleaned up after encoding"""
         input_file = tmp_path / "input.mkv"
 
-        # FFmpegプロセスのモック
+        # Mock FFmpeg process
         mock_ffmpeg_process = Mock()
         mock_ffmpeg_process.stdout = Mock()
         mock_ffmpeg_process.stderr = iter([])
         mock_ffmpeg_process.wait.return_value = 0
 
-        # SvtAv1EncAppプロセスのモック
+        # Mock SvtAv1EncApp process
         mock_svtav1_process = Mock()
         mock_svtav1_process.stdout = iter([])
         mock_svtav1_process.stderr = iter([])
@@ -996,8 +996,7 @@ class TestFFmpegServiceのencode_segment:
 
             ffmpeg_service.encode_segment(segment_info, input_file, encoding_config)
 
-            # クリーンアップが呼び出されたことを確認
+            # Verify cleanup was called
             mock_cleanup.assert_called_once_with(mock_logger)
-
 
 

@@ -1,1 +1,1 @@
-# テストパッケージの初期化ファイル
+# Test package initialization file

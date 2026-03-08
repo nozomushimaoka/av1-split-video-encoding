@@ -1,4 +1,4 @@
-"""S3 CLI のテスト"""
+"""Tests for S3 CLI"""
 
 import logging
 from pathlib import Path
@@ -11,50 +11,50 @@ from av1_encoder.s3.cli import main
 
 
 class TestSetupConsoleLogger:
-    """setup_console_logger関数のテスト（ログ設定モジュールに移動済み）"""
+    """Tests for the setup_console_logger function (moved to logging config module)"""
 
-    def test_ロギングが設定される(self):
-        """ロギングが正しく設定されることをテスト"""
-        # ロガーをリセット
+    def test_logging_is_configured(self):
+        """Test that logging is configured correctly"""
+        # Reset the logger
         s3_logger = logging.getLogger('av1_encoder.s3')
         s3_logger.handlers.clear()
 
         setup_console_logger('av1_encoder.s3')
 
-        # S3ロガーにハンドラーが追加されたことを確認
+        # Verify a handler was added to the S3 logger
         assert len(s3_logger.handlers) == 1
 
-        # ハンドラーがStreamHandlerであることを確認
+        # Verify the handler is a StreamHandler
         handler = s3_logger.handlers[0]
         assert isinstance(handler, logging.StreamHandler)
 
-        # ログレベルがINFOに設定されていることを確認
+        # Verify the log level is set to INFO
         assert s3_logger.level == logging.INFO
 
-        # 親ロガーへの伝播が無効化されていることを確認
+        # Verify propagation to parent logger is disabled
         assert s3_logger.propagate is False
 
-    def test_既存ハンドラがある場合はスキップ(self):
-        """既存のハンドラがある場合はスキップされることをテスト"""
-        # ロガーをリセット
+    def test_skip_when_handler_already_exists(self):
+        """Test that setup is skipped when a handler already exists"""
+        # Reset the logger
         s3_logger = logging.getLogger('av1_encoder.s3')
         s3_logger.handlers.clear()
 
-        # 最初の呼び出し
+        # First call
         setup_console_logger('av1_encoder.s3')
         assert len(s3_logger.handlers) == 1
 
-        # 2回目の呼び出し（ハンドラは追加されない）
+        # Second call (no handler should be added)
         setup_console_logger('av1_encoder.s3')
-        assert len(s3_logger.handlers) == 1  # 変わらず1つ
+        assert len(s3_logger.handlers) == 1  # still 1
 
 
-class TestMainのコマンドライン引数:
-    """CLIのコマンドライン引数のテスト"""
+class TestMainCommandLineArgs:
+    """Tests for CLI command-line arguments"""
 
-    def test_すべての引数を指定(self, tmp_path):
-        """すべての引数を指定した場合のテスト"""
-        # pending filesファイルを作成
+    def test_specify_all_args(self, tmp_path):
+        """Test specifying all arguments"""
+        # Create pending files file
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("s3://my-bucket/input/video1.mkv\n")
 
@@ -76,14 +76,14 @@ class TestMainのコマンドライン引数:
 
             result = main()
 
-            # run_batch_encodingが正しい引数で呼ばれたことを確認
+            # Verify run_batch_encoding was called with the correct arguments
             mock_run.assert_called_once_with(
                 pending_files_path=pending_files_path,
                 output_dir='s3://my-bucket/output/',
                 workspace_base=workspace_base,
                 parallel=8,
                 gop_size=240,
-                # CLI側で展開されるので、展開後の形式になる
+                # Expanded form from CLI
                 svtav1_args=['--crf', '30', '--preset', '5'],
                 ffmpeg_args=[],
                 audio_args=[],
@@ -92,9 +92,9 @@ class TestMainのコマンドライン引数:
             )
             assert result == 0
 
-    def test_音声パラメータを指定(self, tmp_path):
-        """音声パラメータを指定した場合のテスト"""
-        # pending filesファイルを作成
+    def test_specify_audio_params(self, tmp_path):
+        """Test specifying audio parameters"""
+        # Create pending files file
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("s3://my-bucket/input/video1.mkv\n")
 
@@ -117,7 +117,7 @@ class TestMainのコマンドライン引数:
 
             result = main()
 
-            # audio_argsが展開されたことを確認
+            # Verify audio_args was expanded correctly
             mock_run.assert_called_once_with(
                 pending_files_path=pending_files_path,
                 output_dir='s3://my-bucket/output/',
@@ -132,13 +132,13 @@ class TestMainのコマンドライン引数:
             )
             assert result == 0
 
-    def test_デフォルト値を使用(self, tmp_path, monkeypatch):
-        """デフォルト値を使用した場合のテスト"""
-        # pending filesファイルを作成
+    def test_use_default_values(self, tmp_path, monkeypatch):
+        """Test using default values"""
+        # Create pending files file
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("/path/to/video1.mkv\n")
 
-        # カレントディレクトリをtmp_pathに変更
+        # Change current directory to tmp_path
         monkeypatch.chdir(tmp_path)
 
         test_args = [
@@ -154,16 +154,16 @@ class TestMainのコマンドライン引数:
 
             result = main()
 
-            # デフォルト値が使用されたことを確認
+            # Verify default values were used
             mock_run.assert_called_once()
             call_kwargs = mock_run.call_args[1]
             assert call_kwargs['output_dir'] == '.'
             assert call_kwargs['workspace_base'] == Path('.')
             assert result == 0
 
-    def test_ショートオプション(self, tmp_path):
-        """ショートオプションが使用できることをテスト"""
-        # pending filesファイルを作成
+    def test_short_options(self, tmp_path):
+        """Test that short options work correctly"""
+        # Create pending files file
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("/path/to/video1.mkv\n")
 
@@ -186,7 +186,7 @@ class TestMainのコマンドライン引数:
 
             result = main()
 
-            # ショートオプションが正しく処理されたことを確認
+            # Verify short options were processed correctly
             mock_run.assert_called_once()
             call_kwargs = mock_run.call_args[1]
             assert call_kwargs['output_dir'] == '/output/dir'
@@ -195,8 +195,8 @@ class TestMainのコマンドライン引数:
             assert call_kwargs['gop_size'] == 240
             assert result == 0
 
-    def test_並列数が指定されていない場合はエラー(self, tmp_path):
-        """並列数が指定されていない場合はSystemExitが発生することをテスト"""
+    def test_error_when_parallel_not_specified(self, tmp_path):
+        """Test that SystemExit is raised when parallel count is not specified"""
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("video1.mkv\n")
 
@@ -211,8 +211,8 @@ class TestMainのコマンドライン引数:
             with pytest.raises(SystemExit):
                 main()
 
-    def test_svtav1_paramsが指定されていない場合はエラー(self, tmp_path):
-        """svtav1_paramsが指定されていない場合はSystemExitが発生することをテスト"""
+    def test_error_when_svtav1_params_not_specified(self, tmp_path):
+        """Test that SystemExit is raised when svtav1_params is not specified"""
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("video1.mkv\n")
 
@@ -228,12 +228,12 @@ class TestMainのコマンドライン引数:
                 main()
 
 
-class TestMainの実行:
-    """main関数の実行のテスト"""
+class TestMainExecution:
+    """Tests for main function execution"""
 
-    def test_処理成功時に0を返す(self, tmp_path, monkeypatch):
-        """処理が成功した場合に0を返すことをテスト"""
-        # pending filesファイルを作成
+    def test_returns_0_on_success(self, tmp_path, monkeypatch):
+        """Test that 0 is returned when processing succeeds"""
+        # Create pending files file
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("/path/to/video1.mkv\n")
 
@@ -254,9 +254,9 @@ class TestMainの実行:
 
             assert result == 0
 
-    def test_処理失敗時に1を返す(self, tmp_path, monkeypatch):
-        """処理が失敗した場合に1を返すことをテスト"""
-        # pending filesファイルを作成
+    def test_returns_1_on_failure(self, tmp_path, monkeypatch):
+        """Test that 1 is returned when processing fails"""
+        # Create pending files file
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("/path/to/video1.mkv\n")
 
@@ -277,9 +277,9 @@ class TestMainの実行:
 
             assert result == 1
 
-    def test_setup_console_loggerが呼ばれる(self, tmp_path, monkeypatch):
-        """setup_console_loggerが呼ばれることをテスト"""
-        # pending filesファイルを作成
+    def test_setup_console_logger_is_called(self, tmp_path, monkeypatch):
+        """Test that setup_console_logger is called"""
+        # Create pending files file
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("/path/to/video1.mkv\n")
 
@@ -302,12 +302,12 @@ class TestMainの実行:
             mock_setup_logging.assert_called_once_with('av1_encoder.s3', level=logging.INFO)
 
 
-class TestMainの引数型:
-    """main関数の引数の型のテスト"""
+class TestMainArgTypes:
+    """Tests for the types of main function arguments"""
 
-    def test_整数引数が正しく変換される(self, tmp_path, monkeypatch):
-        """整数引数が正しく変換されることをテスト"""
-        # pending filesファイルを作成
+    def test_integer_args_converted_correctly(self, tmp_path, monkeypatch):
+        """Test that integer arguments are converted correctly"""
+        # Create pending files file
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("/path/to/video1.mkv\n")
 
@@ -326,13 +326,13 @@ class TestMainの引数型:
 
             main()
 
-            # 整数型で呼ばれたことを確認
+            # Verify integer type was used
             call_kwargs = mock_run.call_args[1]
             assert isinstance(call_kwargs['parallel'], int)
             assert call_kwargs['parallel'] == 12
 
-    def test_不正な整数値でSystemExit(self, tmp_path):
-        """不正な整数値を指定した場合にSystemExitが発生することをテスト"""
+    def test_invalid_integer_value_raises_system_exit(self, tmp_path):
+        """Test that SystemExit is raised when an invalid integer value is specified"""
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("video1.mkv\n")
 
@@ -347,9 +347,9 @@ class TestMainの引数型:
             with pytest.raises(SystemExit):
                 main()
 
-    def test_svtav1_argsが正しくリストとして渡される(self, tmp_path, monkeypatch):
-        """svtav1_argsが正しくリストとして渡されることをテスト"""
-        # pending filesファイルを作成
+    def test_svtav1_args_passed_as_list(self, tmp_path, monkeypatch):
+        """Test that svtav1_args is passed correctly as a list"""
+        # Create pending files file
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("/path/to/video1.mkv\n")
 
@@ -368,19 +368,19 @@ class TestMainの引数型:
 
             main()
 
-            # svtav1_argsがリストで渡されたことを確認
+            # Verify svtav1_args was passed as a list
             call_kwargs = mock_run.call_args[1]
             assert isinstance(call_kwargs['svtav1_args'], list)
-            # CLI側で展開されるので、展開後の形式になる
+            # Expanded form from CLI
             assert call_kwargs['svtav1_args'] == ['--crf', '30', '--preset', '6']
 
 
-class TestMainのエッジケース:
-    """main関数のエッジケースのテスト"""
+class TestMainEdgeCases:
+    """Tests for edge cases in the main function"""
 
-    def test_負の値を持つ引数(self, tmp_path, monkeypatch):
-        """負の値を持つ引数が正しく処理されることをテスト"""
-        # pending filesファイルを作成
+    def test_negative_value_args(self, tmp_path, monkeypatch):
+        """Test that negative value arguments are processed correctly"""
+        # Create pending files file
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("/path/to/video1.mkv\n")
 
@@ -399,13 +399,13 @@ class TestMainのエッジケース:
 
             main()
 
-            # 負の値が渡されたことを確認
+            # Verify negative value was passed
             call_kwargs = mock_run.call_args[1]
             assert call_kwargs['parallel'] == -1
 
-    def test_非常に大きな値を持つ引数(self, tmp_path, monkeypatch):
-        """非常に大きな値を持つ引数が正しく処理されることをテスト"""
-        # pending filesファイルを作成
+    def test_very_large_value_args(self, tmp_path, monkeypatch):
+        """Test that very large value arguments are processed correctly"""
+        # Create pending files file
         pending_files_path = tmp_path / "pending.txt"
         pending_files_path.write_text("/path/to/video1.mkv\n")
 
@@ -424,27 +424,27 @@ class TestMainのエッジケース:
 
             main()
 
-            # 大きな値が渡されたことを確認
+            # Verify large value was passed
             call_kwargs = mock_run.call_args[1]
             assert call_kwargs['parallel'] == 1000000
 
 
-class TestMainのargparse動作:
-    """argparseの動作に関するテスト"""
+class TestMainArgparseBehavior:
+    """Tests for argparse behavior"""
 
-    def test_ヘルプオプション(self):
-        """ヘルプオプションでSystemExitが発生することをテスト"""
+    def test_help_option(self):
+        """Test that SystemExit is raised with the help option"""
         test_args = ['prog', '--help']
 
         with patch('sys.argv', test_args):
             with pytest.raises(SystemExit) as exc_info:
                 main()
 
-            # ヘルプは正常終了（コード0）
+            # Help exits normally (code 0)
             assert exc_info.value.code == 0
 
-    def test_不明なオプションでSystemExit(self):
-        """不明なオプションでSystemExitが発生することをテスト"""
+    def test_unknown_option_raises_system_exit(self):
+        """Test that SystemExit is raised with an unknown option"""
         test_args = [
             'prog',
             '--unknown-option', 'value'

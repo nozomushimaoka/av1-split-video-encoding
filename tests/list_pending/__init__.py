@@ -1,1 +1,1 @@
-"""list_pendingモジュールのテスト"""
+"""Tests for the list_pending module"""

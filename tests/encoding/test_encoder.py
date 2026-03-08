@@ -13,7 +13,7 @@ from av1_encoder.encoding.encoder import EncodingOrchestrator, _worker_init
 
 @pytest.fixture
 def encoding_config(tmp_path):
-    """テスト用のEncodingConfigを作成するフィクスチャ"""
+    """Fixture to create an EncodingConfig for testing"""
     input_file = tmp_path / "input.mkv"
     input_file.touch()
     workspace_dir = tmp_path / "workspace"
@@ -30,7 +30,7 @@ def encoding_config(tmp_path):
 
 @pytest.fixture
 def mock_workspace(tmp_path):
-    """テスト用のWorkspaceモックを作成するフィクスチャ"""
+    """Fixture to create a mock Workspace for testing"""
     work_dir = tmp_path / "workspace"
     work_dir.mkdir(exist_ok=True)
 
@@ -44,22 +44,22 @@ def mock_workspace(tmp_path):
 
 @pytest.fixture
 def mock_logger():
-    """ロガーのモックを作成するフィクスチャ"""
+    """Fixture to create a mock logger"""
     logger = Mock(spec=logging.Logger)
     return logger
 
 
 class TestWorkerInit:
-    """_worker_init関数のテスト"""
+    """Tests for the _worker_init function"""
 
-    def test_シグナルハンドラをデフォルトに戻す(self):
-        """_worker_initがシグナルハンドラをデフォルトに戻すことをテスト (Unix)"""
+    def test_reset_signal_handlers_to_default(self):
+        """Test that _worker_init resets signal handlers to default (Unix)"""
         import signal
 
         with patch('av1_encoder.encoding.encoder.get_available_signals') as mock_get_signals, \
              patch('signal.signal') as mock_signal:
 
-            # Unix環境をシミュレート
+            # Simulate Unix environment
             mock_get_signals.return_value = {
                 'SIGINT': signal.SIGINT,
                 'SIGTERM': signal.SIGTERM
@@ -67,32 +67,32 @@ class TestWorkerInit:
 
             _worker_init()
 
-            # signal.signalが2回呼ばれたことを確認（SIGINT, SIGTERM）
+            # Verify signal.signal was called twice (SIGINT, SIGTERM)
             assert mock_signal.call_count == 2
 
-    def test_シグナルハンドラをデフォルトに戻す_Windows(self):
-        """_worker_initがWindows環境で正しく動作することをテスト"""
+    def test_reset_signal_handlers_to_default_windows(self):
+        """Test that _worker_init works correctly in a Windows environment"""
         import signal
 
         with patch('av1_encoder.encoding.encoder.get_available_signals') as mock_get_signals, \
              patch('signal.signal') as mock_signal:
 
-            # Windows環境をシミュレート（SIGINTのみ）
+            # Simulate Windows environment (SIGINT only)
             mock_get_signals.return_value = {'SIGINT': signal.SIGINT}
 
             _worker_init()
 
-            # signal.signalが1回だけ呼ばれたことを確認
+            # Verify signal.signal was called only once
             assert mock_signal.call_count == 1
-            # SIGINTに対してSIG_DFLが設定されたことを確認
+            # Verify SIG_DFL was set for SIGINT
             assert mock_signal.call_args[0] == (signal.SIGINT, signal.SIG_DFL)
 
 
-class TestEncodingOrchestrator初期化:
-    """EncodingOrchestratorの初期化のテスト"""
+class TestEncodingOrchestratorInitialization:
+    """Tests for EncodingOrchestrator initialization"""
 
-    def test_初期化時に必要なコンポーネントが作成される(self, encoding_config, tmp_path):
-        """EncodingOrchestratorが必要なコンポーネントで初期化されることをテスト"""
+    def test_required_components_created_on_init(self, encoding_config, tmp_path):
+        """Test that EncodingOrchestrator is initialized with the required components"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path') as mock_make_workspace, \
              patch('av1_encoder.encoding.encoder.FFmpegService') as mock_ffmpeg_class, \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger') as mock_setup_logger:
@@ -105,27 +105,27 @@ class TestEncodingOrchestrator初期化:
 
             orchestrator = EncodingOrchestrator(encoding_config)
 
-            # configが設定されていることを確認
+            # Verify config is set
             assert orchestrator.config == encoding_config
 
-            # start_timeが設定されていることを確認
+            # Verify start_time is set
             assert isinstance(orchestrator.start_time, datetime)
 
-            # workspaceが作成されていることを確認
+            # Verify workspace is created
             mock_make_workspace.assert_called_once_with(encoding_config.workspace_dir)
             assert orchestrator.workspace == mock_workspace
 
-            # loggerが初期化されていることを確認
+            # Verify logger is initialized
             mock_setup_logger.assert_called_once_with(
                 "av1_encoder", mock_workspace.log_file, level=logging.INFO
             )
             assert orchestrator.logger == mock_logger
 
-            # FFmpegServiceが作成されていることを確認
+            # Verify FFmpegService is created
             mock_ffmpeg_class.assert_called_once()
 
-    def test_start_timeが現在時刻に近い(self, encoding_config):
-        """start_timeが現在時刻に設定されることをテスト"""
+    def test_start_time_is_close_to_current_time(self, encoding_config):
+        """Test that start_time is set to the current time"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path'), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
@@ -134,15 +134,15 @@ class TestEncodingOrchestrator初期化:
             orchestrator = EncodingOrchestrator(encoding_config)
             after = datetime.now()
 
-            # start_timeが初期化時の現在時刻であることを確認
+            # Verify start_time is the current time at initialization
             assert before <= orchestrator.start_time <= after
 
 
-class TestEncodingOrchestratorのrun:
-    """EncodingOrchestratorのrunメソッドのテスト"""
+class TestEncodingOrchestratorRun:
+    """Tests for the run method of EncodingOrchestrator"""
 
-    def test_run処理が正しい順序で実行される(self, encoding_config):
-        """runメソッドが正しい順序で各ステップを実行することをテスト"""
+    def test_run_executes_steps_in_correct_order(self, encoding_config):
+        """Test that the run method executes each step in the correct order"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path'), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'), \
@@ -153,13 +153,13 @@ class TestEncodingOrchestratorのrun:
             orchestrator = EncodingOrchestrator(encoding_config)
             orchestrator.run()
 
-            # 各メソッドが呼び出されたことを確認
+            # Verify each method was called
             mock_encode.assert_called_once()
             mock_generate_concat.assert_called_once()
             mock_completion.assert_called_once()
 
-    def test_runでエラーが発生した場合にログとraise(self, encoding_config):
-        """runメソッドでエラーが発生した場合にログに記録し例外を再raiseすることをテスト"""
+    def test_run_logs_and_reraises_on_error(self, encoding_config):
+        """Test that run logs and re-raises an exception when an error occurs"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path'), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
@@ -167,18 +167,18 @@ class TestEncodingOrchestratorのrun:
             orchestrator = EncodingOrchestrator(encoding_config)
             orchestrator.logger = Mock()
 
-            error = RuntimeError("テストエラー")
+            error = RuntimeError("test error")
 
             with patch.object(orchestrator, '_encode_segments', side_effect=error):
 
-                with pytest.raises(RuntimeError, match="テストエラー"):
+                with pytest.raises(RuntimeError, match="test error"):
                     orchestrator.run()
 
-                # logger.exceptionが呼び出されたことを確認
-                orchestrator.logger.exception.assert_called_once_with("エラー")
+                # Verify logger.exception was called
+                orchestrator.logger.exception.assert_called_once_with("Error")
 
-    def test_KeyboardInterrupt時の処理(self, encoding_config):
-        """KeyboardInterrupt時に適切に処理されることをテスト"""
+    def test_keyboard_interrupt_handling(self, encoding_config):
+        """Test that KeyboardInterrupt is handled appropriately"""
         import sys
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path'), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
@@ -187,23 +187,23 @@ class TestEncodingOrchestratorのrun:
             orchestrator = EncodingOrchestrator(encoding_config)
             orchestrator.logger = Mock()
 
-            # エンコード中にKeyboardInterrupt
+            # KeyboardInterrupt during encoding
             with patch.object(orchestrator, '_encode_segments', side_effect=KeyboardInterrupt):
                 with pytest.raises(SystemExit) as exc_info:
                     orchestrator.run()
 
-                # クロスプラットフォーム対応のため終了コード1で終了することを確認
+                # Verify exit with code 1 for cross-platform compatibility
                 assert exc_info.value.code == 1
 
-                # エラーログが出力されたことを確認
-                orchestrator.logger.error.assert_called_once_with("処理が中断されました")
+                # Verify error log was output
+                orchestrator.logger.error.assert_called_once_with("Processing interrupted")
 
 
-class TestEncodingOrchestratorのシグナルハンドラ:
-    """EncodingOrchestratorのシグナルハンドラのテスト"""
+class TestEncodingOrchestratorSignalHandler:
+    """Tests for EncodingOrchestrator signal handling"""
 
-    def test_メインプロセスでシグナル受信時にKeyboardInterruptを発生(self, encoding_config):
-        """メインプロセスでシグナル受信時にKeyboardInterruptが発生することをテスト"""
+    def test_raise_keyboard_interrupt_on_signal_in_main_process(self, encoding_config):
+        """Test that KeyboardInterrupt is raised when a signal is received in the main process"""
         import os
         import signal
 
@@ -214,19 +214,19 @@ class TestEncodingOrchestratorのシグナルハンドラ:
             orchestrator = EncodingOrchestrator(encoding_config)
             orchestrator.logger = Mock()
 
-            # メインプロセスのPIDと一致することを確認
+            # Verify PID matches the main process
             assert orchestrator._main_pid == os.getpid()
 
-            # シグナルハンドラを直接呼び出し
+            # Directly invoke signal handler
             with pytest.raises(KeyboardInterrupt):
                 orchestrator._signal_handler(signal.SIGINT, None)
 
-            # ログが出力されたことを確認
+            # Verify log was output
             orchestrator.logger.warning.assert_called_once()
-            assert "中断シグナル" in orchestrator.logger.warning.call_args[0][0]
+            assert "Interrupt signal received" in orchestrator.logger.warning.call_args[0][0]
 
-    def test_ワーカープロセスではシグナルを無視(self, encoding_config):
-        """ワーカープロセスではシグナルを無視することをテスト"""
+    def test_ignore_signal_in_worker_process(self, encoding_config):
+        """Test that signals are ignored in worker processes"""
         import signal
 
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path'), \
@@ -236,18 +236,18 @@ class TestEncodingOrchestratorのシグナルハンドラ:
             orchestrator = EncodingOrchestrator(encoding_config)
             orchestrator.logger = Mock()
 
-            # 異なるPIDに変更（ワーカープロセスをシミュレート）
+            # Change PID to simulate a worker process
             original_pid = orchestrator._main_pid
             orchestrator._main_pid = original_pid + 1000
 
-            # シグナルハンドラを呼び出しても例外は発生しない
+            # No exception should be raised when signal handler is called
             orchestrator._signal_handler(signal.SIGINT, None)
 
-            # ログが出力されていないことを確認
+            # Verify no log was output
             orchestrator.logger.warning.assert_not_called()
 
-    def test_シグナルハンドラが設定される(self, encoding_config):
-        """run実行時にシグナルハンドラが設定されることをテスト"""
+    def test_signal_handler_is_set(self, encoding_config):
+        """Test that signal handlers are set when run is executed"""
         import signal
 
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path'), \
@@ -261,20 +261,20 @@ class TestEncodingOrchestratorのシグナルハンドラ:
             orchestrator = EncodingOrchestrator(encoding_config)
             orchestrator.run()
 
-            # signal.signalが2回呼ばれたことを確認（SIGINT, SIGTERM）
+            # Verify signal.signal was called at least twice (SIGINT, SIGTERM)
             assert mock_signal.call_count >= 2
 
-            # SIGINT, SIGTERMに対してハンドラが設定されたことを確認
+            # Verify handlers were set for SIGINT and SIGTERM
             signal_calls = [call[0] for call in mock_signal.call_args_list]
             assert any(signal.SIGINT in call for call in signal_calls)
             assert any(signal.SIGTERM in call for call in signal_calls)
 
 
-class TestEncodingOrchestratorのprint_completion:
-    """EncodingOrchestratorの_print_completionメソッドのテスト"""
+class TestEncodingOrchestratorPrintCompletion:
+    """Tests for the _print_completion method of EncodingOrchestrator"""
 
-    def test_完了情報をログに出力(self, encoding_config, mock_workspace):
-        """_print_completionが処理時間をログに出力することをテスト"""
+    def test_log_completion_info(self, encoding_config, mock_workspace):
+        """Test that _print_completion logs the processing time"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
@@ -285,34 +285,34 @@ class TestEncodingOrchestratorのprint_completion:
 
             orchestrator._print_completion()
 
-            # ログが出力されたことを確認
+            # Verify log was output
             assert orchestrator.logger.info.call_count == 1
             calls = [call[0][0] for call in orchestrator.logger.info.call_args_list]
-            assert "終了" in calls[0]
-            assert "処理時間" in calls[0]
+            assert "Done" in calls[0]
+            assert "Elapsed" in calls[0]
 
 
-class TestEncodingOrchestratorのlist_segments:
-    """EncodingOrchestratorの_list_segmentsメソッドのテスト"""
+class TestEncodingOrchestratorListSegments:
+    """Tests for the _list_segments method of EncodingOrchestrator"""
 
-    def test_セグメントリストを生成(self, encoding_config, mock_workspace):
-        """_list_segmentsが正しいセグメントリストを生成することをテスト"""
+    def test_generate_segment_list(self, encoding_config, mock_workspace):
+        """Test that _list_segments generates the correct segment list"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
 
-            # get_fps() と get_gop_size() のモックを設定
+            # Set up mocks for get_fps() and get_gop_size()
             orchestrator.ffmpeg.get_fps.return_value = 24.0
-            # encoding_config に get_gop_size() メソッドがあるので、そのまま使用される（デフォルト240）
+            # encoding_config has get_gop_size() method, used directly (default 240)
 
             with patch.object(orchestrator, '_calc_num_segments', return_value=3):
                 segments = orchestrator._list_segments()
 
                 assert len(segments) == 3
 
-                # 最初のセグメント
+                # First segment
                 assert segments[0].index == 0
                 assert segments[0].start_time == 0
                 assert segments[0].duration == 60.0
@@ -320,25 +320,25 @@ class TestEncodingOrchestratorのlist_segments:
                 assert segments[0].file == mock_workspace.work_dir / "segment_0000.ivf"
                 assert segments[0].log_file == mock_workspace.work_dir / "segment_0000.log"
 
-                # 2番目のセグメント
+                # Second segment
                 assert segments[1].index == 1
                 assert segments[1].start_time == 60.0
                 assert segments[1].is_final is False
 
-                # 最終セグメント
+                # Final segment
                 assert segments[2].index == 2
                 assert segments[2].start_time == 120.0
                 assert segments[2].is_final is True
 
-    def test_単一セグメントの場合(self, encoding_config, mock_workspace):
-        """動画が1セグメントしかない場合のテスト"""
+    def test_single_segment_case(self, encoding_config, mock_workspace):
+        """Test when the video has only one segment"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
 
-            # get_fps() のモックを設定
+            # Set up mock for get_fps()
             orchestrator.ffmpeg.get_fps.return_value = 24.0
 
             with patch.object(orchestrator, '_calc_num_segments', return_value=1):
@@ -349,11 +349,11 @@ class TestEncodingOrchestratorのlist_segments:
                 assert segments[0].is_final is True
 
 
-class TestEncodingOrchestratorのcalc_num_segments:
-    """EncodingOrchestratorの_calc_num_segmentsメソッドのテスト"""
+class TestEncodingOrchestratorCalcNumSegments:
+    """Tests for the _calc_num_segments method of EncodingOrchestrator"""
 
-    def test_セグメント数を計算(self, encoding_config, mock_workspace):
-        """_calc_num_segmentsが正しくセグメント数を計算することをテスト"""
+    def test_calculate_segment_count(self, encoding_config, mock_workspace):
+        """Test that _calc_num_segments calculates the segment count correctly"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
@@ -361,23 +361,23 @@ class TestEncodingOrchestratorのcalc_num_segments:
             orchestrator = EncodingOrchestrator(encoding_config)
             orchestrator.ffmpeg = Mock()
 
-            # 180秒の動画、セグメント長60秒の場合
+            # 180 second video, 60 second segment length
             orchestrator.ffmpeg.get_duration.return_value = 180.0
             num_segments = orchestrator._calc_num_segments()
             assert num_segments == 3
 
-            # 181秒の動画、セグメント長60秒の場合（切り上げで4セグメント）
+            # 181 second video, 60 second segment length (rounds up to 4 segments)
             orchestrator.ffmpeg.get_duration.return_value = 181.0
             num_segments = orchestrator._calc_num_segments()
             assert num_segments == 4
 
-            # 60秒の動画、セグメント長60秒の場合
+            # 60 second video, 60 second segment length
             orchestrator.ffmpeg.get_duration.return_value = 60.0
             num_segments = orchestrator._calc_num_segments()
             assert num_segments == 1
 
-    def test_端数があるセグメント数の計算(self, encoding_config, mock_workspace):
-        """端数がある場合に切り上げられることをテスト"""
+    def test_fractional_segment_count_rounds_up(self, encoding_config, mock_workspace):
+        """Test that a fractional segment count is rounded up"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
@@ -385,17 +385,17 @@ class TestEncodingOrchestratorのcalc_num_segments:
             orchestrator = EncodingOrchestrator(encoding_config)
             orchestrator.ffmpeg = Mock()
 
-            # 100秒の動画、セグメント長60秒の場合（2セグメント）
+            # 100 second video, 60 second segment length (2 segments)
             orchestrator.ffmpeg.get_duration.return_value = 100.0
             num_segments = orchestrator._calc_num_segments()
             assert num_segments == 2
 
 
-class TestEncodingOrchestratorのcompleted_segments:
-    """EncodingOrchestratorの完了セグメント管理のテスト"""
+class TestEncodingOrchestratorCompletedSegments:
+    """Tests for completed segment management in EncodingOrchestrator"""
 
-    def test_completed_txtが存在しない場合は空セットを返す(self, encoding_config, mock_workspace):
-        """completed.txtが存在しない場合は空のセットを返すことをテスト"""
+    def test_return_empty_set_when_completed_txt_missing(self, encoding_config, mock_workspace):
+        """Test that an empty set is returned when completed.txt does not exist"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
@@ -404,38 +404,38 @@ class TestEncodingOrchestratorのcompleted_segments:
             result = orchestrator._load_completed_segments()
             assert result == set()
 
-    def test_completed_txtからセグメント番号を読み込む(self, encoding_config, mock_workspace):
-        """completed.txtからセグメント番号を読み込むことをテスト"""
+    def test_load_segment_numbers_from_completed_txt(self, encoding_config, mock_workspace):
+        """Test that segment numbers are loaded from completed.txt"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
 
-            # completed.txtを作成
+            # Create completed.txt
             completed_file = mock_workspace.work_dir / "completed.txt"
             completed_file.write_text("0\n2\n5\n")
 
             result = orchestrator._load_completed_segments()
             assert result == {0, 2, 5}
 
-    def test_completed_txtに空行がある場合も正しく読み込む(self, encoding_config, mock_workspace):
-        """completed.txtに空行がある場合も正しく読み込むことをテスト"""
+    def test_load_correctly_with_empty_lines_in_completed_txt(self, encoding_config, mock_workspace):
+        """Test that empty lines in completed.txt are handled correctly"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
 
             orchestrator = EncodingOrchestrator(encoding_config)
 
-            # 空行を含むcompleted.txtを作成
+            # Create completed.txt with empty lines
             completed_file = mock_workspace.work_dir / "completed.txt"
             completed_file.write_text("0\n\n2\n\n")
 
             result = orchestrator._load_completed_segments()
             assert result == {0, 2}
 
-    def test_セグメント完了をマーク(self, encoding_config, mock_workspace):
-        """_mark_segment_completedがセグメント番号を追記することをテスト"""
+    def test_mark_segment_completed(self, encoding_config, mock_workspace):
+        """Test that _mark_segment_completed appends the segment number"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
@@ -444,24 +444,24 @@ class TestEncodingOrchestratorのcompleted_segments:
 
             completed_file = mock_workspace.work_dir / "completed.txt"
 
-            # セグメント0を完了としてマーク
+            # Mark segment 0 as completed
             orchestrator._mark_segment_completed(0)
             assert completed_file.read_text() == "0\n"
 
-            # セグメント2を追加でマーク
+            # Mark segment 2 as additionally completed
             orchestrator._mark_segment_completed(2)
             assert completed_file.read_text() == "0\n2\n"
 
-            # セグメント1を追加でマーク
+            # Mark segment 1 as additionally completed
             orchestrator._mark_segment_completed(1)
             assert completed_file.read_text() == "0\n2\n1\n"
 
 
-class TestEncodingOrchestratorのencode_segments:
-    """EncodingOrchestratorの_encode_segmentsメソッドのテスト"""
+class TestEncodingOrchestratorEncodeSegments:
+    """Tests for the _encode_segments method of EncodingOrchestrator"""
 
-    def test_completed_txtに記録されたセグメントをスキップ(self, encoding_config, mock_workspace, tmp_path):
-        """completed.txtに記録されたセグメントをスキップすることをテスト"""
+    def test_skip_segments_recorded_in_completed_txt(self, encoding_config, mock_workspace, tmp_path):
+        """Test that segments recorded in completed.txt are skipped"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.VideoProbe') as mock_probe_class, \
@@ -471,12 +471,12 @@ class TestEncodingOrchestratorのencode_segments:
             orchestrator.logger = Mock()
             orchestrator.ffmpeg = Mock()
 
-            # video_probeのモック設定
+            # Set up video_probe mock
             mock_probe = mock_probe_class.return_value
             mock_probe.get_total_frames.return_value = 7200
             mock_probe.get_fps.return_value = 60.0
 
-            # セグメント0と1はcompleted.txtに記録済み
+            # Segments 0 and 1 are already recorded in completed.txt
             completed_file = mock_workspace.work_dir / "completed.txt"
             completed_file.write_text("0\n1\n")
 
@@ -489,7 +489,7 @@ class TestEncodingOrchestratorのencode_segments:
             with patch.object(orchestrator, '_list_segments', return_value=segments), \
                  patch('av1_encoder.encoding.encoder.ProcessPoolExecutor') as mock_executor_class:
 
-                # セグメント2のみエンコード
+                # Encode only segment 2
                 mock_future = Mock()
                 mock_future.result.return_value = True
 
@@ -505,17 +505,17 @@ class TestEncodingOrchestratorのencode_segments:
                 with patch('av1_encoder.encoding.encoder.as_completed', side_effect=mock_as_completed):
                     orchestrator._encode_segments()
 
-                # セグメント2のみがsubmitされたことを確認
+                # Verify only segment 2 was submitted
                 assert mock_executor.submit.call_count == 1
                 submitted_segment = mock_executor.submit.call_args[0][1]
                 assert submitted_segment.index == 2
 
-                # スキップログが出力されたことを確認
+                # Verify skip log was output
                 info_calls = [call[0][0] for call in orchestrator.logger.info.call_args_list]
-                assert any("スキップ" in call and "2セグメント" in call for call in info_calls)
+                assert any("Skipping" in call and "2" in call for call in info_calls)
 
-    def test_全セグメント完了済みの場合はスキップ(self, encoding_config, mock_workspace, tmp_path):
-        """全セグメントがcompleted.txtに記録済みの場合はエンコードをスキップすることをテスト"""
+    def test_skip_all_when_all_segments_completed(self, encoding_config, mock_workspace, tmp_path):
+        """Test that encoding is skipped when all segments are already in completed.txt"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
@@ -523,7 +523,7 @@ class TestEncodingOrchestratorのencode_segments:
             orchestrator = EncodingOrchestrator(encoding_config)
             orchestrator.logger = Mock()
 
-            # 全セグメントがcompleted.txtに記録済み
+            # All segments are recorded in completed.txt
             completed_file = mock_workspace.work_dir / "completed.txt"
             completed_file.write_text("0\n1\n")
 
@@ -537,15 +537,15 @@ class TestEncodingOrchestratorのencode_segments:
 
                 orchestrator._encode_segments()
 
-                # ProcessPoolExecutorが呼ばれなかったことを確認
+                # Verify ProcessPoolExecutor was not called
                 mock_executor_class.assert_not_called()
 
-                # 完了メッセージが出力されたことを確認
+                # Verify completion message was output
                 info_calls = [call[0][0] for call in orchestrator.logger.info.call_args_list]
-                assert any("すべてのセグメントが処理済み" in call for call in info_calls)
+                assert any("All segments are already completed" in call for call in info_calls)
 
-    def test_セグメントを並列エンコード(self, encoding_config, mock_workspace):
-        """_encode_segmentsがセグメントを並列にエンコードすることをテスト"""
+    def test_encode_segments_in_parallel(self, encoding_config, mock_workspace):
+        """Test that _encode_segments encodes segments in parallel"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.VideoProbe') as mock_probe_class, \
@@ -555,12 +555,12 @@ class TestEncodingOrchestratorのencode_segments:
             orchestrator.logger = Mock()
             orchestrator.ffmpeg = Mock()
 
-            # video_probeのモック設定
+            # Set up video_probe mock
             mock_probe = mock_probe_class.return_value
-            mock_probe.get_total_frames.return_value = 7200  # 2分 × 60fps
+            mock_probe.get_total_frames.return_value = 7200  # 2 min × 60fps
             mock_probe.get_fps.return_value = 60.0
 
-            # 3つのセグメントを返すようにモック
+            # Return 3 segments via mock
             segments = [
                 SegmentInfo(0, 0, 60, False, Path("seg0.ivf"), Path("seg0.log")),
                 SegmentInfo(1, 60, 60, False, Path("seg1.ivf"), Path("seg1.log")),
@@ -570,37 +570,37 @@ class TestEncodingOrchestratorのencode_segments:
             with patch.object(orchestrator, '_list_segments', return_value=segments), \
                  patch('av1_encoder.encoding.encoder.ProcessPoolExecutor') as mock_executor_class:
 
-                # 成功を返すモックfuture
+                # Mock futures that return success
                 mock_futures = []
                 for i in range(3):
                     mock_future = Mock()
                     mock_future.result.return_value = True
                     mock_futures.append(mock_future)
 
-                # モックexecutorの設定
+                # Set up mock executor
                 mock_executor = MagicMock()
                 mock_executor.submit.side_effect = mock_futures
                 mock_executor.__enter__.return_value = mock_executor
                 mock_executor.__exit__.return_value = False
                 mock_executor_class.return_value = mock_executor
 
-                # as_completedは引数として渡されたdictのキーを返す関数をモック
+                # Mock as_completed to return keys from the passed dict
                 def mock_as_completed(future_dict):
                     return list(future_dict.keys())
 
                 with patch('av1_encoder.encoding.encoder.as_completed', side_effect=mock_as_completed):
                     orchestrator._encode_segments()
 
-                # ProcessPoolExecutorが正しいmax_workersで作成されたことを確認
+                # Verify ProcessPoolExecutor was created with the correct max_workers
                 assert mock_executor_class.call_count == 1
                 call_kwargs = mock_executor_class.call_args[1]
                 assert call_kwargs['max_workers'] == 2
 
-                # 各セグメントに対してsubmitが呼び出されたことを確認
+                # Verify submit was called for each segment
                 assert mock_executor.submit.call_count == 3
 
-    def test_エンコード失敗時にエラーを発生(self, encoding_config, mock_workspace):
-        """エンコードが失敗した場合にRuntimeErrorが発生することをテスト"""
+    def test_raise_error_on_encode_failure(self, encoding_config, mock_workspace):
+        """Test that a RuntimeError is raised when encoding fails"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.VideoProbe') as mock_probe_class, \
@@ -610,7 +610,7 @@ class TestEncodingOrchestratorのencode_segments:
             orchestrator.logger = Mock()
             orchestrator.ffmpeg = Mock()
 
-            # video_probeのモック設定
+            # Set up video_probe mock
             mock_probe = mock_probe_class.return_value
             mock_probe.get_total_frames.return_value = 7200
             mock_probe.get_fps.return_value = 60.0
@@ -623,7 +623,7 @@ class TestEncodingOrchestratorのencode_segments:
             with patch.object(orchestrator, '_list_segments', return_value=segments), \
                  patch('av1_encoder.encoding.encoder.ProcessPoolExecutor') as mock_executor_class:
 
-                # 1つは成功、1つは失敗
+                # One succeeds, one fails
                 mock_future1 = Mock()
                 mock_future1.result.return_value = True
                 mock_future2 = Mock()
@@ -631,27 +631,27 @@ class TestEncodingOrchestratorのencode_segments:
 
                 mock_futures = [mock_future1, mock_future2]
 
-                # モックexecutorの設定
+                # Set up mock executor
                 mock_executor = MagicMock()
                 mock_executor.submit.side_effect = mock_futures
                 mock_executor.__enter__.return_value = mock_executor
                 mock_executor.__exit__.return_value = False
                 mock_executor_class.return_value = mock_executor
 
-                # as_completedは引数として渡されたdictのキーを返す関数をモック
+                # Mock as_completed to return keys from the passed dict
                 def mock_as_completed(future_dict):
                     return list(future_dict.keys())
 
                 with patch('av1_encoder.encoding.encoder.as_completed', side_effect=mock_as_completed):
-                    with pytest.raises(RuntimeError, match="セグメント.*のエンコードに失敗"):
+                    with pytest.raises(RuntimeError, match="Encoding failed for segment"):
                         orchestrator._encode_segments()
 
 
-class TestEncodingOrchestratorのgenerate_concat_file:
-    """EncodingOrchestratorの_generate_concat_fileメソッドのテスト"""
+class TestEncodingOrchestratorGenerateConcatFile:
+    """Tests for the _generate_concat_file method of EncodingOrchestrator"""
 
-    def test_concat_txtを生成(self, encoding_config, mock_workspace):
-        """_generate_concat_fileがconcat.txtを生成することをテスト"""
+    def test_generate_concat_txt(self, encoding_config, mock_workspace):
+        """Test that _generate_concat_file generates concat.txt"""
         with patch('av1_encoder.encoding.encoder.make_workspace_from_path', return_value=mock_workspace), \
              patch('av1_encoder.encoding.encoder.FFmpegService'), \
              patch('av1_encoder.encoding.encoder.setup_file_and_console_logger'):
@@ -659,7 +659,7 @@ class TestEncodingOrchestratorのgenerate_concat_file:
             orchestrator = EncodingOrchestrator(encoding_config)
             orchestrator.logger = Mock()
 
-            # セグメントファイルを作成
+            # Create segment files
             segment_files = [
                 mock_workspace.work_dir / "segment_0000.ivf",
                 mock_workspace.work_dir / "segment_0001.ivf",
@@ -671,10 +671,10 @@ class TestEncodingOrchestratorのgenerate_concat_file:
 
             orchestrator._generate_concat_file()
 
-            # concat.txtが生成されたことを確認
+            # Verify concat.txt was generated
             assert mock_workspace.concat_file.exists()
 
-            # concat.txtの内容を確認
+            # Verify content of concat.txt
             with open(mock_workspace.concat_file, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
 
@@ -684,10 +684,10 @@ class TestEncodingOrchestratorのgenerate_concat_file:
 
 
 class TestEncodingConfig:
-    """EncodingConfigデータクラスのテスト"""
+    """Tests for the EncodingConfig dataclass"""
 
-    def test_configを作成(self, tmp_path):
-        """EncodingConfigが正しく作成されることをテスト"""
+    def test_create_config(self, tmp_path):
+        """Test that EncodingConfig is created correctly"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -707,8 +707,8 @@ class TestEncodingConfig:
         assert config.svtav1_args == ['--crf', '30', '--preset', '6']
         assert config.segment_length == 120
 
-    def test_configのデフォルト値(self, tmp_path):
-        """EncodingConfigのデフォルト値が正しいことをテスト"""
+    def test_config_default_values(self, tmp_path):
+        """Test that EncodingConfig default values are correct"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -720,10 +720,10 @@ class TestEncodingConfig:
             gop_size=240        )
 
         assert config.svtav1_args == []
-        assert config.segment_length == 60  # デフォルト値
+        assert config.segment_length == 60  # default value
 
-    def test_configのsvtav1_argsを空リストに設定(self, tmp_path):
-        """svtav1_argsを明示的に空リストに設定できることをテスト"""
+    def test_set_svtav1_args_to_empty_list(self, tmp_path):
+        """Test that svtav1_args can be explicitly set to an empty list"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"

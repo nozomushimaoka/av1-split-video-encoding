@@ -1,4 +1,4 @@
-"""EncodingConfig データクラスのテスト"""
+"""Tests for the EncodingConfig dataclass"""
 
 from pathlib import Path
 import pytest
@@ -7,10 +7,10 @@ from av1_encoder.core.config import EncodingConfig
 
 
 class TestEncodingConfig:
-    """EncodingConfigデータクラスのテスト"""
+    """Tests for the EncodingConfig dataclass"""
 
-    def test_configを作成(self, tmp_path):
-        """EncodingConfigが正しく作成されることをテスト"""
+    def test_create_config(self, tmp_path):
+        """Test that EncodingConfig is created correctly"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -31,8 +31,8 @@ class TestEncodingConfig:
         assert config.segment_length == 120
         assert config.svtav1_args == ['--crf', '30', '--preset', '6']
 
-    def test_configのデフォルト値(self, tmp_path):
-        """EncodingConfigのデフォルト値が正しいことをテスト"""
+    def test_config_default_values(self, tmp_path):
+        """Test that EncodingConfig default values are correct"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -44,11 +44,11 @@ class TestEncodingConfig:
             parallel_jobs=4,
             gop_size=240        )
 
-        assert config.svtav1_args == []  # デフォルト値
-        assert config.segment_length == 60  # デフォルト値
+        assert config.svtav1_args == []  # default value
+        assert config.segment_length == 60  # default value
 
-    def test_configのsvtav1_argsを空リストに設定(self, tmp_path):
-        """svtav1_argsを明示的に空リストに設定できることをテスト"""
+    def test_set_svtav1_args_to_empty_list(self, tmp_path):
+        """Test that svtav1_args can be explicitly set to an empty list"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -64,8 +64,8 @@ class TestEncodingConfig:
 
         assert config.svtav1_args == []
 
-    def test_configのパス型が正しい(self, tmp_path):
-        """EncodingConfigのパス型フィールドがPathオブジェクトであることをテスト"""
+    def test_path_type_fields_are_correct(self, tmp_path):
+        """Test that path-type fields in EncodingConfig are Path objects"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -80,8 +80,8 @@ class TestEncodingConfig:
         assert isinstance(config.input_file, Path)
         assert isinstance(config.workspace_dir, Path)
 
-    def test_整数型フィールドが正しい(self, tmp_path):
-        """整数型フィールドが正しいことをテスト"""
+    def test_integer_type_fields_are_correct(self, tmp_path):
+        """Test that integer-type fields are correct"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -100,8 +100,8 @@ class TestEncodingConfig:
         assert config.parallel_jobs == 8
         assert config.segment_length == 120
 
-    def test_異なるsvtav1_argsを設定(self, tmp_path):
-        """異なるsvtav1_argsを設定できることをテスト"""
+    def test_set_different_svtav1_args(self, tmp_path):
+        """Test that different svtav1_args can be set"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -130,8 +130,8 @@ class TestEncodingConfig:
         assert config2.svtav1_args == svtav1_args2
         assert config1.svtav1_args != config2.svtav1_args
 
-    def test_複数のconfigインスタンスが独立している(self, tmp_path):
-        """複数のEncodingConfigインスタンスが互いに独立していることをテスト"""
+    def test_multiple_config_instances_are_independent(self, tmp_path):
+        """Test that multiple EncodingConfig instances are independent of each other"""
         input_file1 = tmp_path / "input1.mkv"
         input_file1.touch()
         input_file2 = tmp_path / "input2.mkv"
@@ -159,15 +159,15 @@ class TestEncodingConfig:
             svtav1_args=['--crf', '25']
         )
 
-        # config1を変更してもconfig2に影響しないことを確認
+        # Verify modifying config1 does not affect config2
         assert config1.input_file != config2.input_file
         assert config1.workspace_dir != config2.workspace_dir
         assert config1.parallel_jobs != config2.parallel_jobs
         assert config1.segment_length != config2.segment_length
         assert config1.svtav1_args != config2.svtav1_args
 
-    def test_segment_lengthにカスタム値を設定(self, tmp_path):
-        """segment_lengthにカスタム値を設定できることをテスト"""
+    def test_set_custom_value_for_segment_length(self, tmp_path):
+        """Test that a custom value can be set for segment_length"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -178,19 +178,19 @@ class TestEncodingConfig:
             workspace_dir=workspace_dir,
             parallel_jobs=4,
             gop_size=240,
-            segment_length=10  # カスタム値
+            segment_length=10  # custom value
         )
 
         assert config.segment_length == 10
 
-    def test_parallel_jobsに様々な値を設定(self, tmp_path):
-        """parallel_jobsに様々な値を設定できることをテスト"""
+    def test_set_various_values_for_parallel_jobs(self, tmp_path):
+        """Test that various values can be set for parallel_jobs"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
 
-        # 1スレッド
+        # 1 thread
         config1 = EncodingConfig(
             input_file=input_file,
             workspace_dir=workspace_dir,
@@ -198,7 +198,7 @@ class TestEncodingConfig:
             gop_size=240        )
         assert config1.parallel_jobs == 1
 
-        # 多数のスレッド
+        # Many threads
         config2 = EncodingConfig(
             input_file=input_file,
             workspace_dir=workspace_dir,
@@ -206,8 +206,8 @@ class TestEncodingConfig:
             gop_size=240        )
         assert config2.parallel_jobs == 32
 
-    def test_svtav1_argsに複雑なオプションを設定(self, tmp_path):
-        """svtav1_argsに複雑なオプションを設定できることをテスト"""
+    def test_set_complex_options_for_svtav1_args(self, tmp_path):
+        """Test that complex options can be set for svtav1_args"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -231,25 +231,26 @@ class TestEncodingConfig:
         assert config.svtav1_args == complex_args
         assert len(config.svtav1_args) == 8
 
-    def test_文字列パスからPathオブジェクトへの変換(self, tmp_path):
-        """文字列パスからPathオブジェクトへの変換をテスト"""
+    def test_convert_string_path_to_path_object(self, tmp_path):
+        """Test converting a string path to a Path object"""
         input_file_str = str(tmp_path / "input.mkv")
         workspace_dir_str = str(tmp_path / "workspace")
 
-        # 文字列で作成
+        # Create with strings
         config = EncodingConfig(
             input_file=Path(input_file_str),
             workspace_dir=Path(workspace_dir_str),
             parallel_jobs=4,
             gop_size=240        )
 
-        # Pathオブジェクトであることを確認
+        # Verify they are Path objects
         assert isinstance(config.input_file, Path)
         assert isinstance(config.workspace_dir, Path)
         assert str(config.input_file) == input_file_str
         assert str(config.workspace_dir) == workspace_dir_str
-    def test_gop_sizeが設定される(self, tmp_path):
-        """gop_sizeが正しく設定されることをテスト"""
+
+    def test_gop_size_is_set(self, tmp_path):
+        """Test that gop_size is set correctly"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"
@@ -264,8 +265,8 @@ class TestEncodingConfig:
 
         assert config.gop_size == 240
 
-    def test_gop_sizeにカスタム値を設定(self, tmp_path):
-        """gop_sizeにカスタム値を設定できることをテスト"""
+    def test_set_custom_value_for_gop_size(self, tmp_path):
+        """Test that a custom value can be set for gop_size"""
         input_file = tmp_path / "input.mkv"
         input_file.touch()
         workspace_dir = tmp_path / "workspace"

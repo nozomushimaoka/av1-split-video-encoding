@@ -1,4 +1,4 @@
-"""S3パイプラインのテスト"""
+"""Tests for S3 pipeline"""
 
 from unittest.mock import Mock, patch
 import pytest
@@ -9,24 +9,24 @@ from av1_encoder.s3.pipeline import S3Pipeline, ProgressCallback
 
 @pytest.fixture
 def mock_s3_client():
-    """S3クライアントのモックを作成"""
+    """Create a mock S3 client"""
     client = Mock()
     return client
 
 
 @pytest.fixture
 def s3_pipeline(mock_s3_client):
-    """S3Pipelineのフィクスチャ"""
+    """Fixture for S3Pipeline"""
     with patch('av1_encoder.s3.pipeline.boto3.client', return_value=mock_s3_client):
         pipeline = S3Pipeline()
         return pipeline
 
 
 class TestProgressCallback:
-    """ProgressCallbackクラスのテスト"""
+    """Tests for the ProgressCallback class"""
 
-    def test_初期化(self):
-        """ProgressCallbackが正しく初期化されることをテスト"""
+    def test_initialization(self):
+        """Test that ProgressCallback is initialized correctly"""
         callback = ProgressCallback("test.mkv", 5 * 1024 * 1024 * 1024)
         assert callback.filename == "test.mkv"
         assert callback.total_size == 5 * 1024 * 1024 * 1024
@@ -34,35 +34,35 @@ class TestProgressCallback:
         assert callback.accumulated == 0
         assert callback.transferred == 0
 
-    def test_カスタム更新間隔で初期化(self):
-        """カスタム更新間隔で初期化できることをテスト"""
+    def test_initialize_with_custom_update_interval(self):
+        """Test that initialization with a custom update interval works"""
         callback = ProgressCallback("test.mkv", 1000, update_interval=100)
         assert callback.update_interval == 100
 
-    def test_1GB未満の転送ではログ出力されない(self, caplog):
-        """1GB未満の転送ではログが出力されないことをテスト"""
+    def test_no_log_output_for_transfers_under_1gb(self, caplog):
+        """Test that no log is output for transfers under 1GB"""
         import logging
         caplog.set_level(logging.INFO)
 
         callback = ProgressCallback("test.mkv", 2 * 1024 * 1024 * 1024)
 
-        # 500MB転送（ログは出ない）
+        # Transfer 500MB (no log output)
         callback(500 * 1024 * 1024)
 
-        # プログレスログが出力されていないことを確認
+        # Verify no progress log was output
         progress_logs = [record for record in caplog.records if "GB" in record.message]
         assert len(progress_logs) == 0
 
-        # 内部状態の確認
+        # Check internal state
         assert callback.accumulated == 500 * 1024 * 1024
         assert callback.transferred == 500 * 1024 * 1024
 
-    def test_1GB以上の転送でログ出力(self):
-        """1GB以上の転送でログが出力されることをテスト"""
+    def test_log_output_for_transfers_over_1gb(self):
+        """Test that a log is output for transfers over 1GB"""
         import logging
         from io import StringIO
 
-        # StringIOハンドラを作成してロガーに追加
+        # Create StringIO handler and add it to the logger
         logger = logging.getLogger('av1_encoder.s3.pipeline')
         logger.setLevel(logging.INFO)
         string_io = StringIO()
@@ -73,29 +73,29 @@ class TestProgressCallback:
         try:
             callback = ProgressCallback("test.mkv", 5 * 1024 * 1024 * 1024)
 
-            # 1.5GB転送（1回ログ出力）
+            # Transfer 1.5GB (1 log output)
             callback(1.5 * 1024 * 1024 * 1024)
 
-            # ログ内容を取得
+            # Get log output
             log_output = string_io.getvalue()
 
-            # ログが出力されたことを確認
+            # Verify log was output
             assert "test.mkv" in log_output
             assert "GB" in log_output
             assert "%" in log_output
 
-            # accumulatedは1GB分減算されている
+            # accumulated is reduced by 1GB
             assert callback.accumulated == int(0.5 * 1024 * 1024 * 1024)
             assert callback.transferred == int(1.5 * 1024 * 1024 * 1024)
         finally:
             logger.removeHandler(handler)
 
-    def test_複数回の転送で累積処理(self):
-        """複数回の転送で累積が正しく処理されることをテスト"""
+    def test_accumulated_processing_over_multiple_transfers(self):
+        """Test that accumulation is handled correctly over multiple transfers"""
         import logging
         from io import StringIO
 
-        # StringIOハンドラを作成してロガーに追加
+        # Create StringIO handler and add it to the logger
         logger = logging.getLogger('av1_encoder.s3.pipeline')
         logger.setLevel(logging.INFO)
         string_io = StringIO()
@@ -106,32 +106,32 @@ class TestProgressCallback:
         try:
             callback = ProgressCallback("test.mkv", 10 * 1024 * 1024 * 1024)
 
-            # 600MB転送（ログなし）
+            # Transfer 600MB (no log)
             bytes_600mb = 600 * 1024 * 1024
             callback(bytes_600mb)
             log_output_1 = string_io.getvalue()
             assert "GB" not in log_output_1
 
-            # さらに600MB転送（合計1.2GB、ログ1回）
+            # Transfer another 600MB (total 1.2GB, 1 log output)
             callback(bytes_600mb)
             log_output_2 = string_io.getvalue()
             assert "test.mkv" in log_output_2
             assert "GB" in log_output_2
 
-            # 内部状態確認
+            # Check internal state
             assert callback.transferred == bytes_600mb * 2
-            # accumulated は 1.2GB - 1GB = 0.2GB
+            # accumulated is 1.2GB - 1GB = 0.2GB
             expected_accumulated = (bytes_600mb * 2) - (1024 * 1024 * 1024)
             assert callback.accumulated == expected_accumulated
         finally:
             logger.removeHandler(handler)
 
-    def test_flushで最終進捗を出力(self):
-        """flush時に最終進捗がログ出力されることをテスト"""
+    def test_flush_outputs_final_progress(self):
+        """Test that final progress is logged when flush is called"""
         import logging
         from io import StringIO
 
-        # StringIOハンドラを作成してロガーに追加
+        # Create StringIO handler and add it to the logger
         logger = logging.getLogger('av1_encoder.s3.pipeline')
         logger.setLevel(logging.INFO)
         string_io = StringIO()
@@ -142,43 +142,43 @@ class TestProgressCallback:
         try:
             callback = ProgressCallback("test.mkv", 3 * 1024 * 1024 * 1024)
 
-            # 500MB転送
+            # Transfer 500MB
             callback(500 * 1024 * 1024)
 
-            # flush呼び出し
+            # Call flush
             callback.flush()
 
-            # ログ内容を取得
+            # Get log output
             log_output = string_io.getvalue()
 
-            # ログが出力されたことを確認
+            # Verify log was output
             assert "test.mkv" in log_output
             assert "GB" in log_output
-            # 内容確認（0.47GB / 2.79GB程度）
+            # Verify content (approximately 0.47GB / 2.79GB)
             assert "0.4" in log_output or "0.5" in log_output
         finally:
             logger.removeHandler(handler)
 
-    def test_flush時に転送が0の場合(self, caplog):
-        """flush時に転送が0の場合でもログが出力されないことをテスト"""
+    def test_no_log_on_flush_when_transferred_is_zero(self, caplog):
+        """Test that no log is output when flush is called with zero transferred"""
         import logging
         caplog.set_level(logging.INFO)
 
         callback = ProgressCallback("test.mkv", 1000)
 
-        # 転送なしでflush
+        # Flush with no transfers
         callback.flush()
 
-        # ログが出力されていないことを確認
+        # Verify no log was output
         progress_logs = [r for r in caplog.records if "test.mkv" in r.message]
         assert len(progress_logs) == 0
 
-    def test_パーセンテージ計算(self):
-        """パーセンテージが正しく計算されることをテスト"""
+    def test_percentage_calculation(self):
+        """Test that percentage is calculated correctly"""
         import logging
         from io import StringIO
 
-        # StringIOハンドラを作成してロガーに追加
+        # Create StringIO handler and add it to the logger
         logger = logging.getLogger('av1_encoder.s3.pipeline')
         logger.setLevel(logging.INFO)
         string_io = StringIO()
@@ -189,43 +189,43 @@ class TestProgressCallback:
         try:
             callback = ProgressCallback("test.mkv", 10 * 1024 * 1024 * 1024)
 
-            # 5GB転送（50%）
+            # Transfer 5GB (50%)
             callback(5 * 1024 * 1024 * 1024)
 
-            # ログ内容を取得
+            # Get log output
             log_output = string_io.getvalue()
 
-            # パーセンテージが含まれることを確認
+            # Verify percentage is included
             assert "test.mkv" in log_output
             assert "%" in log_output
         finally:
             logger.removeHandler(handler)
 
-    def test_total_sizeが0の場合のパーセンテージ(self):
-        """total_sizeが0の場合でもエラーが発生しないことをテスト"""
+    def test_no_error_when_total_size_is_zero(self):
+        """Test that no error occurs when total_size is zero"""
         callback = ProgressCallback("test.mkv", 0)
 
-        # 例外が発生しないことを確認
+        # Verify no exception is raised
         callback(100)
         callback.flush()
 
 
-class TestS3Pipeline初期化:
-    """S3Pipelineの初期化のテスト"""
+class TestS3PipelineInitialization:
+    """Tests for S3Pipeline initialization"""
 
-    def test_s3クライアントが初期化される(self):
-        """S3クライアントが初期化されることをテスト"""
+    def test_s3_client_is_initialized(self):
+        """Test that the S3 client is initialized"""
         with patch('av1_encoder.s3.pipeline.boto3.client') as mock_boto_client:
             pipeline = S3Pipeline()
             mock_boto_client.assert_called_once_with('s3')
             assert pipeline.s3_client is not None
 
 
-class TestS3Pipelineのdownload_file:
-    """download_fileメソッドのテスト"""
+class TestS3PipelineDownloadFile:
+    """Tests for the download_file method"""
 
-    def test_ファイルをダウンロード(self, s3_pipeline, mock_s3_client, tmp_path):
-        """S3からファイルをダウンロードすることをテスト"""
+    def test_download_file(self, s3_pipeline, mock_s3_client, tmp_path):
+        """Test downloading a file from S3"""
         local_path = tmp_path / "test.mkv"
 
         mock_s3_client.head_object.return_value = {'ContentLength': 1024}
@@ -238,17 +238,17 @@ class TestS3Pipelineのdownload_file:
             Filename=str(local_path)
         )
 
-    def test_既存ファイルはスキップ(self, s3_pipeline, mock_s3_client, tmp_path):
-        """既に存在するファイルはダウンロードをスキップすることをテスト"""
+    def test_skip_existing_file(self, s3_pipeline, mock_s3_client, tmp_path):
+        """Test that download is skipped for files that already exist"""
         local_path = tmp_path / "test.mkv"
-        local_path.touch()  # ファイルを作成
+        local_path.touch()  # Create the file
 
         s3_pipeline.download_file('test-bucket', 'input/test.mkv', local_path)
 
         mock_s3_client.download_file.assert_not_called()
 
-    def test_ダウンロード失敗時に例外を発生(self, s3_pipeline, mock_s3_client, tmp_path):
-        """ダウンロードに失敗した場合に例外を発生することをテスト"""
+    def test_raises_exception_on_download_failure(self, s3_pipeline, mock_s3_client, tmp_path):
+        """Test that an exception is raised when download fails"""
         local_path = tmp_path / "test.mkv"
 
         mock_s3_client.head_object.return_value = {'ContentLength': 1024}
@@ -261,29 +261,29 @@ class TestS3Pipelineのdownload_file:
             s3_pipeline.download_file('test-bucket', 'input/test.mkv', local_path, show_progress=False)
 
 
-class TestS3Pipelineのdownload_file_async:
-    """download_file_asyncメソッドのテスト"""
+class TestS3PipelineDownloadFileAsync:
+    """Tests for the download_file_async method"""
 
-    def test_バックグラウンドダウンロードを開始(self, s3_pipeline, tmp_path):
-        """バックグラウンドでダウンロードを開始することをテスト"""
+    def test_start_background_download(self, s3_pipeline, tmp_path):
+        """Test that a background download is started"""
         local_path = tmp_path / "test.mkv"
 
         with patch.object(s3_pipeline, 'download_file') as mock_download:
             future = s3_pipeline.download_file_async('test-bucket', 'input/test.mkv', local_path)
 
-            # Futureオブジェクトが返されることを確認
+            # Verify a Future object is returned
             assert future is not None
 
-            # Futureの結果を待つとdownload_fileが呼ばれることを確認
+            # Verify download_file is called when waiting for the future's result
             future.result()
             mock_download.assert_called_once_with('test-bucket', 'input/test.mkv', local_path, show_progress=True)
 
 
-class TestS3Pipelineのupload_file:
-    """upload_fileメソッドのテスト"""
+class TestS3PipelineUploadFile:
+    """Tests for the upload_file method"""
 
-    def test_ファイルをアップロード(self, s3_pipeline, mock_s3_client, tmp_path):
-        """S3へファイルをアップロードすることをテスト"""
+    def test_upload_file(self, s3_pipeline, mock_s3_client, tmp_path):
+        """Test uploading a file to S3"""
         local_path = tmp_path / "output.mkv"
         local_path.write_text("test content")
 
@@ -295,8 +295,8 @@ class TestS3Pipelineのupload_file:
             Key='output/video1.mkv'
         )
 
-    def test_アップロード失敗時に例外を発生(self, s3_pipeline, mock_s3_client, tmp_path):
-        """アップロードに失敗した場合に例外を発生することをテスト"""
+    def test_raises_exception_on_upload_failure(self, s3_pipeline, mock_s3_client, tmp_path):
+        """Test that an exception is raised when upload fails"""
         local_path = tmp_path / "output.mkv"
         local_path.write_text("test content")
 
@@ -309,63 +309,63 @@ class TestS3Pipelineのupload_file:
             s3_pipeline.upload_file(local_path, 'test-bucket', 'output/video1.mkv', show_progress=False)
 
 
-class TestS3Pipelineのupload_file_async:
-    """upload_file_asyncメソッドのテスト"""
+class TestS3PipelineUploadFileAsync:
+    """Tests for the upload_file_async method"""
 
-    def test_バックグラウンドアップロードを開始(self, s3_pipeline, tmp_path):
-        """バックグラウンドでアップロードを開始することをテスト"""
+    def test_start_background_upload(self, s3_pipeline, tmp_path):
+        """Test that a background upload is started"""
         local_path = tmp_path / "output.mkv"
         local_path.write_text("test content")
 
         with patch.object(s3_pipeline, 'upload_file') as mock_upload:
             future = s3_pipeline.upload_file_async(local_path, 'test-bucket', 'output/video1.mkv')
 
-            # Futureオブジェクトが返されることを確認
+            # Verify a Future object is returned
             assert future is not None
 
-            # Futureの結果を待つとupload_fileが呼ばれることを確認
+            # Verify upload_file is called when waiting for the future's result
             future.result()
             mock_upload.assert_called_once_with(local_path, 'test-bucket', 'output/video1.mkv', show_progress=True)
 
 
-class TestS3Pipelineのshutdown:
-    """shutdownメソッドのテスト"""
+class TestS3PipelineShutdown:
+    """Tests for the shutdown method"""
 
-    def test_エグゼキュータをシャットダウン(self, s3_pipeline):
-        """ThreadPoolExecutorをシャットダウンすることをテスト"""
+    def test_shutdown_executor(self, s3_pipeline):
+        """Test that the ThreadPoolExecutor is shut down"""
         with patch.object(s3_pipeline.executor, 'shutdown') as mock_shutdown:
             s3_pipeline.shutdown()
             mock_shutdown.assert_called_once_with(wait=True)
 
 
-class TestS3Pipelineのコンテキストマネージャ:
-    """コンテキストマネージャとしての動作テスト"""
+class TestS3PipelineContextManager:
+    """Tests for context manager behavior"""
 
-    def test_コンテキストマネージャでshutdownが呼ばれる(self, mock_s3_client):
-        """withブロック終了時にshutdownが呼ばれることをテスト"""
+    def test_shutdown_called_on_context_exit(self, mock_s3_client):
+        """Test that shutdown is called when the with block exits"""
         with patch('av1_encoder.s3.pipeline.boto3.client', return_value=mock_s3_client):
             with patch.object(S3Pipeline, 'shutdown') as mock_shutdown:
                 with S3Pipeline() as pipeline:
                     assert pipeline.s3_client is not None
 
-                # withブロック終了後にshutdownが呼ばれたことを確認
+                # Verify shutdown was called after the with block
                 mock_shutdown.assert_called_once()
 
-    def test_コンテキストマネージャで例外発生時もshutdownが呼ばれる(self, mock_s3_client):
-        """例外発生時もshutdownが呼ばれることをテスト"""
+    def test_shutdown_called_even_on_exception(self, mock_s3_client):
+        """Test that shutdown is called even when an exception occurs"""
         with patch('av1_encoder.s3.pipeline.boto3.client', return_value=mock_s3_client):
             with patch.object(S3Pipeline, 'shutdown') as mock_shutdown:
                 try:
                     with S3Pipeline() as pipeline:
-                        raise ValueError("テスト例外")
+                        raise ValueError("test exception")
                 except ValueError:
                     pass
 
-                # 例外発生後もshutdownが呼ばれたことを確認
+                # Verify shutdown was called after the exception
                 mock_shutdown.assert_called_once()
 
-    def test_コンテキストマネージャが自身を返す(self, mock_s3_client):
-        """__enter__が自身を返すことをテスト"""
+    def test_context_manager_returns_self(self, mock_s3_client):
+        """Test that __enter__ returns itself"""
         with patch('av1_encoder.s3.pipeline.boto3.client', return_value=mock_s3_client):
             pipeline = S3Pipeline()
             result = pipeline.__enter__()

@@ -6,11 +6,11 @@ from av1_encoder.encoding.cli import main
 from av1_encoder.core.config import EncodingConfig
 
 
-class TestCLIの引数パース:
-    """CLIの引数パースのテスト"""
+class TestCLIArgParsing:
+    """Tests for CLI argument parsing"""
 
-    def test_最小限の引数でパース(self, tmp_path):
-        """入力ファイルのみ指定した場合の引数パースをテスト"""
+    def test_parse_minimum_args(self, tmp_path):
+        """Test argument parsing with only the input file specified"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
@@ -24,7 +24,7 @@ class TestCLIの引数パース:
 
             result = main()
 
-            # EncodingOrchestratorが正しい設定で呼び出されたことを確認
+            # Verify EncodingOrchestrator was called with the correct configuration
             assert mock_orchestrator_class.call_count == 1
             config = mock_orchestrator_class.call_args[0][0]
 
@@ -33,14 +33,14 @@ class TestCLIの引数パース:
             assert config.parallel_jobs == 4
             assert config.svtav1_args == ['--crf', '30']
 
-            # runが呼び出されたことを確認
+            # Verify run was called
             mock_orchestrator.run.assert_called_once()
 
-            # 成功コードを返すことを確認
+            # Verify success code is returned
             assert result == 0
 
-    def test_全ての引数を指定してパース(self, tmp_path):
-        """全ての引数を指定した場合の引数パースをテスト"""
+    def test_parse_all_args(self, tmp_path):
+        """Test argument parsing with all arguments specified"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = [
@@ -60,19 +60,19 @@ class TestCLIの引数パース:
 
             result = main()
 
-            # EncodingOrchestratorが正しい設定で呼び出されたことを確認
+            # Verify EncodingOrchestrator was called with the correct configuration
             config = mock_orchestrator_class.call_args[0][0]
 
             assert config.input_file == Path('video.mkv')
             assert config.workspace_dir == workspace
             assert config.parallel_jobs == 8
-            # CLI側で展開されるので、展開後の形式になる
+            # Expanded form from CLI
             assert config.svtav1_args == ['--crf', '30', '--preset', '6', '--g', '240']
 
             assert result == 0
 
-    def test_短縮オプションでパラレルを指定(self, tmp_path):
-        """短縮オプション -l でparallel_jobsを指定できることをテスト"""
+    def test_specify_parallel_with_short_option(self, tmp_path):
+        """Test that parallel_jobs can be specified with the short option -l"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = ['prog', 'input.mkv', str(workspace), '-l', '16', '--gop', '240', '--svtav1-params', 'crf=30']
@@ -90,8 +90,8 @@ class TestCLIの引数パース:
             assert config.parallel_jobs == 16
             assert result == 0
 
-    def test_一部のオプションのみ指定(self, tmp_path):
-        """一部のオプションのみを指定した場合のテスト"""
+    def test_parse_with_only_some_options(self, tmp_path):
+        """Test parsing with only some options specified"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = [
@@ -115,16 +115,16 @@ class TestCLIの引数パース:
 
             assert config.input_file == Path('test.mkv')
             assert config.parallel_jobs == 4
-            # CLI側で展開されるので、展開後の形式になる
+            # Expanded form from CLI
             assert config.svtav1_args == ['--crf', '25']
             assert result == 0
 
 
-class TestCLIのmain関数:
-    """CLIのmain関数のテスト"""
+class TestCLIMainFunction:
+    """Tests for the CLI main function"""
 
-    def test_エンコード成功時に0を返す(self, tmp_path):
-        """エンコードが成功した場合に0を返すことをテスト"""
+    def test_returns_0_on_encode_success(self, tmp_path):
+        """Test that 0 is returned when encoding succeeds"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
@@ -140,8 +140,8 @@ class TestCLIのmain関数:
 
             assert result == 0
 
-    def test_エンコード失敗時に1を返す(self, tmp_path):
-        """エンコードが失敗した場合に1を返すことをテスト"""
+    def test_returns_1_on_encode_failure(self, tmp_path):
+        """Test that 1 is returned when encoding fails"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
@@ -151,14 +151,14 @@ class TestCLIのmain関数:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
-            mock_orchestrator.run.side_effect = RuntimeError("エンコードエラー")
+            mock_orchestrator.run.side_effect = RuntimeError("encoding error")
 
             result = main()
 
             assert result == 1
 
-    def test_例外が発生しても1を返す(self, tmp_path):
-        """任意の例外が発生した場合に1を返すことをテスト"""
+    def test_returns_1_on_any_exception(self, tmp_path):
+        """Test that 1 is returned when any exception occurs"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
@@ -168,14 +168,14 @@ class TestCLIのmain関数:
 
             mock_orchestrator = Mock()
             mock_orchestrator_class.return_value = mock_orchestrator
-            mock_orchestrator.run.side_effect = Exception("予期しないエラー")
+            mock_orchestrator.run.side_effect = Exception("unexpected error")
 
             result = main()
 
             assert result == 1
 
-    def test_orchestratorのrunが呼び出される(self, tmp_path):
-        """orchestrator.run()が呼び出されることをテスト"""
+    def test_orchestrator_run_is_called(self, tmp_path):
+        """Test that orchestrator.run() is called"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
@@ -191,11 +191,11 @@ class TestCLIのmain関数:
             mock_orchestrator.run.assert_called_once()
 
 
-class TestCLIのEncodingConfig作成:
-    """CLIからEncodingConfigを作成するテスト"""
+class TestCLIEncodingConfigCreation:
+    """Tests for creating EncodingConfig from CLI"""
 
-    def test_EncodingConfigが正しく作成される(self, tmp_path):
-        """CLIの引数からEncodingConfigが正しく作成されることをテスト"""
+    def test_encoding_config_created_correctly(self, tmp_path):
+        """Test that EncodingConfig is created correctly from CLI arguments"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = [
@@ -214,7 +214,7 @@ class TestCLIのEncodingConfig作成:
 
             main()
 
-            # EncodingConfigのインスタンスが作成されたことを確認
+            # Verify EncodingConfig instance was created
             assert mock_orchestrator_class.call_count == 1
             config = mock_orchestrator_class.call_args[0][0]
 
@@ -222,11 +222,11 @@ class TestCLIのEncodingConfig作成:
             assert config.input_file == Path('my_video.mkv')
             assert config.workspace_dir == workspace
             assert config.parallel_jobs == 12
-            # CLI側で展開されるので、展開後の形式になる
+            # Expanded form from CLI
             assert config.svtav1_args == ['--crf', '28', '--preset', '5', '--g', '120']
 
-    def test_input_fileがPathオブジェクトに変換される(self, tmp_path):
-        """input_file引数がPathオブジェクトに変換されることをテスト"""
+    def test_input_file_converted_to_path_object(self, tmp_path):
+        """Test that the input_file argument is converted to a Path object"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = ['prog', 'test/path/to/video.mkv', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
@@ -244,11 +244,11 @@ class TestCLIのEncodingConfig作成:
             assert config.input_file == Path('test/path/to/video.mkv')
 
 
-class TestCLIのデフォルト値:
-    """CLIのデフォルト値のテスト"""
+class TestCLIDefaultValues:
+    """Tests for CLI default values"""
 
-    def test_parallelのデフォルト値はNone(self, tmp_path):
-        """parallelのデフォルト値がNoneであることをテスト"""
+    def test_parallel_default_is_none(self, tmp_path):
+        """Test that the default value of parallel is None"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=30']
@@ -264,8 +264,8 @@ class TestCLIのデフォルト値:
             config = mock_orchestrator_class.call_args[0][0]
             assert config.parallel_jobs == 4
 
-    def test_svtav1_paramsが必須である(self, tmp_path):
-        """-svtav1-paramsが必須パラメータであることをテスト"""
+    def test_svtav1_params_is_required(self, tmp_path):
+        """Test that -svtav1-params is a required parameter"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240']
@@ -275,19 +275,19 @@ class TestCLIのデフォルト値:
                 main()
 
 
-class TestCLIのargparse動作:
-    """argparseの動作に関するテスト"""
+class TestCLIArgparseBehavior:
+    """Tests for argparse behavior"""
 
-    def test_引数なしでヘルプが表示される(self):
-        """引数なしで実行した場合にSystemExitが発生することをテスト"""
+    def test_system_exit_with_no_args(self):
+        """Test that SystemExit is raised when no arguments are provided"""
         test_args = ['prog']
 
         with patch('sys.argv', test_args):
             with pytest.raises(SystemExit):
                 main()
 
-    def test_整数型の引数に文字列を指定してSystemExit(self, tmp_path):
-        """整数型の引数に文字列を指定した場合にSystemExitが発生することをテスト"""
+    def test_system_exit_with_string_for_integer_arg(self, tmp_path):
+        """Test that SystemExit is raised when a string is given for an integer argument"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = ['prog', 'input.mkv', str(workspace), '--parallel', 'not-a-number', '--gop', '240']
@@ -297,11 +297,11 @@ class TestCLIのargparse動作:
                 main()
 
 
-class TestCLIの引数型:
-    """CLIの引数の型に関するテスト"""
+class TestCLIArgTypes:
+    """Tests for CLI argument types"""
 
-    def test_整数引数が正しく変換される(self, tmp_path):
-        """整数引数が正しく変換されることをテスト"""
+    def test_integer_args_converted_correctly(self, tmp_path):
+        """Test that integer arguments are converted correctly"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = [
@@ -325,8 +325,8 @@ class TestCLIの引数型:
             assert isinstance(config.parallel_jobs, int)
             assert config.parallel_jobs == 10
 
-    def test_文字列引数が正しく処理される(self, tmp_path):
-        """文字列引数が正しく処理されることをテスト"""
+    def test_string_args_handled_correctly(self, tmp_path):
+        """Test that string arguments are handled correctly"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = [
@@ -350,11 +350,11 @@ class TestCLIの引数型:
             assert config.input_file == Path('path/to/input.mkv')
 
 
-class TestCLIのエッジケース:
-    """CLIのエッジケースのテスト"""
+class TestCLIEdgeCases:
+    """Tests for CLI edge cases"""
 
-    def test_負の値を持つ引数(self, tmp_path):
-        """負の値を持つ引数が正しく処理されることをテスト"""
+    def test_negative_value_args(self, tmp_path):
+        """Test that negative value arguments are handled correctly"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '-1', '--gop', '240', '--svtav1-params', 'crf=30']
@@ -368,11 +368,11 @@ class TestCLIのエッジケース:
             main()
 
             config = mock_orchestrator_class.call_args[0][0]
-            # argparseは負の値を許可するので、-1が設定される
+            # argparse allows negative values, so -1 should be set
             assert config.parallel_jobs == -1
 
-    def test_svtav1_argsが正しく処理される(self, tmp_path):
-        """svtav1_argsが正しく処理されることをテスト"""
+    def test_svtav1_args_handled_correctly(self, tmp_path):
+        """Test that svtav1_args is handled correctly"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         test_args = ['prog', 'input.mkv', str(workspace), '--parallel', '4', '--gop', '240', '--svtav1-params', 'crf=0,preset=0']
@@ -386,11 +386,11 @@ class TestCLIのエッジケース:
             main()
 
             config = mock_orchestrator_class.call_args[0][0]
-            # CLI側で展開されるので、展開後の形式になる
+            # Expanded form from CLI
             assert config.svtav1_args == ['--crf', '0', '--preset', '0']
 
-    def test_非常に長いファイルパス(self, tmp_path):
-        """非常に長いファイルパスが正しく処理されることをテスト"""
+    def test_very_long_file_path(self, tmp_path):
+        """Test that very long file paths are handled correctly"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         long_path = 'a' * 200 + '.mkv'
@@ -407,8 +407,8 @@ class TestCLIのエッジケース:
             config = mock_orchestrator_class.call_args[0][0]
             assert config.input_file == Path(long_path)
 
-    def test_特殊文字を含むファイル名(self, tmp_path):
-        """特殊文字を含むファイル名が正しく処理されることをテスト"""
+    def test_filename_with_special_chars(self, tmp_path):
+        """Test that filenames with special characters are handled correctly"""
         workspace = tmp_path / 'workspace'
         workspace.mkdir()
         special_filename = 'test-file_123 (copy).mkv'
@@ -424,4 +424,3 @@ class TestCLIのエッジケース:
 
             config = mock_orchestrator_class.call_args[0][0]
             assert config.input_file == Path(special_filename)
-

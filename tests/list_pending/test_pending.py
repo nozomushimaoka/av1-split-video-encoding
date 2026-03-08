@@ -1,4 +1,4 @@
-"""未処理ファイル一覧取得機能のテスト"""
+"""Tests for the pending file listing feature"""
 
 from pathlib import Path
 from unittest.mock import Mock
@@ -13,16 +13,16 @@ from av1_encoder.list_pending.pending import (
 
 @pytest.fixture
 def mock_s3_client():
-    """S3クライアントのモックを作成"""
+    """Create a mock S3 client"""
     client = Mock()
     return client
 
 
-class Testのlist_s3_objects:
-    """list_s3_objects関数のテスト"""
+class TestListS3Objects:
+    """Tests for the list_s3_objects function"""
 
-    def test_オブジェクト一覧を取得(self, mock_s3_client):
-        """S3からオブジェクト一覧を取得することをテスト"""
+    def test_get_object_list(self, mock_s3_client):
+        """Test getting a list of objects from S3"""
         mock_s3_client.list_objects_v2.return_value = {
             'Contents': [
                 {'Key': 'input/video1.mkv'},
@@ -44,8 +44,8 @@ class Testのlist_s3_objects:
             Prefix='input/'
         )
 
-    def test_相対パス全体を保持(self, mock_s3_client):
-        """prefixを除いた相対パス全体を保持することをテスト"""
+    def test_preserve_full_relative_path(self, mock_s3_client):
+        """Test that the full relative path (excluding prefix) is preserved"""
         mock_s3_client.list_objects_v2.return_value = {
             'Contents': [
                 {'Key': 'input/subdir/video1.mkv'},
@@ -57,31 +57,31 @@ class Testのlist_s3_objects:
         files = list_s3_objects(mock_s3_client, 'test-bucket', 'input/')
 
         assert len(files) == 2
-        # 相対パス全体が含まれる
+        # Full relative path is included
         assert 'subdir/video1.mkv' in files
         assert 'another/subdir/video2.mkv' in files
-        # ファイル名のみは含まれない
+        # Filename only is not included
         assert 'video1.mkv' not in files
         assert 'video2.mkv' not in files
 
-    def test_オブジェクトがない場合は空セットを返す(self, mock_s3_client):
-        """オブジェクトがない場合は空セットを返すことをテスト"""
+    def test_return_empty_set_when_no_objects(self, mock_s3_client):
+        """Test that an empty set is returned when there are no objects"""
         mock_s3_client.list_objects_v2.return_value = {}
 
         files = list_s3_objects(mock_s3_client, 'test-bucket', 'input/')
 
         assert files == set()
 
-    def test_Contentsがない場合は空セットを返す(self, mock_s3_client):
-        """Contentsキーがない場合は空セットを返すことをテスト"""
+    def test_return_empty_set_when_no_contents_key(self, mock_s3_client):
+        """Test that an empty set is returned when the Contents key is missing"""
         mock_s3_client.list_objects_v2.return_value = {'IsTruncated': False}
 
         files = list_s3_objects(mock_s3_client, 'test-bucket', 'input/')
 
         assert files == set()
 
-    def test_同名ファイルが異なるフォルダにある場合(self, mock_s3_client):
-        """同じファイル名が異なるフォルダにある場合、別ファイルとして扱うことをテスト"""
+    def test_same_name_files_in_different_folders_are_distinct(self, mock_s3_client):
+        """Test that files with the same name in different folders are treated as separate files"""
         mock_s3_client.list_objects_v2.return_value = {
             'Contents': [
                 {'Key': 'input/dir1/video.mkv'},
@@ -92,15 +92,15 @@ class Testのlist_s3_objects:
 
         files = list_s3_objects(mock_s3_client, 'test-bucket', 'input/')
 
-        # 相対パスが異なるので2つのファイルとして扱われる
+        # Different relative paths, so treated as 2 files
         assert len(files) == 2
         assert 'dir1/video.mkv' in files
         assert 'dir2/video.mkv' in files
 
-    def test_ページネーション対応(self, mock_s3_client):
-        """複数ページの結果を正しく取得することをテスト"""
-        # 1ページ目（続きあり）
-        # 2ページ目（続きなし）
+    def test_pagination_support(self, mock_s3_client):
+        """Test that multiple pages of results are retrieved correctly"""
+        # Page 1 (has more)
+        # Page 2 (no more)
         mock_s3_client.list_objects_v2.side_effect = [
             {
                 'Contents': [
@@ -121,25 +121,25 @@ class Testのlist_s3_objects:
 
         files = list_s3_objects(mock_s3_client, 'test-bucket', 'input/')
 
-        # すべてのページからファイルを取得
+        # Retrieve files from all pages
         assert len(files) == 4
         assert 'video1.mkv' in files
         assert 'video2.mkv' in files
         assert 'video3.mkv' in files
         assert 'video4.mkv' in files
 
-        # 2回呼ばれることを確認
+        # Verify called twice
         assert mock_s3_client.list_objects_v2.call_count == 2
-        # 2回目の呼び出しでContinuationTokenが渡されることを確認
+        # Verify ContinuationToken was passed in the second call
         second_call_kwargs = mock_s3_client.list_objects_v2.call_args_list[1][1]
         assert second_call_kwargs['ContinuationToken'] == 'token123'
 
-    def test_ディレクトリエントリを除外(self, mock_s3_client):
-        """末尾が/のディレクトリエントリを除外することをテスト"""
+    def test_exclude_directory_entries(self, mock_s3_client):
+        """Test that directory entries (ending with /) are excluded"""
         mock_s3_client.list_objects_v2.return_value = {
             'Contents': [
-                {'Key': 'input/'},  # ディレクトリエントリ
-                {'Key': 'input/subdir/'},  # ディレクトリエントリ
+                {'Key': 'input/'},  # Directory entry
+                {'Key': 'input/subdir/'},  # Directory entry
                 {'Key': 'input/video1.mkv'},
                 {'Key': 'input/subdir/video2.mkv'},
             ],
@@ -148,21 +148,21 @@ class Testのlist_s3_objects:
 
         files = list_s3_objects(mock_s3_client, 'test-bucket', 'input/')
 
-        # ディレクトリエントリは含まれない
+        # Directory entries should not be included
         assert len(files) == 2
         assert 'video1.mkv' in files
         assert 'subdir/video2.mkv' in files
-        # ディレクトリエントリは含まれない
+        # Directory entries should not be included
         assert '' not in files
         assert 'subdir/' not in files
 
 
-class Testのlist_local_files:
-    """list_local_files関数のテスト"""
+class TestListLocalFiles:
+    """Tests for the list_local_files function"""
 
-    def test_ファイル一覧を取得(self, tmp_path):
-        """ローカルディレクトリからファイル一覧を取得することをテスト"""
-        # テスト用ファイルを作成
+    def test_get_file_list(self, tmp_path):
+        """Test getting a list of files from a local directory"""
+        # Create test files
         (tmp_path / "video1.mkv").touch()
         (tmp_path / "video2.mkv").touch()
         (tmp_path / "video3.mkv").touch()
@@ -174,8 +174,8 @@ class Testのlist_local_files:
         assert 'video2.mkv' in files
         assert 'video3.mkv' in files
 
-    def test_サブディレクトリ内のファイルも取得(self, tmp_path):
-        """サブディレクトリ内のファイルも取得することをテスト"""
+    def test_get_files_in_subdirectories(self, tmp_path):
+        """Test that files in subdirectories are also retrieved"""
         subdir = tmp_path / "subdir"
         subdir.mkdir()
         (subdir / "video1.mkv").touch()
@@ -189,28 +189,28 @@ class Testのlist_local_files:
         assert 'subdir/video1.mkv' in files
         assert 'another/subdir/video2.mkv' in files
 
-    def test_ディレクトリが存在しない場合は空セット(self, tmp_path):
-        """存在しないディレクトリの場合は空セットを返すことをテスト"""
+    def test_return_empty_set_for_nonexistent_directory(self, tmp_path):
+        """Test that an empty set is returned for a directory that does not exist"""
         nonexistent = tmp_path / "nonexistent"
 
         files = list_local_files(nonexistent)
 
         assert files == set()
 
-    def test_空のディレクトリは空セット(self, tmp_path):
-        """空のディレクトリの場合は空セットを返すことをテスト"""
+    def test_empty_directory_returns_empty_set(self, tmp_path):
+        """Test that an empty directory returns an empty set"""
         files = list_local_files(tmp_path)
 
         assert files == set()
 
 
-class Testのcalculate_pending_files:
-    """calculate_pending_files関数のテスト"""
+class TestCalculatePendingFiles:
+    """Tests for the calculate_pending_files function"""
 
-    def test_S3の未処理ファイルを計算(self, mock_s3_client):
-        """S3の未処理ファイルを正しく計算することをテスト"""
-        # 1回目の呼び出し(input/)
-        # 2回目の呼び出し(output/)
+    def test_calculate_s3_pending_files(self, mock_s3_client):
+        """Test that S3 pending files are calculated correctly"""
+        # First call (input/)
+        # Second call (output/)
         mock_s3_client.list_objects_v2.side_effect = [
             {
                 'Contents': [
@@ -237,17 +237,17 @@ class Testのcalculate_pending_files:
         )
 
         assert len(pending) == 2
-        # 絶対パス（S3 URI）で返される
+        # Returned as absolute paths (S3 URIs)
         assert 's3://test-bucket/input/video3.mkv' in pending
         assert 's3://test-bucket/input/video4.mkv' in pending
-        # ソートされていることを確認
+        # Verify sorted
         assert pending == sorted(pending)
 
-        # list_objects_v2が2回呼ばれることを確認
+        # Verify list_objects_v2 was called twice
         assert mock_s3_client.list_objects_v2.call_count == 2
 
-    def test_すべて処理済みの場合は空リスト(self, mock_s3_client):
-        """すべて処理済みの場合は空リストを返すことをテスト"""
+    def test_return_empty_list_when_all_processed(self, mock_s3_client):
+        """Test that an empty list is returned when all files have been processed"""
         mock_s3_client.list_objects_v2.side_effect = [
             {
                 'Contents': [
@@ -273,8 +273,8 @@ class Testのcalculate_pending_files:
 
         assert pending == []
 
-    def test_出力ファイルがない場合は全て未処理(self, mock_s3_client):
-        """出力ファイルがない場合は全て未処理として返すことをテスト"""
+    def test_return_all_as_pending_when_no_output_files(self, mock_s3_client):
+        """Test that all files are returned as pending when there are no output files"""
         mock_s3_client.list_objects_v2.side_effect = [
             {
                 'Contents': [
@@ -283,7 +283,7 @@ class Testのcalculate_pending_files:
                 ],
                 'IsTruncated': False
             },
-            {}  # 出力ファイルなし
+            {}  # No output files
         ]
 
         pending = calculate_pending_files(
@@ -296,8 +296,8 @@ class Testのcalculate_pending_files:
         assert 's3://test-bucket/input/video1.mkv' in pending
         assert 's3://test-bucket/input/video2.mkv' in pending
 
-    def test_mkv拡張子を正しく処理(self, mock_s3_client):
-        """.mkv拡張子を正しく処理することをテスト"""
+    def test_handle_mkv_extension_correctly(self, mock_s3_client):
+        """Test that .mkv extensions are handled correctly"""
         mock_s3_client.list_objects_v2.side_effect = [
             {
                 'Contents': [
@@ -308,7 +308,7 @@ class Testのcalculate_pending_files:
             },
             {
                 'Contents': [
-                    {'Key': 'output/video1.mkv'},  # 拡張子付き
+                    {'Key': 'output/video1.mkv'},  # With extension
                 ],
                 'IsTruncated': False
             }
@@ -320,12 +320,12 @@ class Testのcalculate_pending_files:
             mock_s3_client
         )
 
-        # video1はベース名で比較されるため処理済みと判定される
+        # video1 is compared by base name, so it is treated as processed
         assert len(pending) == 1
         assert 's3://test-bucket/input/video2.mkv' in pending
 
-    def test_結果がソートされる(self, mock_s3_client):
-        """結果がアルファベット順にソートされることをテスト"""
+    def test_results_are_sorted(self, mock_s3_client):
+        """Test that results are sorted alphabetically"""
         mock_s3_client.list_objects_v2.side_effect = [
             {
                 'Contents': [
@@ -350,10 +350,10 @@ class Testのcalculate_pending_files:
             's3://test-bucket/input/zebra.mkv'
         ]
 
-    def test_入力ファイルがない場合(self, mock_s3_client):
-        """入力ファイルがない場合のテスト"""
+    def test_no_input_files(self, mock_s3_client):
+        """Test when there are no input files"""
         mock_s3_client.list_objects_v2.side_effect = [
-            {},  # 入力ファイルなし
+            {},  # No input files
             {}
         ]
 
@@ -363,11 +363,11 @@ class Testのcalculate_pending_files:
             mock_s3_client
         )
 
-        # 入力ファイルがない場合は空リストを返す
+        # Return empty list when there are no input files
         assert pending == []
 
-    def test_ベース名で比較する(self, mock_s3_client):
-        """ベース名(.mkv除去後)で比較することをテスト"""
+    def test_compare_by_base_name(self, mock_s3_client):
+        """Test that comparison is done by base name (after removing .mkv)"""
         mock_s3_client.list_objects_v2.side_effect = [
             {
                 'Contents': [
@@ -389,11 +389,11 @@ class Testのcalculate_pending_files:
             mock_s3_client
         )
 
-        # ベース名が同じなので処理済みと判定される
+        # Same base name, so treated as processed
         assert pending == []
 
-    def test_出力ファイルに余分なファイルがある(self, mock_s3_client):
-        """出力に入力にないファイルがある場合をテスト"""
+    def test_extra_output_files_are_ignored(self, mock_s3_client):
+        """Test that extra output files not in input are ignored"""
         mock_s3_client.list_objects_v2.side_effect = [
             {
                 'Contents': [
@@ -404,8 +404,8 @@ class Testのcalculate_pending_files:
             {
                 'Contents': [
                     {'Key': 'output/video1.mkv'},
-                    {'Key': 'output/video2.mkv'},  # 入力にない
-                    {'Key': 'output/extra.mkv'},   # 入力にない
+                    {'Key': 'output/video2.mkv'},  # Not in input
+                    {'Key': 'output/extra.mkv'},   # Not in input
                 ],
                 'IsTruncated': False
             }
@@ -417,11 +417,11 @@ class Testのcalculate_pending_files:
             mock_s3_client
         )
 
-        # video1は処理済み、余分な出力ファイルは無視される
+        # video1 is processed, extra output files are ignored
         assert pending == []
 
-    def test_サブフォルダ内の同名ファイルを別ファイルとして扱う(self, mock_s3_client):
-        """サブフォルダ内の同名ファイルを別ファイルとして正しく扱うことをテスト"""
+    def test_same_name_files_in_subfolders_are_treated_as_distinct(self, mock_s3_client):
+        """Test that files with the same name in subfolders are treated as separate files"""
         mock_s3_client.list_objects_v2.side_effect = [
             {
                 'Contents': [
@@ -433,7 +433,7 @@ class Testのcalculate_pending_files:
             },
             {
                 'Contents': [
-                    {'Key': 'output/folder1/video.mkv'},  # 処理済み
+                    {'Key': 'output/folder1/video.mkv'},  # Processed
                 ],
                 'IsTruncated': False
             }
@@ -445,15 +445,15 @@ class Testのcalculate_pending_files:
             mock_s3_client
         )
 
-        # folder1/video.mkvは処理済み、残り2つは未処理
+        # folder1/video.mkv is processed, the other 2 are pending
         assert len(pending) == 2
         assert 's3://test-bucket/input/folder2/video.mkv' in pending
         assert 's3://test-bucket/input/folder3/video.mkv' in pending
-        # folder1/video.mkvは含まれない
+        # folder1/video.mkv should not be included
         assert 's3://test-bucket/input/folder1/video.mkv' not in pending
 
-    def test_深いサブフォルダ構造(self, mock_s3_client):
-        """深いサブフォルダ構造を正しく処理することをテスト"""
+    def test_deep_subfolder_structure(self, mock_s3_client):
+        """Test that deep subfolder structures are handled correctly"""
         mock_s3_client.list_objects_v2.side_effect = [
             {
                 'Contents': [
@@ -476,46 +476,46 @@ class Testのcalculate_pending_files:
             mock_s3_client
         )
 
-        # a/b/c/video1.mkvは処理済み、x/y/z/video2.mkvは未処理
+        # a/b/c/video1.mkv is processed, x/y/z/video2.mkv is pending
         assert len(pending) == 1
         assert 's3://test-bucket/input/x/y/z/video2.mkv' in pending
 
-    def test_ローカルファイルの未処理ファイルを計算(self, tmp_path):
-        """ローカルファイルの未処理ファイルを計算することをテスト"""
+    def test_calculate_local_pending_files(self, tmp_path):
+        """Test that local file pending files are calculated correctly"""
         input_dir = tmp_path / "input"
         output_dir = tmp_path / "output"
         input_dir.mkdir()
         output_dir.mkdir()
 
-        # 入力ファイルを作成
+        # Create input files
         (input_dir / "video1.mkv").touch()
         (input_dir / "video2.mkv").touch()
         (input_dir / "video3.mkv").touch()
 
-        # 出力ファイルを作成（一部処理済み）
+        # Create output files (some already processed)
         (output_dir / "video1.mkv").touch()
 
         pending = calculate_pending_files(str(input_dir), str(output_dir))
 
         assert len(pending) == 2
-        # 絶対パスで返される
+        # Returned as absolute paths
         assert str(input_dir.resolve() / "video2.mkv") in pending
         assert str(input_dir.resolve() / "video3.mkv") in pending
 
-    def test_ローカルサブフォルダ構造(self, tmp_path):
-        """ローカルファイルのサブフォルダ構造を正しく処理することをテスト"""
+    def test_local_subfolder_structure(self, tmp_path):
+        """Test that local file subfolder structures are handled correctly"""
         input_dir = tmp_path / "input"
         output_dir = tmp_path / "output"
         input_dir.mkdir()
         output_dir.mkdir()
 
-        # サブフォルダを含む入力ファイルを作成
+        # Create input files including subfolders
         (input_dir / "folder1").mkdir()
         (input_dir / "folder1" / "video.mkv").touch()
         (input_dir / "folder2").mkdir()
         (input_dir / "folder2" / "video.mkv").touch()
 
-        # folder1は処理済み
+        # folder1 is processed
         (output_dir / "folder1").mkdir()
         (output_dir / "folder1" / "video.mkv").touch()
 
