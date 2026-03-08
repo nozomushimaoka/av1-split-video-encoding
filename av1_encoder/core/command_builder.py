@@ -30,11 +30,13 @@ class CommandBuilder:
         Returns:
             FFmpegコマンドの引数リスト
         """
-        ffmpeg_cmd = [
-            'ffmpeg',
-            '-ss', str(start_time),
-            '-i', str(input_file)
-        ]
+        ffmpeg_cmd = ['ffmpeg']
+        if config.hardware_decode:
+            ffmpeg_cmd.extend(['-hwaccel', config.hardware_decode,
+                               '-hwaccel_output_format', config.hardware_decode])
+            if config.hardware_decode_device:
+                ffmpeg_cmd.extend(['-hwaccel_device', config.hardware_decode_device])
+        ffmpeg_cmd.extend(['-ss', str(start_time), '-i', str(input_file)])
 
         # 最終セグメント以外は-tオプションで長さを指定
         if not is_final_segment:

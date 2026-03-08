@@ -363,6 +363,93 @@ class TestFFmpegServiceのbuild_ffmpeg_command:
         assert 'yuv4mpegpipe' in cmd
 
 
+    def test_hardware_decode_cuda(self, ffmpeg_service, tmp_path):
+        """hardware_decode='cuda'のとき-hwaccel cuda -hwaccel_output_format cudaが-iの前に含まれる"""
+        input_file = tmp_path / "input.mkv"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4,
+            gop_size=240,
+            segment_length=60,
+            hardware_decode='cuda'
+        )
+
+        cmd = ffmpeg_service._build_ffmpeg_command(
+            input_file=input_file,
+            start_time=0.0,
+            duration=60.0,
+            is_final_segment=False,
+            config=config
+        )
+
+        assert '-hwaccel' in cmd
+        assert 'cuda' in cmd
+        assert '-hwaccel_output_format' in cmd
+        assert '-hwaccel_device' not in cmd
+        # -hwaccel must appear before -i
+        assert cmd.index('-hwaccel') < cmd.index('-i')
+
+    def test_hardware_decode_vaapi_with_device(self, ffmpeg_service, tmp_path):
+        """hardware_decode='vaapi'とdeviceのとき-hwaccel_deviceも含まれる"""
+        input_file = tmp_path / "input.mkv"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4,
+            gop_size=240,
+            segment_length=60,
+            hardware_decode='vaapi',
+            hardware_decode_device='/dev/dri/renderD128'
+        )
+
+        cmd = ffmpeg_service._build_ffmpeg_command(
+            input_file=input_file,
+            start_time=0.0,
+            duration=60.0,
+            is_final_segment=False,
+            config=config
+        )
+
+        assert '-hwaccel' in cmd
+        assert 'vaapi' in cmd
+        assert '-hwaccel_output_format' in cmd
+        assert '-hwaccel_device' in cmd
+        assert '/dev/dri/renderD128' in cmd
+        assert cmd.index('-hwaccel') < cmd.index('-i')
+
+    def test_hardware_decode_none(self, ffmpeg_service, tmp_path):
+        """hardware_decodeがNoneのとき-hwaccelは含まれない"""
+        input_file = tmp_path / "input.mkv"
+        input_file.touch()
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+        config = EncodingConfig(
+            input_file=input_file,
+            workspace_dir=workspace_dir,
+            parallel_jobs=4,
+            gop_size=240,
+            segment_length=60
+        )
+
+        cmd = ffmpeg_service._build_ffmpeg_command(
+            input_file=input_file,
+            start_time=0.0,
+            duration=60.0,
+            is_final_segment=False,
+            config=config
+        )
+
+        assert '-hwaccel' not in cmd
+        assert '-hwaccel_output_format' not in cmd
+        assert '-hwaccel_device' not in cmd
+
 class TestFFmpegServiceのbuild_svtav1_command:
     """FFmpegServiceの_build_svtav1_commandメソッドのテスト"""
 

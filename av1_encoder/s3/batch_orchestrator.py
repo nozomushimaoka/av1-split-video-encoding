@@ -52,7 +52,9 @@ def _process_files(
     svtav1_args: list[str],
     ffmpeg_args: list[str] | None,
     audio_args: list[str] | None,
-    s3: Optional[S3Pipeline]
+    s3: Optional[S3Pipeline],
+    hardware_decode: Optional[str] = None,
+    hardware_decode_device: Optional[str] = None
 ) -> None:
     """ファイルを順次処理する
 
@@ -105,7 +107,9 @@ def _process_files(
             ffmpeg_args=ffmpeg_args,
             audio_args=audio_args,
             s3=s3,
-            download_future=download_future
+            download_future=download_future,
+            hardware_decode=hardware_decode,
+            hardware_decode_device=hardware_decode_device
         )
 
         # 次のイテレーションのために保存
@@ -122,7 +126,9 @@ def run_batch_encoding(
     gop_size: int,
     svtav1_args: list[str],
     ffmpeg_args: list[str] | None = None,
-    audio_args: list[str] | None = None
+    audio_args: list[str] | None = None,
+    hardware_decode: Optional[str] = None,
+    hardware_decode_device: Optional[str] = None
 ) -> int:
     """バッチエンコード処理を実行
 
@@ -169,7 +175,9 @@ def run_batch_encoding(
             svtav1_args=svtav1_args,
             ffmpeg_args=ffmpeg_args,
             audio_args=audio_args,
-            s3=s3
+            s3=s3,
+            hardware_decode=hardware_decode,
+            hardware_decode_device=hardware_decode_device
         )
 
         logger.info("")

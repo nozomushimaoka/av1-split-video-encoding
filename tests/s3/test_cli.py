@@ -86,7 +86,9 @@ class TestMainのコマンドライン引数:
                 # CLI側で展開されるので、展開後の形式になる
                 svtav1_args=['--crf', '30', '--preset', '5'],
                 ffmpeg_args=[],
-                audio_args=[]
+                audio_args=[],
+                hardware_decode=None,
+                hardware_decode_device=None
             )
             assert result == 0
 
@@ -124,7 +126,9 @@ class TestMainのコマンドライン引数:
                 gop_size=240,
                 svtav1_args=['--crf', '30', '--preset', '5'],
                 ffmpeg_args=[],
-                audio_args=['-c:a', 'aac', '-b:a', '128k']
+                audio_args=['-c:a', 'aac', '-b:a', '128k'],
+                hardware_decode=None,
+                hardware_decode_device=None
             )
             assert result == 0
 

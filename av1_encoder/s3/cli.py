@@ -74,6 +74,12 @@ def main() -> int:
         default=None,
         help='音声パラメータ（カンマ区切り、例: c:a=aac,b:a=128k）'
     )
+    parser.add_argument(
+        '--hardware-decode',
+        type=str,
+        default=None,
+        help='ハードウェアデコードタイプ[:デバイスパス] (例: cuda, vaapi:/dev/dri/renderD128, qsv)'
+    )
 
     args = parser.parse_args()
 
@@ -96,6 +102,13 @@ def main() -> int:
     if args.audio_params:
         audio_args = expand_audio_params(args.audio_params)
 
+    # hardware_decodeのパース
+    hw_decode, hw_device = None, None
+    if args.hardware_decode:
+        parts = args.hardware_decode.split(':', 1)
+        hw_decode = parts[0]
+        hw_device = parts[1] if len(parts) > 1 else None
+
     # バッチエンコード処理を実行
     return run_batch_encoding(
         pending_files_path=args.pending_files,
@@ -105,7 +118,9 @@ def main() -> int:
         gop_size=args.gop,
         svtav1_args=svtav1_args,
         ffmpeg_args=ffmpeg_args,
-        audio_args=audio_args
+        audio_args=audio_args,
+        hardware_decode=hw_decode,
+        hardware_decode_device=hw_device
     )
 
 

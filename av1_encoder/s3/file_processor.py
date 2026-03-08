@@ -22,7 +22,9 @@ def encode_video(
     gop_size: int,
     svtav1_args: list[str],
     ffmpeg_args: list[str] | None = None,
-    audio_args: list[str] | None = None
+    audio_args: list[str] | None = None,
+    hardware_decode: Optional[str] = None,
+    hardware_decode_device: Optional[str] = None
 ) -> None:
     """エンコード処理を実行"""
     from av1_encoder.core.config import EncodingConfig
@@ -37,7 +39,9 @@ def encode_video(
         segment_length=60,  # デフォルト値
         svtav1_args=svtav1_args,
         ffmpeg_args=ffmpeg_args or [],
-        audio_args=audio_args or []
+        audio_args=audio_args or [],
+        hardware_decode=hardware_decode,
+        hardware_decode_device=hardware_decode_device
     )
 
     # エンコード実行（ログはEncodingOrchestratorが担当）
@@ -119,7 +123,9 @@ def process_single_file(
     ffmpeg_args: list[str] | None = None,
     audio_args: list[str] | None = None,
     s3: Optional[S3Pipeline] = None,
-    download_future: Optional[Future[None]] = None
+    download_future: Optional[Future[None]] = None,
+    hardware_decode: Optional[str] = None,
+    hardware_decode_device: Optional[str] = None
 ) -> None:
     """単一ファイルの処理
 
@@ -167,7 +173,8 @@ def process_single_file(
     output_file = None
     try:
         # エンコード
-        encode_video(input_file, workspace, parallel, gop_size, svtav1_args, ffmpeg_args, audio_args)
+        encode_video(input_file, workspace, parallel, gop_size, svtav1_args, ffmpeg_args, audio_args,
+                     hardware_decode, hardware_decode_device)
 
         # 結合
         output_file = workspace / "output.mkv"

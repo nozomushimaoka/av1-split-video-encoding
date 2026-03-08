@@ -53,6 +53,12 @@ def main() -> int:
         default=None,
         help='FFmpeg用のパラメータ（カンマ区切り、例: vf=scale=1920:1080,r=30）'
     )
+    parser.add_argument(
+        '--hardware-decode',
+        type=str,
+        default=None,
+        help='ハードウェアデコードタイプ[:デバイスパス] (例: cuda, vaapi:/dev/dri/renderD128, qsv)'
+    )
 
     args = parser.parse_args()
 
@@ -67,6 +73,13 @@ def main() -> int:
     if args.ffmpeg_params:
         ffmpeg_args = expand_ffmpeg_params(args.ffmpeg_params)
 
+    # hardware_decodeのパース
+    hw_decode, hw_device = None, None
+    if args.hardware_decode:
+        parts = args.hardware_decode.split(':', 1)
+        hw_decode = parts[0]
+        hw_device = parts[1] if len(parts) > 1 else None
+
     # 設定を作成
     config = EncodingConfig(
         input_file=Path(args.input_file),
@@ -74,7 +87,9 @@ def main() -> int:
         parallel_jobs=args.parallel,
         gop_size=args.gop,
         svtav1_args=svtav1_args,
-        ffmpeg_args=ffmpeg_args
+        ffmpeg_args=ffmpeg_args,
+        hardware_decode=hw_decode,
+        hardware_decode_device=hw_device
     )
 
     # オーケストレーター初期化

@@ -217,7 +217,8 @@ class TestProcessSingleFile:
         # ワークスペースを作成して一時ファイルを追加
         workspace = None
 
-        def mock_encode_impl(input_f, ws, parallel, gop_size, svtav1_args, ffmpeg_args=None, audio_args=None):
+        def mock_encode_impl(input_f, ws, parallel, gop_size, svtav1_args, ffmpeg_args=None, audio_args=None,
+                             hardware_decode=None, hardware_decode_device=None):
             nonlocal workspace
             workspace = ws
             # 一時ファイルを作成（concat.txt, segment files, logs）
@@ -283,7 +284,8 @@ class TestProcessSingleFile:
         # ワークスペースを作成して一時ファイルを追加
         workspace = None
 
-        def mock_encode_impl(input_f, ws, parallel, gop_size, svtav1_args, ffmpeg_args=None, audio_args=None):
+        def mock_encode_impl(input_f, ws, parallel, gop_size, svtav1_args, ffmpeg_args=None, audio_args=None,
+                             hardware_decode=None, hardware_decode_device=None):
             nonlocal workspace
             workspace = ws
             # 一時ファイルを作成
