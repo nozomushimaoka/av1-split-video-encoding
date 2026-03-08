@@ -25,22 +25,27 @@ if [ ! -d "$CLAUDE_DIR" ]; then
     exit 1
 fi
 
-if [ ! -d "$SSH_DIR" ]; then
-    echo "Warning: $SSH_DIR does not exist. SSH keys will not be available in the container."
-fi
-
-if [ ! -d "$GNUPG_DIR" ]; then
-    echo "Warning: $GNUPG_DIR does not exist. GPG keys will not be available in the container."
-fi
-
 # Build SSH and GPG mount args conditionally
 SSH_MOUNT=()
 GNUPG_MOUNT=()
+GPG_AGENT_MOUNT=()
 if [ -d "$SSH_DIR" ]; then
     SSH_MOUNT=(-v "$SSH_DIR:/home/dev/.ssh:ro,Z")
+else
+    echo "Warning: $SSH_DIR does not exist. SSH keys will not be available in the container."
 fi
 if [ -d "$GNUPG_DIR" ]; then
     GNUPG_MOUNT=(-v "$GNUPG_DIR:/home/dev/.gnupg:ro,Z")
+else
+    echo "Warning: $GNUPG_DIR does not exist. GPG keys will not be available in the container."
+fi
+
+# Forward the host gpg-agent socket so the container can sign without re-entering a passphrase
+GPG_AGENT_SOCK=$(gpgconf --list-dirs agent-socket 2>/dev/null)
+if [ -S "$GPG_AGENT_SOCK" ]; then
+    GPG_AGENT_MOUNT=(-v "$GPG_AGENT_SOCK:/home/dev/.gnupg/S.gpg-agent")
+else
+    echo "Warning: gpg-agent socket not found at ${GPG_AGENT_SOCK:-<unknown>}. GPG signing may require passphrase entry."
 fi
 
 exec podman run -it --rm \
@@ -53,7 +58,7 @@ exec podman run -it --rm \
     -v "$HOME/.claude.json:/home/dev/.claude.json:Z" \
     "${SSH_MOUNT[@]}" \
     "${GNUPG_MOUNT[@]}" \
+    "${GPG_AGENT_MOUNT[@]}" \
     -e TERM=xterm-256color \
     "$IMAGE_NAME" \
     bash
-
