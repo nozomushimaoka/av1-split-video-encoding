@@ -27,12 +27,20 @@ fi
 
 # Build SSH and GPG mount args conditionally
 SSH_MOUNT=()
+SSH_AGENT_MOUNT=()
 GNUPG_MOUNT=()
 GPG_AGENT_MOUNT=()
 if [ -d "$SSH_DIR" ]; then
     SSH_MOUNT=(-v "$SSH_DIR:/home/dev/.ssh:ro,Z")
 else
     echo "Warning: $SSH_DIR does not exist. SSH keys will not be available in the container."
+fi
+
+# Forward the host ssh-agent socket so the container can authenticate without re-entering passphrases
+if [ -S "$SSH_AUTH_SOCK" ]; then
+    SSH_AGENT_MOUNT=(-v "$SSH_AUTH_SOCK:/run/ssh-agent.sock" -e SSH_AUTH_SOCK=/run/ssh-agent.sock)
+else
+    echo "Warning: ssh-agent socket not found (SSH_AUTH_SOCK=${SSH_AUTH_SOCK:-<unset>}). SSH authentication may require passphrase entry."
 fi
 if [ -d "$GNUPG_DIR" ]; then
     GNUPG_MOUNT=(-v "$GNUPG_DIR:/home/dev/.gnupg:ro,Z")
@@ -57,6 +65,7 @@ exec podman run -it --rm \
     -v "$CLAUDE_DIR:/home/dev/.claude${CLAUDE_MOUNT_OPTS}" \
     -v "$HOME/.claude.json:/home/dev/.claude.json:Z" \
     "${SSH_MOUNT[@]}" \
+    "${SSH_AGENT_MOUNT[@]}" \
     "${GNUPG_MOUNT[@]}" \
     "${GPG_AGENT_MOUNT[@]}" \
     -e TERM=xterm-256color \
