@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     man-db \
     vim \
     tmux \
+    python3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create user that does coding (the developer or AI agents that run under)

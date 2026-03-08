@@ -72,6 +72,8 @@ if [[ $OPT_CLAUDE -eq 1 ]]; then
     fi
 fi
 
+podman build -t "$IMAGE_NAME" . || { echo "Build failed"; exit 1; }
+
 exec podman run -it --rm \
     --name "$CONTAINER_NAME" \
     --userns=keep-id \
