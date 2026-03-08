@@ -1,4 +1,4 @@
-"""S3オーケストレーションパイプライン"""
+"""S3 orchestration pipeline"""
 
 import logging
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -11,14 +11,14 @@ logger = logging.getLogger(__name__)
 
 
 class ProgressCallback:
-    """1GB毎に進捗をログ出力するコールバック"""
+    """Callback that logs transfer progress every 1 GB"""
 
     def __init__(self, filename: str, total_size: int, update_interval: int = 1024 * 1024 * 1024):
         """
         Args:
-            filename: ファイル名
-            total_size: 総ファイルサイズ(バイト)
-            update_interval: 更新間隔(バイト数)、デフォルトは1GB
+            filename: File name
+            total_size: Total file size in bytes
+            update_interval: Logging interval in bytes (default: 1 GB)
         """
         self.filename = filename
         self.total_size = total_size
@@ -27,12 +27,12 @@ class ProgressCallback:
         self.transferred = 0
 
     def __call__(self, bytes_transferred: int) -> None:
-        """転送されたバイト数を蓄積し、1GB毎にログ出力"""
+        """Accumulate transferred bytes and log every 1 GB"""
         self.accumulated += bytes_transferred
         self.transferred += bytes_transferred
 
         if self.accumulated >= self.update_interval:
-            # 1GB単位でログ出力
+            # Log in 1 GB increments
             progress_gb = self.transferred / (1024 * 1024 * 1024)
             total_gb = self.total_size / (1024 * 1024 * 1024)
             percentage = (self.transferred / self.total_size * 100) if self.total_size > 0 else 0
@@ -40,7 +40,7 @@ class ProgressCallback:
             self.accumulated %= self.update_interval
 
     def flush(self) -> None:
-        """最終的な進捗をログ出力(転送完了時に呼び出す)"""
+        """Log final progress (call when transfer is complete)"""
         if self.transferred > 0:
             progress_gb = self.transferred / (1024 * 1024 * 1024)
             total_gb = self.total_size / (1024 * 1024 * 1024)
@@ -49,11 +49,11 @@ class ProgressCallback:
 
 
 class S3Pipeline:
-    """S3との連携を管理するクラス
+    """Manages S3 transfers
 
-    コンテキストマネージャとして使用することで、リソースの自動クリーンアップが保証される。
+    Use as a context manager to ensure automatic resource cleanup.
 
-    使用例:
+    Example:
         with S3Pipeline() as s3:
             s3.download_file('my-bucket', 'input/file.mkv', Path('file.mkv'))
             s3.upload_file(Path('output.mkv'), 'my-bucket', 'output/file.mkv')
@@ -64,11 +64,11 @@ class S3Pipeline:
         self.executor = ThreadPoolExecutor(max_workers=2)
 
     def __enter__(self) -> 'S3Pipeline':
-        """コンテキストマネージャのエントリ"""
+        """Context manager entry"""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """コンテキストマネージャのクリーンアップ"""
+        """Context manager cleanup"""
         self.shutdown()
 
     def download_file(
@@ -78,31 +78,31 @@ class S3Pipeline:
         local_path: Path,
         show_progress: bool = True
     ) -> None:
-        """S3からファイルをダウンロード
+        """Download a file from S3
 
         Args:
-            bucket: S3バケット名
-            key: S3オブジェクトキー
-            local_path: ローカル保存先パス
-            show_progress: 進捗表示の有無
+            bucket: S3 bucket name
+            key: S3 object key
+            local_path: Local destination path
+            show_progress: Whether to log progress
         """
         filename = Path(key).name
 
         if local_path.exists():
-            logger.info(f"[DL] スキップ: {filename} は既に存在します")
+            logger.info(f"[DL] Skipping {filename}: already exists")
             return
 
-        logger.info(f"[DL] ダウンロード開始: {filename}")
+        logger.info(f"[DL] Starting download: {filename}")
 
         try:
-            # ファイルサイズを取得
+            # Get file size
             response = self.s3_client.head_object(
                 Bucket=bucket,
                 Key=key
             )
             file_size = response['ContentLength']
 
-            # プログレスコールバック付きでダウンロード
+            # Download with progress callback
             if show_progress:
                 callback = ProgressCallback(f"[DL] {filename}", file_size)
                 self.s3_client.download_file(
@@ -111,7 +111,7 @@ class S3Pipeline:
                     Filename=str(local_path),
                     Callback=callback
                 )
-                callback.flush()  # 残りの進捗をログ出力
+                callback.flush()  # Log remaining progress
             else:
                 self.s3_client.download_file(
                     Bucket=bucket,
@@ -119,10 +119,10 @@ class S3Pipeline:
                     Filename=str(local_path)
                 )
 
-            logger.info(f"[DL] ダウンロード完了: {filename}")
+            logger.info(f"[DL] Download complete: {filename}")
 
         except ClientError as e:
-            logger.error(f"ダウンロードに失敗: {filename} - {e}")
+            logger.error(f"Download failed: {filename} - {e}")
             raise
 
     def download_file_async(
@@ -131,18 +131,18 @@ class S3Pipeline:
         key: str,
         local_path: Path
     ) -> Future[None]:
-        """バックグラウンドでダウンロードを開始
+        """Start a download in the background
 
         Args:
-            bucket: S3バケット名
-            key: S3オブジェクトキー
-            local_path: ローカル保存先パス
+            bucket: S3 bucket name
+            key: S3 object key
+            local_path: Local destination path
 
         Returns:
-            Future オブジェクト
+            Future object
         """
         filename = Path(key).name
-        logger.info(f"[DL] 次ファイルのダウンロード開始: {filename}")
+        logger.info(f"[DL] Starting background download: {filename}")
         return self.executor.submit(
             self.download_file,
             bucket,
@@ -158,21 +158,21 @@ class S3Pipeline:
         key: str,
         show_progress: bool = True
     ) -> None:
-        """S3へファイルをアップロード
+        """Upload a file to S3
 
         Args:
-            local_path: ローカルファイルパス
-            bucket: S3バケット名
-            key: S3オブジェクトキー
-            show_progress: 進捗表示の有無
+            local_path: Local file path
+            bucket: S3 bucket name
+            key: S3 object key
+            show_progress: Whether to log progress
         """
         filename = Path(key).name
-        logger.info(f"アップロード中: {filename}")
+        logger.info(f"Uploading: {filename}")
 
         try:
             file_size = local_path.stat().st_size
 
-            # プログレスコールバック付きでアップロード
+            # Upload with progress callback
             if show_progress:
                 callback = ProgressCallback(f"[UP] {filename}", file_size)
                 self.s3_client.upload_file(
@@ -181,7 +181,7 @@ class S3Pipeline:
                     Key=key,
                     Callback=callback
                 )
-                callback.flush()  # 残りの進捗をログ出力
+                callback.flush()  # Log remaining progress
             else:
                 self.s3_client.upload_file(
                     Filename=str(local_path),
@@ -189,10 +189,10 @@ class S3Pipeline:
                     Key=key
                 )
 
-            logger.info(f"アップロード完了: {filename}")
+            logger.info(f"Upload complete: {filename}")
 
         except ClientError as e:
-            logger.error(f"アップロードに失敗: {filename} - {e}")
+            logger.error(f"Upload failed: {filename} - {e}")
             raise
 
     def upload_file_async(
@@ -201,18 +201,18 @@ class S3Pipeline:
         bucket: str,
         key: str
     ) -> Future[None]:
-        """バックグラウンドでアップロードを開始
+        """Start an upload in the background
 
         Args:
-            local_path: ローカルファイルパス
-            bucket: S3バケット名
-            key: S3オブジェクトキー
+            local_path: Local file path
+            bucket: S3 bucket name
+            key: S3 object key
 
         Returns:
-            Future オブジェクト
+            Future object
         """
         filename = Path(key).name
-        logger.info(f"バックグラウンドアップロード開始: {filename}")
+        logger.info(f"Starting background upload: {filename}")
         return self.executor.submit(
             self.upload_file,
             local_path,
@@ -222,7 +222,7 @@ class S3Pipeline:
         )
 
     def shutdown(self) -> None:
-        """リソースのクリーンアップ"""
-        logger.info("[S3] ExecutorをShutdown中...")
+        """Clean up resources"""
+        logger.info("[S3] Shutting down executor...")
         self.executor.shutdown(wait=True)
-        logger.info("[S3] Shutdown完了")
+        logger.info("[S3] Shutdown complete")

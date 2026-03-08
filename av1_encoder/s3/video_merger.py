@@ -1,6 +1,6 @@
-"""動画・音声結合モジュール
+"""Video and audio merge module
 
-エンコードされた動画セグメントと元の音声を結合する。
+Merges encoded video segments with the original audio track.
 """
 import logging
 import subprocess
@@ -15,23 +15,23 @@ def merge_video_with_audio(
     output_file: Path,
     audio_args: list[str] | None = None
 ) -> None:
-    """エンコードされた動画と元の音声を結合
+    """Merge encoded video with the original audio track
 
     Args:
-        workspace: ワークスペースディレクトリ
-        input_file: 元の入力ファイル（音声ソース）
-        output_file: 出力ファイル
-        audio_args: 音声引数（展開済み、例: ['-c:a', 'aac', '-b:a', '128k']）
-                   指定がない場合は ['-c:a', 'copy'] を使用
+        workspace: Workspace directory
+        input_file: Original input file (audio source)
+        output_file: Output file path
+        audio_args: Expanded audio arguments (e.g. ['-c:a', 'aac', '-b:a', '128k'])
+                   Defaults to ['-c:a', 'copy'] if not specified
     """
     concat_file = workspace / "concat.txt"
 
     if not concat_file.exists():
-        raise FileNotFoundError(f"concat.txtが見つかりません: {concat_file}")
+        raise FileNotFoundError(f"concat.txt not found: {concat_file}")
 
-    logger.info("結合中...")
+    logger.info("Merging...")
 
-    # 基本的なコマンド構築
+    # Build base command
     cmd = [
         'ffmpeg',
         '-f', 'concat',
@@ -43,18 +43,18 @@ def merge_video_with_audio(
         '-c:v', 'copy',
     ]
 
-    # 音声引数の追加
+    # Append audio arguments
     if audio_args:
         cmd.extend(audio_args)
     else:
-        # デフォルトは音声をコピー
+        # Default: copy audio stream
         cmd.extend(['-c:a', 'copy'])
 
-    # 出力ファイルを追加
+    # Append output file
     cmd.append(str(output_file))
 
     try:
-        # capture_output=Trueは大きな出力でメモリを消費するため、DEVNULLにリダイレクト
+        # Use DEVNULL for stdout to avoid high memory usage from large output
         subprocess.run(
             cmd,
             check=True,
@@ -62,7 +62,7 @@ def merge_video_with_audio(
             stderr=subprocess.PIPE,
             text=True
         )
-        logger.info("結合完了")
+        logger.info("Merge complete")
     except subprocess.CalledProcessError as e:
-        logger.error(f"結合に失敗: {e.stderr}")
+        logger.error(f"Merge failed: {e.stderr}")
         raise

@@ -1,7 +1,7 @@
-"""バッチオーケストレーションモジュール
+"""Batch orchestration module
 
-複数ファイルのバッチエンコード処理を調整する。
-S3およびローカルファイルの両方に対応。
+Coordinates batch encoding of multiple files.
+Supports both S3 and local files.
 """
 import logging
 from concurrent.futures import Future
@@ -16,28 +16,28 @@ logger = logging.getLogger(__name__)
 
 
 def _load_pending_files(pending_files_path: Path) -> list[str] | None:
-    """処理対象ファイルリストを読み込む
+    """Load the list of files to process
 
     Args:
-        pending_files_path: 処理対象ファイルリストのパス
+        pending_files_path: Path to the pending files list
 
     Returns:
-        ファイルリスト、エラー時はNone
+        List of file paths, or None on error
     """
-    logger.info(f"処理対象ファイルを読み込み: {pending_files_path}")
+    logger.info(f"Loading pending files from: {pending_files_path}")
     try:
         with open(pending_files_path, 'r', encoding='utf-8') as f:
             return [line.strip() for line in f if line.strip()]
     except FileNotFoundError:
-        logger.error(f"ファイルが見つかりません: {pending_files_path}")
+        logger.error(f"File not found: {pending_files_path}")
         return None
     except Exception as e:
-        logger.error(f"ファイルの読み込みに失敗: {e}")
+        logger.error(f"Failed to read file: {e}")
         return None
 
 
 def _has_s3_files(pending_files: list[str], output_dir: str) -> bool:
-    """S3ファイルが含まれるかどうかを判定"""
+    """Check whether any S3 paths are involved"""
     if is_s3_path(output_dir):
         return True
     return any(is_s3_path(f) for f in pending_files)
@@ -56,23 +56,23 @@ def _process_files(
     hardware_decode: Optional[str] = None,
     hardware_decode_device: Optional[str] = None
 ) -> None:
-    """ファイルを順次処理する
+    """Process files sequentially
 
     Args:
-        pending_files: 処理対象ファイルリスト（S3 URIまたはローカル絶対パス）
-        output_dir: 出力先ディレクトリ（S3 URIまたはローカルパス）
-        workspace_base: ワークスペースのベースディレクトリ
-        parallel: 並列エンコード数
-        gop_size: GOPサイズ
-        svtav1_args: SvtAv1EncApp用の引数
-        ffmpeg_args: FFmpeg用の引数
-        audio_args: 音声用の引数
-        s3: S3パイプライン（S3ファイルを扱う場合に必要）
+        pending_files: Files to process (S3 URIs or local absolute paths)
+        output_dir: Output directory (S3 URI or local path)
+        workspace_base: Workspace base directory
+        parallel: Number of parallel encoding jobs
+        gop_size: GOP size
+        svtav1_args: SvtAv1EncApp arguments
+        ffmpeg_args: FFmpeg arguments
+        audio_args: Audio arguments
+        s3: S3 pipeline (required when handling S3 files)
     """
     download_future: Optional[Future[None]] = None
 
     for i, input_file_path in enumerate(pending_files):
-        # ファイル名を取得（ログ表示用）
+        # Resolve display name for logging
         if is_s3_path(input_file_path):
             _, key = parse_s3_uri(input_file_path)
             display_name = Path(key).name
@@ -80,10 +80,10 @@ def _process_files(
             display_name = Path(input_file_path).name
 
         logger.info("=" * 50)
-        logger.info(f"処理中 ({i+1}/{len(pending_files)}): {display_name}")
+        logger.info(f"Processing ({i+1}/{len(pending_files)}): {display_name}")
         logger.info("=" * 50)
 
-        # 次のファイルのダウンロードをバックグラウンドで開始（S3ファイルの場合のみ）
+        # Start downloading the next file in the background (S3 only)
         next_download_future = None
         if i + 1 < len(pending_files):
             next_file_path = pending_files[i + 1]
@@ -96,7 +96,7 @@ def _process_files(
                     next_local_path
                 )
 
-        # 現在のファイルを処理
+        # Process the current file
         process_single_file(
             input_file_path=input_file_path,
             output_dir=output_dir,
@@ -112,10 +112,10 @@ def _process_files(
             hardware_decode_device=hardware_decode_device
         )
 
-        # 次のイテレーションのために保存
+        # Save for the next iteration
         download_future = next_download_future
 
-        logger.info(f"完了: {display_name}")
+        logger.info(f"Done: {display_name}")
 
 
 def run_batch_encoding(
@@ -130,42 +130,42 @@ def run_batch_encoding(
     hardware_decode: Optional[str] = None,
     hardware_decode_device: Optional[str] = None
 ) -> int:
-    """バッチエンコード処理を実行
+    """Run batch encoding
 
     Args:
-        pending_files_path: 処理対象ファイルリストのパス
-        output_dir: 出力先ディレクトリ（S3 URIまたはローカルパス）
-        workspace_base: ワークスペースのベースディレクトリ
-        parallel: 並列エンコード数
-        gop_size: GOPサイズ
-        svtav1_args: SvtAv1EncApp用の引数
-        ffmpeg_args: FFmpeg用の引数
-        audio_args: 音声用の引数
+        pending_files_path: Path to the pending files list
+        output_dir: Output directory (S3 URI or local path)
+        workspace_base: Workspace base directory
+        parallel: Number of parallel encoding jobs
+        gop_size: GOP size
+        svtav1_args: SvtAv1EncApp arguments
+        ffmpeg_args: FFmpeg arguments
+        audio_args: Audio arguments
 
     Returns:
-        0: 成功, 1: エラー
+        0 on success, 1 on error
     """
-    # 処理対象ファイルを読み込む
+    # Load pending files
     pending_files = _load_pending_files(pending_files_path)
     if pending_files is None:
         return 1
 
     if not pending_files:
-        logger.info("すべてのファイルが処理済みです")
+        logger.info("All files are already processed")
         return 0
 
-    # S3ファイルが含まれる場合のみS3パイプラインを初期化
+    # Initialize S3 pipeline only when S3 paths are involved
     s3: Optional[S3Pipeline] = None
     if _has_s3_files(pending_files, output_dir):
-        logger.info("S3パイプラインを初期化中...")
+        logger.info("Initializing S3 pipeline...")
         try:
             s3 = S3Pipeline()
         except Exception as e:
-            logger.error(f"S3パイプラインの初期化に失敗: {e}")
+            logger.error(f"Failed to initialize S3 pipeline: {e}")
             return 1
 
     try:
-        # ファイルを順次処理
+        # Process files sequentially
         _process_files(
             pending_files=pending_files,
             output_dir=output_dir,
@@ -181,12 +181,12 @@ def run_batch_encoding(
         )
 
         logger.info("")
-        logger.info("すべての処理が完了しました")
+        logger.info("All files processed successfully")
 
         return 0
 
     except Exception as e:
-        logger.error(f"処理中にエラーが発生: {e}", exc_info=True)
+        logger.error(f"Error during processing: {e}", exc_info=True)
         return 1
 
     finally:

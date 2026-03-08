@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""AV1エンコードパイプライン - バッチエンコードCLI
+"""AV1 encoding pipeline - batch encode CLI
 
-S3およびローカルファイルの両方に対応したバッチエンコード。
+Batch encoding for both S3 and local files.
 """
 
 import argparse
@@ -16,100 +16,100 @@ from av1_encoder.s3.batch_orchestrator import run_batch_encoding
 
 
 def main() -> int:
-    """メイン処理"""
-    # コマンドライン引数のパース
+    """Main entry point"""
+    # Parse command-line arguments
     parser = argparse.ArgumentParser(
-        description='AV1エンコードパイプライン - バッチエンコード（S3/ローカル対応）'
+        description='AV1 encoding pipeline - batch encode (S3/local)'
     )
     parser.add_argument(
         '--verbose', '-v',
         action='store_true',
-        help='詳細なログを出力（DEBUGレベル）'
+        help='Enable verbose logging (DEBUG level)'
     )
     parser.add_argument(
         '--pending-files',
         type=Path,
         required=True,
-        help='処理対象ファイルのリスト（list_pendingコマンドの出力）'
+        help='File containing list of inputs to process (output of list_pending)'
     )
     parser.add_argument(
         '--output-dir', '-o',
         type=str,
         default='.',
-        help='出力先ディレクトリ（ローカルパスまたはS3 URI、デフォルト: カレントディレクトリ）'
+        help='Output directory (local path or S3 URI, default: current directory)'
     )
     parser.add_argument(
         '--workspace-base', '-b',
         type=Path,
         default=Path('.'),
-        help='ワークスペースのベースディレクトリ（デフォルト: カレントディレクトリ）'
+        help='Workspace base directory (default: current directory)'
     )
     parser.add_argument(
         '--parallel', '-l',
         type=int,
         required=True,
-        help='並列エンコード数'
+        help='Number of parallel encoding jobs'
     )
     parser.add_argument(
         '--gop', '-g',
         type=int,
         required=True,
-        help='GOP サイズ（キーフレーム間隔）'
+        help='GOP size (keyframe interval)'
     )
     parser.add_argument(
         '--svtav1-params',
         type=str,
         required=True,
-        help='SvtAv1EncApp用のパラメータ（カンマ区切り、例: preset=4,crf=30,enable-qm=1）'
+        help='SvtAv1EncApp parameters (comma-separated, e.g. preset=4,crf=30,enable-qm=1)'
     )
     parser.add_argument(
         '--ffmpeg-params',
         type=str,
         default=None,
-        help='FFmpeg用のパラメータ（カンマ区切り、例: vf=scale=1920:1080,r=30）'
+        help='FFmpeg parameters (comma-separated, e.g. vf=scale=1920:1080,r=30)'
     )
     parser.add_argument(
         '--audio-params',
         type=str,
         default=None,
-        help='音声パラメータ（カンマ区切り、例: c:a=aac,b:a=128k）'
+        help='Audio parameters (comma-separated, e.g. c:a=aac,b:a=128k)'
     )
     parser.add_argument(
         '--hardware-decode',
         type=str,
         default=None,
-        help='ハードウェアデコードタイプ[:デバイスパス] (例: cuda, vaapi:/dev/dri/renderD128, qsv)'
+        help='Hardware decode type[:device path] (e.g. cuda, vaapi:/dev/dri/renderD128, qsv)'
     )
 
     args = parser.parse_args()
 
-    # ログレベルの設定
+    # Set log level
     log_level = logging.DEBUG if args.verbose else logging.INFO
 
-    # S3モジュール専用のロギング設定
+    # Configure logging for the s3 module
     setup_console_logger('av1_encoder.s3', level=log_level)
 
-    # svtav1_argsを構築（カンマ区切りを展開）
+    # Build svtav1_args (expand comma-separated values)
     svtav1_args = expand_svtav1_params(args.svtav1_params)
 
-    # ffmpeg_argsを構築（カンマ区切りを展開）
+    # Build ffmpeg_args (expand comma-separated values)
     ffmpeg_args = []
     if args.ffmpeg_params:
         ffmpeg_args = expand_ffmpeg_params(args.ffmpeg_params)
 
-    # audio_argsを構築（カンマ区切りを展開）
+    # Build audio_args (expand comma-separated values)
     audio_args = []
     if args.audio_params:
         audio_args = expand_audio_params(args.audio_params)
 
-    # hardware_decodeのパース
+    # Parse hardware_decode
     hw_decode, hw_device = None, None
     if args.hardware_decode:
         parts = args.hardware_decode.split(':', 1)
         hw_decode = parts[0]
         hw_device = parts[1] if len(parts) > 1 else None
 
-    # バッチエンコード処理を実行
+    # Run batch encoding
     return run_batch_encoding(
         pending_files_path=args.pending_files,
         output_dir=args.output_dir,
