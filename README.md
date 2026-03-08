@@ -193,6 +193,8 @@ python -m av1_encoder.s3 \
 3. **Merge** — encoded segments are concatenated with FFmpeg
 4. **Audio mux** — audio is extracted from the source and muxed into the final output
 
+Completed segments are tracked in `completed.txt`, so an interrupted encode can be resumed by re-running the same command — already-finished segments are skipped automatically.
+
 ## Output layout
 
 ```
@@ -200,6 +202,7 @@ workspace/
 ├── output.mkv       # final output
 ├── main.log         # overall log
 ├── concat.txt       # segment list for FFmpeg concat
+├── completed.txt    # completed segment indices (for resume)
 ├── segment_0000.log # per-segment encode log
 ├── segment_0001.log
 └── ...
@@ -249,11 +252,20 @@ A Podman-based dev container is provided with Claude Code pre-installed.
 # Start container (builds image on first run)
 ./jump_in.sh
 
-# Allow writing to ~/.claude config from inside the container
-CLAUDE_CONFIG_WRITABLE=1 ./jump_in.sh
+# Mount SSH keys and agent (for git push, remote access)
+./jump_in.sh --ssh
+
+# Mount GPG keys and agent (for commit signing)
+./jump_in.sh --gpg
+
+# Mount ~/.claude and ~/.claude.json read-write (for Claude Code config)
+./jump_in.sh --claude
+
+# Combine flags as needed
+./jump_in.sh --ssh --gpg --claude
 ```
 
-The script mounts the current directory as `/workspace`, and forwards `~/.claude`, `~/.ssh`, `~/.gnupg`, and the host gpg-agent socket for passphrase-free signing.
+The script mounts the current directory as `/workspace`. Each flag is opt-in and prints a warning when used, since it grants the container access to your credentials.
 
 ## Troubleshooting
 
